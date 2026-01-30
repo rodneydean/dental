@@ -146,31 +146,6 @@ class DataManager {
     return patients[index];
   }
 
-  public deletePatient(id: string): boolean {
-    const patients = this.getPatients();
-    const filteredPatients = patients.filter((p) => p.id !== id);
-    if (filteredPatients.length === patients.length) return false;
-
-    this.savePatients(filteredPatients);
-    // Also delete related appointments and treatments
-    this.deletePatientRelatedData(id);
-    return true;
-  }
-
-  private deletePatientRelatedData(patientId: string): void {
-    // Delete appointments
-    const appointments = this.getAppointments().filter(
-      (a) => a.patientId !== patientId
-    );
-    this.saveAppointments(appointments);
-
-    // Delete treatments
-    const treatments = this.getTreatments().filter(
-      (t) => t.patientId !== patientId
-    );
-    this.saveTreatments(treatments);
-  }
-
   // Appointment methods
   public getAppointments(): Appointment[] {
     return this.getItem<Appointment>(this.STORAGE_KEYS.APPOINTMENTS);
@@ -212,15 +187,6 @@ class DataManager {
     return appointments[index];
   }
 
-  public deleteAppointment(id: string): boolean {
-    const appointments = this.getAppointments();
-    const filteredAppointments = appointments.filter((a) => a.id !== id);
-    if (filteredAppointments.length === appointments.length) return false;
-
-    this.saveAppointments(filteredAppointments);
-    return true;
-  }
-
   // Treatment methods
   public getTreatments(): Treatment[] {
     return this.getItem<Treatment>(this.STORAGE_KEYS.TREATMENTS);
@@ -260,15 +226,6 @@ class DataManager {
     };
     this.saveTreatments(treatments);
     return treatments[index];
-  }
-
-  public deleteTreatment(id: string): boolean {
-    const treatments = this.getTreatments();
-    const filteredTreatments = treatments.filter((t) => t.id !== id);
-    if (filteredTreatments.length === treatments.length) return false;
-
-    this.saveTreatments(filteredTreatments);
-    return true;
   }
 
   // Export/Import methods
@@ -550,13 +507,6 @@ class DataManager {
     this.saveTreatments(validTreatments);
 
     return { cleaned: cleanedCount };
-  }
-
-  // Clear all data
-  public clearAllData(): void {
-    localStorage.removeItem(this.STORAGE_KEYS.PATIENTS);
-    localStorage.removeItem(this.STORAGE_KEYS.APPOINTMENTS);
-    localStorage.removeItem(this.STORAGE_KEYS.TREATMENTS);
   }
 }
 

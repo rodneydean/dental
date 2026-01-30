@@ -92,17 +92,6 @@ const Patients = () => {
     }
   };
 
-  const handleDeletePatient = (id: string) => {
-    try {
-      dataManager.deletePatient(id);
-      loadPatients();
-      toast.success("Patient deleted successfully");
-    } catch (error) {
-      console.log(error);
-      toast.error("Failed to delete patient");
-    }
-  };
-
   const getPatientInitials = (name: string) => {
     return name
       .split(" ")
@@ -307,15 +296,8 @@ const Patients = () => {
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDeletePatient(patient.id)}
-                      className="text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
-                </DropdownMenu>
+                </DropdownMenu>>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">

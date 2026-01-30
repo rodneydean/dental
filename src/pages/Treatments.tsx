@@ -102,17 +102,6 @@ const Treatments = () => {
     }
   };
 
-  const handleDeleteTreatment = (id: string) => {
-    try {
-      dataManager.deleteTreatment(id);
-      loadTreatments();
-      toast.success("Treatment record deleted successfully");
-    } catch (error) {
-      console.log(error);
-      toast.error("Failed to delete treatment record");
-    }
-  };
-
   const getPatientInitials = (name: string) => {
     return name
       .split(" ")
@@ -382,15 +371,8 @@ const Treatments = () => {
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteTreatment(treatment.id)}
-                      className="text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
-                </DropdownMenu>
+                </DropdownMenu>>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
