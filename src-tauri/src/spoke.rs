@@ -1,7 +1,6 @@
 use mdns_sd::{ServiceDaemon, ServiceEvent};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
-use serde::{Deserialize, Serialize};
 use crate::db::get_db_conn;
 use crate::commands::patients::Patient;
 use crate::commands::appointments::Appointment;

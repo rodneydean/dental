@@ -1,7 +1,7 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        State, Request,
+        State,
     },
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -98,28 +98,24 @@ async fn auth_middleware(
     req: axum::extract::Request,
     next: Next,
 ) -> Response {
-    let auth_header = req.headers().get("Authorization").and_then(|h| h.to_str().ok());
-    if let Some(token) = auth_header {
-        let conn = match get_db_conn(&state.app_handle) {
-            Ok(c) => c,
-            Err(_) => return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        };
+    let auth_header = req.headers().get("Authorization").and_then(|h| h.to_str().ok()).map(|s| s.to_string());
 
-        let mut stmt = match conn.prepare("SELECT COUNT(*) FROM pairing_tokens WHERE token = ?1") {
-            Ok(s) => s,
-            Err(_) => return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        };
+    let authenticated = if let Some(token) = auth_header {
+        let res = tokio::task::block_in_place(|| {
+            let conn = get_db_conn(&state.app_handle).ok()?;
+            let mut stmt = conn.prepare("SELECT COUNT(*) FROM pairing_tokens WHERE token = ?1").ok()?;
+            stmt.query_row([token], |row| row.get::<_, i64>(0)).ok()
+        });
+        res.unwrap_or(0) > 0
+    } else {
+        false
+    };
 
-        let count: i64 = match stmt.query_row([token], |row| row.get(0)) {
-            Ok(c) => c,
-            Err(_) => 0,
-        };
-
-        if count > 0 {
-            return next.run(req).await;
-        }
+    if authenticated {
+        next.run(req).await
+    } else {
+        axum::http::StatusCode::UNAUTHORIZED.into_response()
     }
-    axum::http::StatusCode::UNAUTHORIZED.into_response()
 }
 
 async fn pair_handler(

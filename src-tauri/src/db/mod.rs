@@ -91,9 +91,14 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
     // Handle medications table migration if necessary
     let table_info: Vec<(i64, String, String, i64, Option<String>, i64)> = {
         let mut stmt = conn.prepare("PRAGMA table_info(medications)")?;
-        stmt.query_map([], |row| {
+        let rows = stmt.query_map([], |row| {
             Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?))
-        })?.filter_map(|r| r.ok()).collect()
+        })?;
+        let mut res = Vec::new();
+        for r in rows {
+            res.push(r?);
+        }
+        res
     };
 
     if table_info.is_empty() {

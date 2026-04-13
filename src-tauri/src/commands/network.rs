@@ -1,5 +1,5 @@
-use tauri::{AppHandle, command, State, Manager};
-use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, command, State};
+use std::sync::Mutex;
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 use crate::hub::start_hub_server;
