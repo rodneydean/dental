@@ -19,7 +19,7 @@ import { dataManager, Patient, Appointment, Treatment, Medication } from "@/lib/
 
 interface TreatmentFormProps {
   treatment?: Treatment;
-  onSave: (treatment: Omit<Treatment, "id" | "createdAt" | "updatedAt">) => void;
+  onSave: (treatment: Omit<Treatment, "id" | "created_at" | "updated_at">) => void;
   onCancel: () => void;
 }
 
@@ -52,28 +52,35 @@ const frequencies = [
 const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [formData, setFormData] = useState<Omit<Treatment, "id" | "createdAt" | "updatedAt">>({
-    patientId: treatment?.patientId || "",
-    patientName: treatment?.patientName || "",
-    appointmentId: treatment?.appointmentId || "",
+  const [formData, setFormData] = useState<Omit<Treatment, "id" | "created_at" | "updated_at">>({
+    patient_id: treatment?.patient_id || "",
+    patient_name: treatment?.patient_name || "",
+    appointment_id: treatment?.appointment_id || "",
     date: treatment?.date || new Date().toISOString().split("T")[0],
     diagnosis: treatment?.diagnosis || "",
     treatment: treatment?.treatment || "",
     medications: treatment?.medications || [],
     notes: treatment?.notes || "",
-    followUpDate: treatment?.followUpDate || "",
+    follow_up_date: treatment?.follow_up_date || "",
     cost: treatment?.cost || 0,
   });
 
   useEffect(() => {
-    setPatients(dataManager.getPatients());
-    setAppointments(dataManager.getAppointments());
+    const loadOptions = async () => {
+        const [pts, apts] = await Promise.all([
+            dataManager.getPatients(),
+            dataManager.getAppointments()
+        ]);
+        setPatients(pts);
+        setAppointments(apts);
+    };
+    loadOptions();
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.patientId || !formData.diagnosis || !formData.treatment) {
+    if (!formData.patient_id || !formData.diagnosis || !formData.treatment) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -86,27 +93,23 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
     );
   };
 
-  const handlePatientChange = (patientId: string) => {
-    const selectedPatient = patients.find((p) => p.id === patientId);
-    // const patientAppointments = appointments.filter(
-    //   (a) => a.patientId === patientId
-    // );
-
+  const handlePatientChange = (patient_id: string) => {
+    const selectedPatient = patients.find((p) => p.id === patient_id);
     setFormData((prev) => ({
       ...prev,
-      patientId,
-      patientName: selectedPatient?.name || "",
-      appointmentId: "",
+      patient_id,
+      patient_name: selectedPatient?.name || "",
+      appointment_id: "",
     }));
   };
 
-  const handleAppointmentChange = (appointmentId: string) => {
+  const handleAppointmentChange = (appointment_id: string) => {
     const selectedAppointment = appointments.find(
-      (a) => a.id === appointmentId
+      (a) => a.id === appointment_id
     );
     setFormData((prev) => ({
       ...prev,
-      appointmentId,
+      appointment_id,
       date: selectedAppointment?.date || prev.date,
     }));
   };
@@ -148,7 +151,7 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
   };
 
   const patientAppointments = appointments.filter(
-    (a) => a.patientId === formData.patientId
+    (a) => a.patient_id === formData.patient_id
   );
 
   return (
@@ -158,7 +161,7 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
         <div className="space-y-2">
           <Label htmlFor="patient">Patient *</Label>
           <Select
-            value={formData.patientId}
+            value={formData.patient_id}
             onValueChange={handlePatientChange}
           >
             <SelectTrigger>
@@ -177,9 +180,9 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
         <div className="space-y-2">
           <Label htmlFor="appointment">Related Appointment</Label>
           <Select
-            value={formData.appointmentId}
+            value={formData.appointment_id}
             onValueChange={handleAppointmentChange}
-            disabled={!formData.patientId}
+            disabled={!formData.patient_id}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select appointment (optional)" />
@@ -187,7 +190,7 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
             <SelectContent>
               {patientAppointments.map((appointment) => (
                 <SelectItem key={appointment.id} value={appointment.id}>
-                  {appointment.date} - {appointment.type}
+                  {appointment.date} - {appointment.appointment_type}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -387,15 +390,15 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       {/* Additional Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="followUpDate">Follow-up Date</Label>
+          <Label htmlFor="follow_up_date">Follow-up Date</Label>
           <Input
-            id="followUpDate"
+            id="follow_up_date"
             type="date"
-            value={formData.followUpDate}
+            value={formData.follow_up_date}
             onChange={(e) =>
               setFormData((prev) => ({
                 ...prev,
-                followUpDate: e.target.value,
+                follow_up_date: e.target.value,
               }))
             }
             min={new Date().toISOString().split("T")[0]}

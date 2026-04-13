@@ -11,29 +11,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-
-interface Patient {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-}
-
-interface Appointment {
-  id: string;
-  patientId: string;
-  patientName: string;
-  date: string;
-  time: string;
-  status: "scheduled" | "completed" | "cancelled";
-  type: string;
-  notes: string;
-  duration: number;
-}
+import { dataManager, Patient, Appointment } from "@/lib/dataManager";
 
 interface AppointmentFormProps {
   appointment?: Appointment;
-  onSave: (appointment: Appointment) => void;
+  onSave: (appointment: any) => void;
   onCancel: () => void;
 }
 
@@ -79,64 +61,52 @@ const AppointmentForm = ({
   onCancel,
 }: AppointmentFormProps) => {
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [formData, setFormData] = useState<Omit<Appointment, "id">>({
-    patientId: appointment?.patientId || "",
-    patientName: appointment?.patientName || "",
+  const [formData, setFormData] = useState({
+    patient_id: appointment?.patient_id || "",
+    patient_name: appointment?.patient_name || "",
     date: appointment?.date || "",
     time: appointment?.time || "",
     status: appointment?.status || "scheduled",
-    type: appointment?.type || "",
+    appointment_type: appointment?.appointment_type || "",
     notes: appointment?.notes || "",
     duration: appointment?.duration || 30,
   });
 
   useEffect(() => {
-    const storedPatients = localStorage.getItem("dentalcare_patients");
-    if (storedPatients) {
-      setPatients(JSON.parse(storedPatients));
-    }
+    const loadPatients = async () => {
+        const pts = await dataManager.getPatients();
+        setPatients(pts);
+    };
+    loadPatients();
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
-      !formData.patientId ||
+      !formData.patient_id ||
       !formData.date ||
       !formData.time ||
-      !formData.type
+      !formData.appointment_type
     ) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    const selectedPatient = patients.find((p) => p.id === formData.patientId);
-
-    const appointmentData: Appointment = {
-      id: appointment?.id || Date.now().toString(),
-      ...formData,
-      patientName: selectedPatient?.name || formData.patientName,
-    };
-
-    onSave(appointmentData);
-    toast.success(
-      appointment
-        ? "Appointment updated successfully"
-        : "Appointment scheduled successfully"
-    );
+    onSave(formData);
   };
 
-  const handlePatientChange = (patientId: string) => {
-    const selectedPatient = patients.find((p) => p.id === patientId);
+  const handlePatientChange = (patient_id: string) => {
+    const selectedPatient = patients.find((p) => p.id === patient_id);
     setFormData((prev) => ({
       ...prev,
-      patientId,
-      patientName: selectedPatient?.name || "",
+      patient_id,
+      patient_name: selectedPatient?.name || "",
     }));
   };
 
   const handleChange = (
-    field: keyof typeof formData,
+    field: string,
     value: string | number
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -146,7 +116,7 @@ const AppointmentForm = ({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="patient">Patient *</Label>
-        <Select value={formData.patientId} onValueChange={handlePatientChange}>
+        <Select value={formData.patient_id} onValueChange={handlePatientChange}>
           <SelectTrigger>
             <SelectValue placeholder="Select a patient" />
           </SelectTrigger>
@@ -195,10 +165,10 @@ const AppointmentForm = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="type">Appointment Type *</Label>
+          <Label htmlFor="appointment_type">Appointment Type *</Label>
           <Select
-            value={formData.type}
-            onValueChange={(value) => handleChange("type", value)}
+            value={formData.appointment_type}
+            onValueChange={(value) => handleChange("appointment_type", value)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
@@ -239,7 +209,7 @@ const AppointmentForm = ({
           <Label htmlFor="status">Status</Label>
           <Select
             value={formData.status}
-            onValueChange={(value: "scheduled" | "completed" | "cancelled") =>
+            onValueChange={(value) =>
               handleChange("status", value)
             }
           >

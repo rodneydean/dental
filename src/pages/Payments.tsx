@@ -4,6 +4,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Search,
+  Plus,
+  Filter,
+  DollarSign,
+  Calendar,
+  CreditCard,
+  CheckCircle2,
+  Clock,
+  MoreVertical,
+  Download,
+  FileText,
+  User,
+  TrendingUp,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -19,33 +40,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  CreditCard,
-  Plus,
-  Search,
-  DollarSign,
-  Calendar,
-  User,
-  CheckCircle2,
-  Clock,
-  ArrowUpRight,
-} from "lucide-react";
-import { dataManager, Payment, Patient, Treatment } from "@/lib/dataManager";
+import { dataManager, Patient, Treatment, Payment } from "@/lib/dataManager";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Payments = () => {
+  const { user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterMethod, setFilterMethod] = useState<string>("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    patientId: "",
-    treatmentId: "",
+  const [isLoading, setIsLoading] = useState(true);
+
+  // New payment form state
+  const [newPayment, setNewPayment] = useState<Omit<Payment, "id" | "created_at" | "updated_at">>({
+    patient_id: "",
+    patient_name: "",
+    treatment_id: "",
     amount: 0,
-    method: "card" as const,
+    date: new Date().toISOString().split("T")[0],
+    method: "cash",
+    status: "paid",
     notes: "",
   });
 
@@ -53,53 +70,77 @@ const Payments = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setPayments(dataManager.getPayments());
-    setPatients(dataManager.getPatients());
-    setTreatments(dataManager.getTreatments());
-  };
-
-  const handleAddPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    const patient = patients.find(p => p.id === formData.patientId);
-    if (!patient) return;
-
+  const loadData = async () => {
+    setIsLoading(true);
     try {
-      dataManager.addPayment({
-        patientId: formData.patientId,
-        patientName: patient.name,
-        treatmentId: formData.treatmentId || undefined,
-        amount: formData.amount,
-        date: new Date().toISOString(),
-        method: formData.method,
-        status: "paid",
-        notes: formData.notes,
-      });
-      loadData();
-      setShowAddDialog(false);
-      resetForm();
-      toast.success("Payment recorded successfully");
+        const [loadedPayments, loadedPatients, loadedTreatments] = await Promise.all([
+            dataManager.getPayments(),
+            dataManager.getPatients(),
+            dataManager.getTreatments()
+        ]);
+        setPayments(loadedPayments);
+        setPatients(loadedPatients);
+        setTreatments(loadedTreatments);
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to record payment");
+        toast.error("Failed to load payments data");
+    } finally {
+        setIsLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      patientId: "",
-      treatmentId: "",
-      amount: 0,
-      method: "card",
-      notes: "",
-    });
+  const handleAddPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPayment.patient_id || newPayment.amount <= 0) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      await dataManager.addPayment(newPayment);
+      await loadData();
+      setShowAddDialog(false);
+      setNewPayment({
+        patient_id: "",
+        patient_name: "",
+        treatment_id: "",
+        amount: 0,
+        date: new Date().toISOString().split("T")[0],
+        method: "cash",
+        status: "paid",
+        notes: "",
+      });
+      toast.success("Payment processed successfully");
+    } catch (error) {
+      toast.error("Failed to process payment");
+    }
   };
 
-  const filteredPayments = payments.filter(
-    (p) =>
-      p.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.notes.toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const handlePatientChange = (patient_id: string) => {
+    const patient = patients.find((p) => p.id === patient_id);
+    setNewPayment((prev) => ({
+      ...prev,
+      patient_id,
+      patient_name: patient?.name || "",
+      treatment_id: "",
+    }));
+  };
+
+  const handleTreatmentChange = (treatment_id: string) => {
+    const treatment = treatments.find((t) => t.id === treatment_id);
+    setNewPayment((prev) => ({
+      ...prev,
+      treatment_id,
+      amount: treatment?.cost || prev.amount,
+    }));
+  };
+
+  const filteredPayments = payments.filter((p) => {
+    const matchesSearch = p.patient_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesMethod = filterMethod === "all" || p.method === filterMethod;
+    return matchesSearch && matchesMethod;
+  });
+
+  const totalRevenue = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -108,140 +149,139 @@ const Payments = () => {
     }).format(amount);
   };
 
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
-  const pendingTreatmentsCount = treatments.filter(t => 
-    !payments.some(p => p.treatmentId === t.id)
-  ).length;
-
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Billing & Payments</h1>
-          <p className="text-gray-600 mt-1">Manage patient billing and transaction history</p>
+          <h1 className="text-3xl font-bold text-gray-900">Payments & Billing</h1>
+          <p className="text-gray-600 mt-1">Track revenue and process patient billing</p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg">
-              <Plus className="h-4 w-4 mr-2" />
-              Record Payment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Record New Payment</DialogTitle>
-              <DialogDescription>Enter payment details for the patient.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleAddPayment} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="patient">Patient</Label>
-                <Select 
-                  value={formData.patientId} 
-                  onValueChange={(val) => {
-                    const patientTreatments = treatments.filter(t => t.patientId === val && !payments.some(p => p.treatmentId === t.id));
-                    setFormData({
-                      ...formData, 
-                      patientId: val,
-                      amount: patientTreatments.length > 0 ? patientTreatments[0].cost : 0,
-                      treatmentId: patientTreatments.length > 0 ? patientTreatments[0].id : ""
-                    });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Patient" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {patients.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {formData.patientId && (
+        {user?.role === "RECEPTION" && (
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Process Payment
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Process New Payment</DialogTitle>
+                <DialogDescription>
+                  Record a payment from a patient for their treatment.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAddPayment} className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="treatment">Unpaid Treatment (Optional)</Label>
-                  <Select 
-                    value={formData.treatmentId} 
-                    onValueChange={(val) => {
-                      const treatment = treatments.find(t => t.id === val);
-                      setFormData({...formData, treatmentId: val, amount: treatment?.cost || 0});
-                    }}
+                  <Label>Patient *</Label>
+                  <Select
+                    value={newPayment.patient_id}
+                    onValueChange={handlePatientChange}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select Treatment" />
+                      <SelectValue placeholder="Select patient" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None / Advance Payment</SelectItem>
-                      {treatments
-                        .filter(t => t.patientId === formData.patientId && !payments.some(p => p.treatmentId === t.id))
-                        .map(t => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.treatment} ({formatCurrency(t.cost)})
-                          </SelectItem>
-                        ))
-                      }
+                      {patients.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount ($)</Label>
-                <Input 
-                  id="amount" 
-                  type="number" 
-                  value={formData.amount} 
-                  onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value) || 0})}
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label>Related Treatment</Label>
+                  <Select
+                    value={newPayment.treatment_id}
+                    onValueChange={handleTreatmentChange}
+                    disabled={!newPayment.patient_id}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select treatment (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {treatments
+                        .filter((t) => t.patient_id === newPayment.patient_id)
+                        .map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.date} - {t.diagnosis} ({formatCurrency(t.cost)})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="method">Payment Method</Label>
-                <Select 
-                  value={formData.method} 
-                  onValueChange={(val: any) => setFormData({...formData, method: val})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="card">Credit/Debit Card</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="transfer">Bank Transfer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Amount ($) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newPayment.amount}
+                      onChange={(e) =>
+                        setNewPayment((prev) => ({
+                          ...prev,
+                          amount: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Payment Method</Label>
+                    <Select
+                      value={newPayment.method}
+                      onValueChange={(value: "cash" | "card" | "transfer") =>
+                        setNewPayment((prev) => ({ ...prev, method: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                        <SelectItem value="transfer">Transfer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea 
-                  id="notes" 
-                  value={formData.notes} 
-                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                  placeholder="Additional payment details..."
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={newPayment.date}
+                    onChange={(e) =>
+                      setNewPayment((prev) => ({ ...prev, date: e.target.value }))
+                    }
+                  />
+                </div>
 
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Record Transaction</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  Record Payment
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
+      {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border-0 shadow-lg bg-linear-to-br from-emerald-50 to-emerald-100">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-600 text-sm font-medium">Total Revenue</p>
-                <p className="text-3xl font-bold text-emerald-900">{formatCurrency(totalRevenue)}</p>
+                <p className="text-emerald-600 text-sm font-medium">Filtered Revenue</p>
+                <p className="text-3xl font-bold text-emerald-900">
+                  {formatCurrency(totalRevenue)}
+                </p>
               </div>
-              <div className="p-3 bg-emerald-200 rounded-full">
+              <div className="p-3 bg-emerald-200 rounded-xl">
                 <DollarSign className="h-6 w-6 text-emerald-700" />
               </div>
             </div>
@@ -252,98 +292,132 @@ const Payments = () => {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-600 text-sm font-medium">Transactions</p>
-                <p className="text-3xl font-bold text-blue-900">{payments.length}</p>
+                <p className="text-blue-600 text-sm font-medium">Total Transactions</p>
+                <p className="text-3xl font-bold text-blue-900">
+                  {filteredPayments.length}
+                </p>
               </div>
-              <div className="p-3 bg-blue-200 rounded-full">
+              <div className="p-3 bg-blue-200 rounded-xl">
                 <CreditCard className="h-6 w-6 text-blue-700" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-linear-to-br from-amber-50 to-amber-100">
+        <Card className="border-0 shadow-lg bg-linear-to-br from-indigo-50 to-indigo-100">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-amber-600 text-sm font-medium">Pending Billing</p>
-                <p className="text-3xl font-bold text-amber-900">{pendingTreatmentsCount}</p>
+                <p className="text-indigo-600 text-sm font-medium">Average Payment</p>
+                <p className="text-3xl font-bold text-indigo-900">
+                  {formatCurrency(filteredPayments.length > 0 ? totalRevenue / filteredPayments.length : 0)}
+                </p>
               </div>
-              <div className="p-3 bg-amber-200 rounded-full">
-                <Clock className="h-6 w-6 text-amber-700" />
+              <div className="p-3 bg-indigo-200 rounded-xl">
+                <TrendingUp className="h-6 w-6 text-indigo-700" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Filters & Search */}
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search payments by patient name or notes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search by patient name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-gray-400" />
+              <div className="flex bg-gray-100 p-1 rounded-lg">
+                {["all", "cash", "card", "transfer"].map((method) => (
+                  <button
+                    key={method}
+                    onClick={() => setFilterMethod(method)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      filterMethod === method
+                        ? "bg-white text-emerald-600 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    <span className="capitalize">{method}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">Patient</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">Date</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">Method</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">Amount</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">Status</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filteredPayments.map((payment) => (
-              <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-blue-100 rounded-full text-blue-600">
-                      <User className="h-4 w-4" />
+      {/* Payments List */}
+      <div className="grid grid-cols-1 gap-4">
+        {isLoading ? (
+            <div className="text-center py-12">Loading payments...</div>
+        ) : filteredPayments.length > 0 ? (
+          filteredPayments
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .map((payment) => (
+              <Card key={payment.id} className="border-0 shadow-md hover:shadow-lg transition-shadow bg-white overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex flex-col sm:flex-row items-center p-6 gap-6">
+                    <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shrink-0">
+                      <DollarSign className="h-6 w-6" />
                     </div>
-                    <span className="font-medium text-gray-900">{payment.patientName}</span>
+
+                    <div className="flex-1 text-center sm:text-left">
+                      <h3 className="text-lg font-bold text-gray-900">{payment.patient_name}</h3>
+                      <div className="flex flex-wrap justify-center sm:justify-start gap-4 mt-1 text-sm text-gray-500">
+                        <span className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          {payment.date}
+                        </span>
+                        <span className="flex items-center capitalize">
+                          <CreditCard className="h-4 w-4 mr-1" />
+                          {payment.method}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center sm:items-end gap-2">
+                      <p className="text-2xl font-bold text-gray-900">
+                        {formatCurrency(payment.amount)}
+                      </p>
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> {payment.status}
+                      </Badge>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-5 w-5 text-gray-400" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="cursor-pointer">
+                          <FileText className="h-4 w-4 mr-2" /> View Invoice
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer">
+                          <Download className="h-4 w-4 mr-2" /> Download Receipt
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-600">
-                  {new Date(payment.date).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4">
-                  <Badge variant="outline" className="capitalize">
-                    {payment.method}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4 font-semibold text-gray-900">
-                  {formatCurrency(payment.amount)}
-                </td>
-                <td className="px-6 py-4">
-                  <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Paid
-                  </Badge>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <Button variant="ghost" size="sm">
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filteredPayments.length === 0 && (
-          <div className="py-12 text-center">
-            <CreditCard className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No payment records found</p>
+                </CardContent>
+              </Card>
+            ))
+        ) : (
+          <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-200">
+            <CreditCard className="h-16 w-16 text-gray-200 mx-auto mb-4" />
+            <h3 className="text-xl font-medium text-gray-900 mb-2">No payments found</h3>
+            <p className="text-gray-500">No payment records match your current filters.</p>
           </div>
         )}
       </div>

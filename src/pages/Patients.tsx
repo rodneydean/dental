@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,79 +22,84 @@ import {
   Plus,
   MoreVertical,
   Edit,
-  Trash2,
   Phone,
   Mail,
   Calendar,
   AlertTriangle,
   Users,
-  UserPlus,
-  Filter,
   History,
   FileText,
   Stethoscope,
 } from "lucide-react";
 import PatientForm from "@/components/PatientForm";
-import { dataManager, Patient, Appointment, Treatment, Role } from "@/lib/dataManager";
+import { dataManager, Patient, Appointment, Treatment } from "@/lib/dataManager";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Patients = () => {
+  const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [viewingHistory, setViewingHistory] = useState<Patient | null>(null);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
-  const [role, setRole] = useState<Role>(dataManager.getCurrentRole());
 
   useEffect(() => {
-    loadPatients();
-    const handleRoleChange = () => setRole(dataManager.getCurrentRole());
-    window.addEventListener("roleChanged", handleRoleChange);
-    return () => window.removeEventListener("roleChanged", handleRoleChange);
+    loadData();
   }, []);
 
   useEffect(() => {
     const filtered = patients.filter(
       (patient) =>
         patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.phone.includes(searchTerm)
+        (patient.email && patient.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (patient.phone && patient.phone.includes(searchTerm))
     );
     setFilteredPatients(filtered);
   }, [patients, searchTerm]);
 
-  const loadPatients = () => {
-    const loadedPatients = dataManager.getPatients();
-    setPatients(loadedPatients);
+  const loadData = async () => {
+    try {
+      const [loadedPatients, loadedAppointments, loadedTreatments] = await Promise.all([
+        dataManager.getPatients(),
+        dataManager.getAppointments(),
+        dataManager.getTreatments()
+      ]);
+      setPatients(loadedPatients);
+      setAppointments(loadedAppointments);
+      setTreatments(loadedTreatments);
+    } catch (error) {
+      toast.error("Failed to load data");
+    }
   };
 
-  const handleAddPatient = (
-    patientData: Omit<Patient, "id" | "createdAt" | "updatedAt">
+  const handleAddPatient = async (
+    patientData: Omit<Patient, "id" | "created_at" | "updated_at">
   ) => {
     try {
-      dataManager.addPatient(patientData);
-      loadPatients();
+      await dataManager.addPatient(patientData);
+      await loadData();
       setShowAddDialog(false);
       toast.success("Patient added successfully");
     } catch (error) {
-      console.log(error);
       toast.error("Failed to add patient");
     }
   };
 
-  const handleEditPatient = (
-    patientData: Omit<Patient, "id" | "createdAt" | "updatedAt">
+  const handleEditPatient = async (
+    patientData: Omit<Patient, "id" | "created_at" | "updated_at">
   ) => {
     if (!editingPatient) return;
 
     try {
-      dataManager.updatePatient(editingPatient.id, patientData);
-      loadPatients();
+      await dataManager.updatePatient(editingPatient.id, patientData);
+      await loadData();
       setEditingPatient(null);
       toast.success("Patient updated successfully");
     } catch (error) {
-      console.log(error);
       toast.error("Failed to update patient");
     }
   };
@@ -113,7 +117,8 @@ const Patients = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const calculateAge = (dateOfBirth: string) => {
+  const calculateAge = (dateOfBirth: string | undefined) => {
+    if (!dateOfBirth) return "N/A";
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -135,13 +140,13 @@ const Patients = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {role === "DOCTOR" ? "Patient Records" : "Patient Management"}
+            {user?.role === "DOCTOR" ? "Patient Records" : "Patient Management"}
           </h1>
           <p className="text-gray-600 mt-1">
-            {role === "DOCTOR" ? "View and manage clinical patient data" : "Manage patient registrations and contacts"}
+            {user?.role === "DOCTOR" ? "View and manage clinical patient data" : "Manage patient registrations and contacts"}
           </p>
         </div>
-        {role === "RECEPTION" && (
+        {user?.role === "RECEPTION" && (
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg text-white">
@@ -199,7 +204,7 @@ const Patients = () => {
                       {patient.name}
                     </CardTitle>
                     <p className="text-sm text-gray-600">
-                      Age: {calculateAge(patient.dateOfBirth)}
+                      Age: {calculateAge(patient.date_of_birth)}
                     </p>
                   </div>
                 </div>
@@ -214,7 +219,7 @@ const Patients = () => {
                       <History className="h-4 w-4 mr-2" />
                       Clinical History
                     </DropdownMenuItem>
-                    {role === "RECEPTION" && (
+                    {user?.role === "RECEPTION" && (
                       <DropdownMenuItem onClick={() => setEditingPatient(patient)}>
                         <Edit className="h-4 w-4 mr-2" />
                         Edit Details
@@ -228,11 +233,11 @@ const Patients = () => {
               <div className="space-y-2">
                 <div className="flex items-center text-sm text-gray-600">
                   <Phone className="h-4 w-4 mr-2 text-blue-500" />
-                  {patient.phone}
+                  {patient.phone || "No phone"}
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
                   <Mail className="h-4 w-4 mr-2 text-green-500" />
-                  {patient.email}
+                  {patient.email || "No email"}
                 </div>
               </div>
 
@@ -246,13 +251,13 @@ const Patients = () => {
                 </div>
               )}
 
-              {role === "DOCTOR" && patient.medicalHistory && (
+              {user?.role === "DOCTOR" && patient.medical_history && (
                 <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                   <p className="text-sm text-blue-700 font-medium mb-1">
                     Medical History
                   </p>
                   <p className="text-sm text-blue-600 line-clamp-2">
-                    {patient.medicalHistory}
+                    {patient.medical_history}
                   </p>
                 </div>
               )}
@@ -284,7 +289,7 @@ const Patients = () => {
                 ? "No patients match your search criteria."
                 : "Get started by adding your first patient."}
             </p>
-            {!searchTerm && (
+            {!searchTerm && user?.role === "RECEPTION" && (
               <Button
                 onClick={() => setShowAddDialog(true)}
                 className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
@@ -314,17 +319,17 @@ const Patients = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {dataManager.getAppointments()
-                      .filter(a => a.patientId === viewingHistory?.id)
+                    {appointments
+                      .filter(a => a.patient_id === viewingHistory?.id)
                       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map(apt => (
                         <div key={apt.id} className="text-sm border-l-2 border-blue-200 pl-3 py-1">
                           <p className="font-medium">{formatDate(apt.date)} at {apt.time}</p>
-                          <p className="text-gray-600">{apt.type} - <span className="capitalize">{apt.status}</span></p>
+                          <p className="text-gray-600">{apt.appointment_type} - <span className="capitalize">{apt.status}</span></p>
                         </div>
                       ))
                     }
-                    {dataManager.getAppointments().filter(a => a.patientId === viewingHistory?.id).length === 0 && (
+                    {appointments.filter(a => a.patient_id === viewingHistory?.id).length === 0 && (
                       <p className="text-sm text-gray-500">No appointments found</p>
                     )}
                   </div>
@@ -340,8 +345,8 @@ const Patients = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {dataManager.getTreatments()
-                      .filter(t => t.patientId === viewingHistory?.id)
+                    {treatments
+                      .filter(t => t.patient_id === viewingHistory?.id)
                       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map(t => (
                         <div key={t.id} className="text-sm bg-gray-50 p-3 rounded-lg">
@@ -352,7 +357,7 @@ const Patients = () => {
                         </div>
                       ))
                     }
-                    {dataManager.getTreatments().filter(t => t.patientId === viewingHistory?.id).length === 0 && (
+                    {treatments.filter(t => t.patient_id === viewingHistory?.id).length === 0 && (
                       <p className="text-sm text-gray-500">No treatment records found</p>
                     )}
                   </div>
@@ -372,7 +377,7 @@ const Patients = () => {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-blue-700 uppercase">Chronic Conditions</p>
-                  <p className="text-sm text-blue-900">{viewingHistory?.medicalHistory || "None reported"}</p>
+                  <p className="text-sm text-blue-900">{viewingHistory?.medical_history || "None reported"}</p>
                 </div>
               </div>
             </div>

@@ -3,24 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 
 interface Patient {
   id: string;
   name: string;
   phone: string;
   email: string;
-  dateOfBirth: string;
+  date_of_birth: string;
   address: string;
-  medicalHistory: string;
+  medical_history: string;
   allergies: string;
-  emergencyContact: string;
-  emergencyPhone: string;
+  emergency_contact: string;
+  emergency_phone: string;
 }
 
 interface PatientFormProps {
   patient?: Patient;
-  onSave: (patient: Patient) => void;
+  onSave: (patient: any) => void;
   onCancel: () => void;
 }
 
@@ -29,33 +28,17 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
     name: patient?.name || "",
     phone: patient?.phone || "",
     email: patient?.email || "",
-    dateOfBirth: patient?.dateOfBirth || "",
+    date_of_birth: patient?.date_of_birth || "",
     address: patient?.address || "",
-    medicalHistory: patient?.medicalHistory || "",
+    medical_history: patient?.medical_history || "",
     allergies: patient?.allergies || "",
-    emergencyContact: patient?.emergencyContact || "",
-    emergencyPhone: patient?.emergencyPhone || "",
+    emergency_contact: patient?.emergency_contact || "",
+    emergency_phone: patient?.emergency_phone || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.name || !formData.phone || !formData.email) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    const patientData: Patient = {
-      id: patient?.id || Date.now().toString(),
-      ...formData,
-    };
-
-    onSave(patientData);
-    toast.success(
-      patient
-        ? "Patient updated successfully"
-        : "Patient registered successfully"
-    );
+    onSave(formData);
   };
 
   const handleChange = (field: keyof typeof formData, value: string) => {
@@ -77,36 +60,34 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number *</Label>
+          <Label htmlFor="phone">Phone Number</Label>
           <Input
             id="phone"
             type="tel"
             value={formData.phone}
             onChange={(e) => handleChange("phone", e.target.value)}
             placeholder="(555) 123-4567"
-            required
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email Address *</Label>
+          <Label htmlFor="email">Email Address</Label>
           <Input
             id="email"
             type="email"
             value={formData.email}
             onChange={(e) => handleChange("email", e.target.value)}
             placeholder="patient@example.com"
-            required
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="dateOfBirth">Date of Birth</Label>
+          <Label htmlFor="date_of_birth">Date of Birth</Label>
           <Input
-            id="dateOfBirth"
+            id="date_of_birth"
             type="date"
-            value={formData.dateOfBirth}
-            onChange={(e) => handleChange("dateOfBirth", e.target.value)}
+            value={formData.date_of_birth}
+            onChange={(e) => handleChange("date_of_birth", e.target.value)}
           />
         </div>
       </div>
@@ -123,33 +104,33 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="emergencyContact">Emergency Contact</Label>
+          <Label htmlFor="emergency_contact">Emergency Contact</Label>
           <Input
-            id="emergencyContact"
-            value={formData.emergencyContact}
-            onChange={(e) => handleChange("emergencyContact", e.target.value)}
+            id="emergency_contact"
+            value={formData.emergency_contact}
+            onChange={(e) => handleChange("emergency_contact", e.target.value)}
             placeholder="Contact person name"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="emergencyPhone">Emergency Phone</Label>
+          <Label htmlFor="emergency_phone">Emergency Phone</Label>
           <Input
-            id="emergencyPhone"
+            id="emergency_phone"
             type="tel"
-            value={formData.emergencyPhone}
-            onChange={(e) => handleChange("emergencyPhone", e.target.value)}
+            value={formData.emergency_phone}
+            onChange={(e) => handleChange("emergency_phone", e.target.value)}
             placeholder="(555) 123-4567"
           />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="medicalHistory">Medical History</Label>
+        <Label htmlFor="medical_history">Medical History</Label>
         <Textarea
-          id="medicalHistory"
-          value={formData.medicalHistory}
-          onChange={(e) => handleChange("medicalHistory", e.target.value)}
+          id="medical_history"
+          value={formData.medical_history}
+          onChange={(e) => handleChange("medical_history", e.target.value)}
           placeholder="Previous medical conditions, surgeries, medications..."
           rows={3}
         />
@@ -170,14 +151,16 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
         <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
           {patient ? "Update Patient" : "Register Patient"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          className="flex-1"
-        >
-          Cancel
-        </Button>
+        {onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+        )}
       </div>
     </form>
   );

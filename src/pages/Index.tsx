@@ -2,14 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Calendar,
   Users,
   Stethoscope,
   DollarSign,
   Clock,
-  ArrowRight,
   Plus,
   TrendingUp,
   Activity,
@@ -19,27 +17,39 @@ import {
   UserPlus,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { dataManager, Patient, Appointment, Treatment, Role, Payment } from "@/lib/dataManager";
+import { dataManager, Patient, Appointment, Treatment, Payment } from "@/lib/dataManager";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
+  const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [role, setRole] = useState<Role>(dataManager.getCurrentRole());
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadData();
-    const handleRoleChange = () => setRole(dataManager.getCurrentRole());
-    window.addEventListener("roleChanged", handleRoleChange);
-    return () => window.removeEventListener("roleChanged", handleRoleChange);
   }, []);
 
-  const loadData = () => {
-    setPatients(dataManager.getPatients());
-    setAppointments(dataManager.getAppointments());
-    setTreatments(dataManager.getTreatments());
-    setPayments(dataManager.getPayments());
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [loadedPatients, loadedAppointments, loadedTreatments, loadedPayments] = await Promise.all([
+        dataManager.getPatients(),
+        dataManager.getAppointments(),
+        dataManager.getTreatments(),
+        dataManager.getPayments()
+      ]);
+      setPatients(loadedPatients);
+      setAppointments(loadedAppointments);
+      setTreatments(loadedTreatments);
+      setPayments(loadedPayments);
+    } catch (error) {
+      console.error("Failed to load dashboard data", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getTodayAppointments = () => {
@@ -60,13 +70,17 @@ const Index = () => {
 
   const getRecentActivity = () => {
     const activity = [
-      ...patients.map(p => ({ type: 'patient', date: p.createdAt, title: 'New Patient Registered', name: p.name })),
-      ...appointments.map(a => ({ type: 'appointment', date: a.createdAt, title: 'Appointment Scheduled', name: a.patientName })),
-      ...treatments.map(t => ({ type: 'treatment', date: t.createdAt, title: 'Treatment Recorded', name: t.patientName })),
-      ...payments.map(p => ({ type: 'payment', date: p.createdAt, title: 'Payment Received', name: p.patientName, amount: p.amount })),
+      ...patients.map(p => ({ type: 'patient', date: p.created_at, title: 'New Patient Registered', name: p.name })),
+      ...appointments.map(a => ({ type: 'appointment', date: a.created_at, title: 'Appointment Scheduled', name: a.patient_name })),
+      ...treatments.map(t => ({ type: 'treatment', date: t.created_at, title: 'Treatment Recorded', name: t.patient_name })),
+      ...payments.map(p => ({ type: 'payment', date: p.created_at, title: 'Payment Received', name: p.patient_name, amount: p.amount })),
     ];
     return activity.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
   };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-[400px]">Loading dashboard...</div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -74,14 +88,14 @@ const Index = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
-            {role === "DOCTOR" ? "Doctor Dashboard" : "Reception Overview"}
+            {user?.role} Dashboard
           </h1>
           <p className="text-gray-600 mt-2 text-lg">
-            Welcome back! Here's what's happening today at DentalCare.
+            Welcome back, {user?.full_name}! Here's what's happening today at DentalCare.
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          {role === "RECEPTION" ? (
+          {user?.role === "RECEPTION" ? (
             <>
               <Link to="/patients">
                 <Button className="bg-blue-600 hover:bg-blue-700 shadow-lg text-white">
@@ -96,14 +110,14 @@ const Index = () => {
                 </Button>
               </Link>
             </>
-          ) : (
+          ) : user?.role === "DOCTOR" ? (
             <Link to="/treatments">
               <Button className="bg-purple-600 hover:bg-purple-700 shadow-lg text-white">
                 <Plus className="mr-2 h-4 w-4" />
                 New Treatment
               </Button>
             </Link>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -210,8 +224,8 @@ const Index = () => {
                         </div>
                         <div className="h-10 w-[2px] bg-blue-200 rounded-full" />
                         <div>
-                          <p className="font-bold text-gray-900">{apt.patientName}</p>
-                          <p className="text-sm text-gray-600">{apt.type}</p>
+                          <p className="font-bold text-gray-900">{apt.patient_name}</p>
+                          <p className="text-sm text-gray-600">{apt.appointment_type}</p>
                         </div>
                       </div>
                       <Badge className={
@@ -241,7 +255,7 @@ const Index = () => {
               <CardTitle className="text-lg font-bold">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
-              {role === "RECEPTION" ? (
+              {user?.role === "RECEPTION" ? (
                 <>
                   <Link to="/patients">
                     <Button variant="outline" className="w-full justify-start text-gray-700 border-gray-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200">
@@ -254,7 +268,7 @@ const Index = () => {
                     </Button>
                   </Link>
                 </>
-              ) : (
+              ) : user?.role === "DOCTOR" ? (
                 <>
                   <Link to="/treatments">
                     <Button variant="outline" className="w-full justify-start text-gray-700 border-gray-200 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200">
@@ -267,6 +281,12 @@ const Index = () => {
                     </Button>
                   </Link>
                 </>
+              ) : (
+                <Link to="/users">
+                  <Button variant="outline" className="w-full justify-start text-gray-700 border-gray-200 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200">
+                    <Users className="mr-2 h-4 w-4" /> Manage Staff
+                  </Button>
+                </Link>
               )}
             </CardContent>
           </Card>
