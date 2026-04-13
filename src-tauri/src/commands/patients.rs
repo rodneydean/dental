@@ -68,7 +68,20 @@ pub fn create_patient(
 
     conn.execute(
         "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-        [&id, &name, &phone.unwrap_or_default(), &email.unwrap_or_default(), &date_of_birth.unwrap_or_default(), &address.unwrap_or_default(), &medical_history.unwrap_or_default(), &allergies.unwrap_or_default(), &emergency_contact.unwrap_or_default(), &emergency_phone.unwrap_or_default(), &now, &now],
+        [
+            id.as_str(),
+            name.as_str(),
+            phone.as_deref().unwrap_or_default(),
+            email.as_deref().unwrap_or_default(),
+            date_of_birth.as_deref().unwrap_or_default(),
+            address.as_deref().unwrap_or_default(),
+            medical_history.as_deref().unwrap_or_default(),
+            allergies.as_deref().unwrap_or_default(),
+            emergency_contact.as_deref().unwrap_or_default(),
+            emergency_phone.as_deref().unwrap_or_default(),
+            now.as_str(),
+            now.as_str()
+        ],
     ).map_err(|e| e.to_string())?;
 
     Ok(Patient {
@@ -106,7 +119,19 @@ pub fn update_patient(
 
     conn.execute(
         "UPDATE patients SET name = ?1, phone = ?2, email = ?3, date_of_birth = ?4, address = ?5, medical_history = ?6, allergies = ?7, emergency_contact = ?8, emergency_phone = ?9, updated_at = ?10 WHERE id = ?11",
-        [&name, &phone.unwrap_or_default(), &email.unwrap_or_default(), &date_of_birth.unwrap_or_default(), &address.unwrap_or_default(), &medical_history.unwrap_or_default(), &allergies.unwrap_or_default(), &emergency_contact.unwrap_or_default(), &emergency_phone.unwrap_or_default(), &now, &id],
+        [
+            name.as_str(),
+            phone.as_deref().unwrap_or_default(),
+            email.as_deref().unwrap_or_default(),
+            date_of_birth.as_deref().unwrap_or_default(),
+            address.as_deref().unwrap_or_default(),
+            medical_history.as_deref().unwrap_or_default(),
+            allergies.as_deref().unwrap_or_default(),
+            emergency_contact.as_deref().unwrap_or_default(),
+            emergency_phone.as_deref().unwrap_or_default(),
+            now.as_str(),
+            id.as_str()
+        ],
     ).map_err(|e| e.to_string())?;
 
     Ok(())

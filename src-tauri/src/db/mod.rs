@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 use std::fs;
-use std::path::PathBuf;
+use tauri::Manager;
 
 pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let app_dir = app_handle.path().app_data_dir()?;
@@ -17,7 +17,8 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL,
             full_name TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            sync_status TEXT DEFAULT 'synced'
         )",
         [],
     )?;
@@ -35,7 +36,8 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::
             emergency_contact TEXT,
             emergency_phone TEXT,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            sync_status TEXT DEFAULT 'synced'
         )",
         [],
     )?;
@@ -53,6 +55,7 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::
             duration INTEGER,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            sync_status TEXT DEFAULT 'synced',
             FOREIGN KEY (patient_id) REFERENCES patients (id)
         )",
         [],
@@ -72,6 +75,7 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::
             cost REAL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            sync_status TEXT DEFAULT 'synced',
             FOREIGN KEY (patient_id) REFERENCES patients (id),
             FOREIGN KEY (appointment_id) REFERENCES appointments (id)
         )",
@@ -87,6 +91,7 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::
             frequency TEXT,
             duration TEXT,
             instructions TEXT,
+            sync_status TEXT DEFAULT 'synced',
             FOREIGN KEY (treatment_id) REFERENCES treatments (id)
         )",
         [],
@@ -105,11 +110,26 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::
             notes TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            sync_status TEXT DEFAULT 'synced',
             FOREIGN KEY (patient_id) REFERENCES patients (id),
             FOREIGN KEY (treatment_id) REFERENCES treatments (id)
         )",
         [],
     )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sync_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Add sync_status to existing tables if they don't have it (for existing DBs)
+    let tables = vec!["users", "patients", "appointments", "treatments", "medications", "payments"];
+    for table in tables {
+        let _ = conn.execute(&format!("ALTER TABLE {} ADD COLUMN sync_status TEXT DEFAULT 'synced'", table), []);
+    }
 
     Ok(())
 }

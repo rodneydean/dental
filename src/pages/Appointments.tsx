@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ import AppointmentForm from "@/components/AppointmentForm";
 import { dataManager, Appointment } from "@/lib/dataManager";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { listen } from "@tauri-apps/api/event";
 
 const Appointments = () => {
   const { user } = useAuth();
@@ -45,21 +46,39 @@ const Appointments = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadAppointments();
-  }, []);
-
-  const loadAppointments = async () => {
-    setIsLoading(true);
+  const loadAppointments = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     try {
         const loadedAppointments = await dataManager.getAppointments();
         setAppointments(loadedAppointments);
     } catch (error) {
         toast.error("Failed to load appointments");
     } finally {
-        setIsLoading(false);
+        if (showLoading) setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadAppointments();
+  }, [loadAppointments]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const setupListener = async () => {
+      unlisten = await listen("sync-event", (event: any) => {
+        if (event.payload?.type === "appointment") {
+          loadAppointments(false);
+          toast.info("Schedule updated");
+        }
+      });
+    };
+
+    setupListener();
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [loadAppointments]);
 
   const handleAddAppointment = async (
     appointmentData: Omit<Appointment, "id" | "created_at" | "updated_at">

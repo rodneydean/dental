@@ -23,8 +23,12 @@ import {
   Database,
   CreditCard,
   Settings,
+  Cloud,
+  CloudOff,
+  Server,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { dataManager } from "@/lib/dataManager";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -33,6 +37,22 @@ const Navigation = () => {
   const { user, logout } = useAuth();
   const [todayAppointments, setTodayAppointments] = useState(0);
   const [notifications] = useState(3); // Mock notifications
+  const [connStatus, setConnStatus] = useState<string>("Checking...");
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const status = await invoke<string>("get_connection_status");
+        setConnStatus(status);
+      } catch (e) {
+        setConnStatus("Offline");
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const updateAppointments = async () => {
@@ -129,6 +149,18 @@ const Navigation = () => {
 
           {/* Right Side Actions */}
           <div className="flex items-center space-x-3">
+            {/* Connection Status */}
+            <div className="hidden lg:flex items-center px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
+              {connStatus === "Connected" ? (
+                <Cloud className="h-3 w-3 text-green-500 mr-2" />
+              ) : (
+                <CloudOff className="h-3 w-3 text-red-500 mr-2" />
+              )}
+              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                {connStatus}
+              </span>
+            </div>
+
             {/* Notifications */}
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="h-4 w-4" />
