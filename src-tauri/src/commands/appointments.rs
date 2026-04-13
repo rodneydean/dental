@@ -136,7 +136,7 @@ pub fn update_appointment(
     let (current_paid, current_waived): (bool, bool) = conn.query_row(
         "SELECT reception_fee_paid, reception_fee_waived FROM appointments WHERE id = ?1",
         [&id],
-        |row| Ok((row.get(0)?, row.get(1)?))
+        |row| Ok((row.get::<_, bool>(0)?, row.get::<_, bool>(1)?))
     ).map_err(|e| e.to_string())?;
 
     conn.execute(
