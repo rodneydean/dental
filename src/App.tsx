@@ -19,6 +19,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { invoke } from "@tauri-apps/api/core";
 import UserManagement from "./pages/UserManagement";
 import UsageGuide from "./pages/UsageGuide";
+import { checkForUpdates } from "./lib/updater";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,9 @@ const AppContent = () => {
       try {
         const hasAdmin = await invoke<boolean>("check_has_admin");
         setNeedsSetup(!hasAdmin);
+
+        // Check for updates on start
+        checkForUpdates(true);
       } catch (error) {
         console.error("Failed to check setup status", error);
       }
@@ -62,9 +66,9 @@ const AppContent = () => {
           <Route path="/payments" element={<Payments />} />
           <Route path="/waiting-room" element={<WaitingRoom />} />
           <Route path="/guide" element={<UsageGuide />} />
+          <Route path="/settings" element={<Settings />} />
           {user.role === 'ADMIN' && (
             <>
-              <Route path="/settings" element={<Settings />} />
               <Route path="/data-management" element={<DataManagement />} />
               <Route path="/users" element={<UserManagement />} />
             </>

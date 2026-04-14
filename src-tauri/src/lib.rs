@@ -14,6 +14,8 @@ pub fn run() {
       pairing_code: std::sync::Mutex::new(None),
     })
     .plugin(tauri_plugin_log::Builder::default().build())
+    .plugin(tauri_plugin_updater::Builder::new().build())
+    .plugin(tauri_plugin_dialog::init())
     .invoke_handler(tauri::generate_handler![
       commands::auth::check_has_admin,
       commands::auth::initial_setup,

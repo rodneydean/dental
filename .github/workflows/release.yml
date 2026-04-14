@@ -119,6 +119,7 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
           tauriScript: pnpm tauri
+          updaterJsonKeepExistingSignature: true
           includeRelease: true
 
       - name: Upload artifacts (PR only)

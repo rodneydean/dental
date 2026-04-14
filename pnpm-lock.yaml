@@ -47,6 +47,12 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.90.6
         version: 5.90.7(react@19.2.0)
+      '@tauri-apps/plugin-dialog':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@tauri-apps/plugin-updater':
+        specifier: ^2.0.0
+        version: 2.0.0
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1325,6 +1331,9 @@ packages:
   '@tauri-apps/api@2.0.1':
     resolution: {integrity: sha512-eoQWT+Tq1qSwQpHV+nw1eNYe5B/nm1PoRjQCRiEOS12I1b+X4PUcREfXVX8dPcBT6GrzWGDtaecY0+1p0Rfqlw==}
 
+  '@tauri-apps/api@2.10.1':
+    resolution: {integrity: sha512-hKL/jWf293UDSUN09rR69hrToyIXBb8CjGaWC7gfinvnQrBVvnLr08FeFi38gxtugAVyVcTa5/FD/Xnkb1siBw==}
+
   '@tauri-apps/cli-darwin-arm64@2.0.0-rc.18':
     resolution: {integrity: sha512-L2/VQ4q1pZyhqOifarVDJf/+JabU6DSUMj6979wXrUOOxmyfLCZaw5qGGsbirYOfxWMo+qcXEFRF411YIv9qWw==}
     engines: {node: '>= 10'}
@@ -1393,6 +1402,12 @@ packages:
     resolution: {integrity: sha512-43PjSEISHI3uH2jyR7QlEJUv1yQYlCOvm5eEdadhHIooV5Dqjs6zkddwEJuHYRpSLI/IfiQ8VPBYrw/GfyvhCA==}
     engines: {node: '>= 10'}
     hasBin: true
+
+  '@tauri-apps/plugin-dialog@2.0.0':
+    resolution: {integrity: sha512-ApNkejXP2jpPBSifznPPcHTXxu9/YaRW+eJ+8+nYwqp0lLUtebFHG4QhxitM43wwReHE81WAV1DQ/b+2VBftOA==}
+
+  '@tauri-apps/plugin-updater@2.0.0':
+    resolution: {integrity: sha512-N0cl71g7RPr7zK2Fe5aoIwzw14NcdLcz7XMGFWZVjprsqgDRWoxbnUkknyCQMZthjhGkppCd/wN2MIsUz+eAhQ==}
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -3473,6 +3488,8 @@ snapshots:
 
   '@tauri-apps/api@2.0.1': {}
 
+  '@tauri-apps/api@2.10.1': {}
+
   '@tauri-apps/cli-darwin-arm64@2.0.0-rc.18':
     optional: true
 
@@ -3515,6 +3532,14 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.0.0-rc.18
       '@tauri-apps/cli-win32-ia32-msvc': 2.0.0-rc.18
       '@tauri-apps/cli-win32-x64-msvc': 2.0.0-rc.18
+
+  '@tauri-apps/plugin-dialog@2.0.0':
+    dependencies:
+      '@tauri-apps/api': 2.10.1
+
+  '@tauri-apps/plugin-updater@2.0.0':
+    dependencies:
+      '@tauri-apps/api': 2.10.1
 
   '@tybys/wasm-util@0.10.1':
     dependencies:

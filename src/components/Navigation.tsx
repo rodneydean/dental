@@ -211,14 +211,12 @@ const Navigation = () => {
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                {user?.role === 'ADMIN' && (
-                  <DropdownMenuItem className="cursor-pointer" asChild>
-                    <Link to="/settings">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </Link>
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem className="cursor-pointer" asChild>
+                  <Link to="/settings">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer text-red-600" onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
