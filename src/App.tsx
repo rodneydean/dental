@@ -18,6 +18,7 @@ import InitialSetup from "./pages/InitialSetup";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { invoke } from "@tauri-apps/api/core";
 import UserManagement from "./pages/UserManagement";
+import UsageGuide from "./pages/UsageGuide";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const AppContent = () => {
           <Route path="/treatments" element={<Treatments />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/waiting-room" element={<WaitingRoom />} />
+          <Route path="/guide" element={<UsageGuide />} />
           {user.role === 'ADMIN' && (
             <>
               <Route path="/settings" element={<Settings />} />

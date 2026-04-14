@@ -1,75 +1,72 @@
-# React + TypeScript + Vite
+# DentalCare - Modern Clinic Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+DentalCare is a robust, cross-platform desktop application built with Tauri, React, and Rust. It is designed to manage dental clinics with a focus on real-time synchronization, role-based access control, and offline reliability.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Hub-and-Spoke Architecture:** Centralized data storage with local caching for seamless operation even during network outages.
+- **Real-time Synchronization:** WebSocket-based updates keep all connected devices in sync instantly.
+- **Role-Based Access Control (RBAC):**
+  - **ADMIN:** Full system access, user management, and global settings.
+  - **RECEPTION:** Patient registration, appointment scheduling, and payment processing.
+  - **DOCTOR:** Clinical records, treatments, prescriptions, and waiver authorization.
+- **Waiting Room Management:** Track patient flow from admission to consultation.
+- **Waiver System:** Real-time authorization requests for fee discounts.
+- **Data Management:** Built-in backup and restore functionality.
 
-## React Compiler
+## 🛠 Tech Stack
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS, Shadcn UI.
+- **Backend:** Rust, Tauri v2, Axum (Hub server).
+- **Database:** SQLite (SQLx).
+- **Real-time:** WebSockets.
+- **Discovery:** mDNS for automatic Hub discovery.
 
-Note: This will impact Vite dev & build performances.
+## 📦 Getting Started
 
-## Expanding the ESLint configuration
+### Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- [Node.js](https://nodejs.org/) (v18+)
+- [pnpm](https://pnpm.io/)
+- [Rust](https://www.rust-lang.org/) (stable)
+- **Linux dependencies:**
+  ```bash
+  sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libglib2.0-dev
+  ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Installation
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   pnpm install
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Development
+
+Run the application in development mode:
+```bash
+pnpm tauri dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Building
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Build the production version:
+```bash
+pnpm tauri build
 ```
+
+## 🏗 Architecture
+
+DentalCare uses a **Hub-and-Spoke** model:
+- **Hub:** Acts as the central server. It hosts the master database and manages WebSocket connections.
+- **Spoke:** Connects to a Hub. It maintains a local SQLite database for offline capability and syncs changes when connected.
+
+## 🧪 Testing
+
+- **Frontend:** `pnpm lint`
+- **Backend:** `cd src-tauri && cargo test`
+
+## 📄 License
+
+This project is licensed under the MIT License.

@@ -25,6 +25,7 @@ import {
   Settings,
   Cloud,
   CloudOff,
+  HelpCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -200,6 +201,12 @@ const Navigation = () => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem className="cursor-pointer" asChild>
+                  <Link to="/guide">
+                    <HelpCircle className="mr-2 h-4 w-4" />
+                    <span>Usage Guide</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem className="cursor-pointer">
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
