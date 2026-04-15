@@ -8,6 +8,7 @@ use crate::commands::treatments::Treatment;
 use crate::commands::payments::Payment;
 use crate::hub::SyncResponse;
 use reqwest::Client;
+use log::{info, warn, error};
 
 pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, manual_addr: Option<String>) {
     let hub_address = Arc::new(Mutex::new(manual_addr));
@@ -17,9 +18,22 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
 
     // Background mDNS discovery
     tokio::spawn(async move {
-        let mdns = ServiceDaemon::new().expect("Failed to create mdns daemon");
+        info!("Starting spoke mDNS discovery...");
+        let mdns = match ServiceDaemon::new() {
+            Ok(m) => m,
+            Err(e) => {
+                error!("Failed to create mDNS daemon for spoke: {}", e);
+                return;
+            }
+        };
         let service_type = "_dentist-hub._tcp.local.";
-        let receiver = mdns.browse(service_type).expect("Failed to browse");
+        let receiver = match mdns.browse(service_type) {
+            Ok(r) => r,
+            Err(e) => {
+                error!("Failed to browse mDNS for spoke: {}", e);
+                return;
+            }
+        };
 
         while let Ok(event) = receiver.recv() {
             if let ServiceEvent::ServiceResolved(info) = event {

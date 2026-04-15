@@ -22,6 +22,7 @@ use crate::commands::settings::Setting;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 use local_ip_address::local_ip;
 use std::collections::HashMap;
+use log::{info, error, warn};
 
 #[derive(Clone)]
 pub struct HubState {
@@ -37,6 +38,7 @@ pub struct SyncResponse<T> {
 }
 
 pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    info!("Starting Hub server...");
     let (tx, _rx) = broadcast::channel(100);
     let pairing_code = Arc::new(Mutex::new(Some(code)));
 
@@ -63,10 +65,57 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
         .with_state(state);
 
     let port = 8080;
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
+    info!("Attempting to bind Hub server to 0.0.0.0:{}", port);
+    let listener = match tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await {
+        Ok(l) => l,
+        Err(e) => {
+            error!("Failed to bind Hub server to port {}: {}", port, e);
+            return Err(e.into());
+        }
+    };
 
-    // Start mDNS
-    let my_ip = local_ip()?;
+    info!("Hub server successfully bound to 0.0.0.0:{}", port);
+
+    // Start mDNS in a separate task so it doesn't block or crash the server
+    tokio::spawn(async move {
+        info!("Initializing mDNS discovery...");
+        match start_mdns_discovery(port).await {
+            Ok(_mdns) => {
+                info!("mDNS discovery started successfully");
+                // Keep the daemon alive as long as the hub is running
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+                }
+            },
+            Err(e) => warn!("mDNS discovery failed to start: {}. Hub will still be accessible via manual IP.", e),
+        }
+    });
+
+    info!("Starting Axum server...");
+    if let Err(e) = axum::serve(listener, app).await {
+        error!("Axum server error: {}", e);
+        return Err(e.into());
+    }
+
+    Ok(())
+}
+
+async fn start_mdns_discovery(port: u16) -> Result<ServiceDaemon, Box<dyn std::error::Error + Send + Sync>> {
+    // Try to get local IP, but don't panic if it fails
+    let my_ip = match local_ip() {
+        Ok(ip) => ip,
+        Err(e) => {
+            // Fallback: try to find any non-loopback IPv4
+            warn!("Could not determine default local IP: {}. Trying fallback...", e);
+            let ips = crate::commands::network::get_local_ips();
+            if let Some(ip_str) = ips.first() {
+                ip_str.parse()?
+            } else {
+                return Err("No local IP addresses found for mDNS".into());
+            }
+        }
+    };
+
     let mdns = ServiceDaemon::new()?;
     let service_type = "_dentist-hub._tcp.local.";
     let instance_name = "dentist_hub";
@@ -80,11 +129,10 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
         port,
         properties,
     )?.enable_addr_auto();
+
     mdns.register(service_info)?;
-
-    axum::serve(listener, app).await?;
-
-    Ok(())
+    info!("Registered mDNS service for IP: {}", my_ip);
+    Ok(mdns)
 }
 
 #[derive(Deserialize)]
