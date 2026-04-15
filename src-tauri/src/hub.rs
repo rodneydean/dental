@@ -21,7 +21,6 @@ use crate::commands::lifecycle::{WaiverRequest, DoctorStatus};
 use crate::commands::settings::Setting;
 use crate::commands::services::Service;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
-use local_ip_address::local_ip;
 use std::collections::HashMap;
 use log::{info, error, warn};
 
@@ -81,7 +80,7 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
     info!("Hub server successfully bound to 0.0.0.0:{}", port);
 
     // Start mDNS in a separate task so it doesn't block or crash the server
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         info!("Initializing mDNS discovery...");
         match start_mdns_discovery(port).await {
             Ok(_mdns) => {
@@ -178,11 +177,11 @@ async fn pair_handler(
     State(state): State<HubState>,
     Json(payload): Json<PairRequest>,
 ) -> impl IntoResponse {
-    let current_code = match state.pairing_code.lock() {
-        Ok(c) => c,
-        Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Failed to lock pairing code").into_response(),
+    let code_guard = match state.pairing_code.lock() {
+        Ok(guard) => guard,
+        Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Lock poisoned").into_response(),
     };
-    if let Some(ref code) = *current_code {
+    if let Some(ref code) = *code_guard {
         if code == &payload.code {
             let token = uuid::Uuid::new_v4().to_string();
             let conn = match get_db_conn(&state.app_handle) {

@@ -70,9 +70,19 @@ pub fn run() {
       // Auto-start Hub or Spoke based on persisted settings
       let app_handle = app.handle().clone();
       let state = app.state::<commands::network::GlobalState>();
-      let mode = commands::settings::get_setting(app_handle.clone(), "network_mode".to_string()).ok().flatten();
-      let code = commands::settings::get_setting(app_handle.clone(), "pairing_code".to_string()).ok().flatten();
-      let hub_addr = commands::settings::get_setting(app_handle.clone(), "hub_address".to_string()).ok().flatten();
+
+      let mode = commands::settings::get_setting(app_handle.clone(), "network_mode".to_string()).unwrap_or_else(|e| {
+          log::error!("Failed to get network_mode setting: {}", e);
+          None
+      });
+      let code = commands::settings::get_setting(app_handle.clone(), "pairing_code".to_string()).unwrap_or_else(|e| {
+          log::error!("Failed to get pairing_code setting: {}", e);
+          None
+      });
+      let hub_addr = commands::settings::get_setting(app_handle.clone(), "hub_address".to_string()).unwrap_or_else(|e| {
+          log::error!("Failed to get hub_address setting: {}", e);
+          None
+      });
 
       if let Some(mode_str) = mode {
           if mode_str == "hub" {
@@ -85,8 +95,10 @@ pub fn run() {
                   }
 
                   let app_clone = app_handle.clone();
-                  tokio::spawn(async move {
-                      let _ = hub::start_hub_server(app_clone, c).await;
+                  tauri::async_runtime::spawn(async move {
+                      if let Err(e) = hub::start_hub_server(app_clone, c).await {
+                          log::error!("Failed to start hub server: {}", e);
+                      }
                   });
               }
           } else if mode_str == "spoke" {
@@ -99,7 +111,7 @@ pub fn run() {
                   }
 
                   let app_clone = app_handle.clone();
-                  tokio::spawn(async move {
+                  tauri::async_runtime::spawn(async move {
                       spoke::start_spoke_client(app_clone, c, hub_addr).await;
                   });
               }

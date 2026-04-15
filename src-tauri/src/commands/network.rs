@@ -34,9 +34,9 @@ pub fn get_local_ips() -> Vec<String> {
 }
 
 #[command]
-pub fn get_network_info(state: State<'_, GlobalState>) -> Result<NetworkInfo, String> {
-    let mode = state.mode.lock().map_err(|_| "Failed to lock network mode".to_string())?.clone();
-    let pairing_code = state.pairing_code.lock().map_err(|_| "Failed to lock pairing code".to_string())?.clone();
+pub fn get_network_info(state: State<'_, GlobalState>) -> NetworkInfo {
+    let mode = state.mode.lock().map(|m| m.clone()).unwrap_or_else(|_| "none".to_string());
+    let pairing_code = state.pairing_code.lock().map(|c| c.clone()).unwrap_or(None);
     let local_ips = get_local_ips();
 
     Ok(NetworkInfo {
@@ -57,10 +57,12 @@ pub fn start_as_hub(app_handle: AppHandle, state: State<'_, GlobalState>) -> Res
     let code_upper = code.to_uppercase();
 
     {
-        let mut g_mode = state.mode.lock().map_err(|_| "Failed to lock network mode".to_string())?;
-        *g_mode = "hub".to_string();
-        let mut g_code = state.pairing_code.lock().map_err(|_| "Failed to lock pairing code".to_string())?;
-        *g_code = Some(code_upper.clone());
+        if let Ok(mut g_mode) = state.mode.lock() {
+            *g_mode = "hub".to_string();
+        }
+        if let Ok(mut g_code) = state.pairing_code.lock() {
+            *g_code = Some(code_upper.clone());
+        }
     }
 
     // Persist settings
@@ -81,10 +83,12 @@ pub fn start_as_hub(app_handle: AppHandle, state: State<'_, GlobalState>) -> Res
 #[command]
 pub fn start_as_spoke(app_handle: AppHandle, state: State<'_, GlobalState>, code: String, manual_addr: Option<String>) -> Result<(), String> {
     {
-        let mut g_mode = state.mode.lock().map_err(|_| "Failed to lock network mode".to_string())?;
-        *g_mode = "spoke".to_string();
-        let mut g_code = state.pairing_code.lock().map_err(|_| "Failed to lock pairing code".to_string())?;
-        *g_code = Some(code.clone());
+        if let Ok(mut g_mode) = state.mode.lock() {
+            *g_mode = "spoke".to_string();
+        }
+        if let Ok(mut g_code) = state.pairing_code.lock() {
+            *g_code = Some(code.clone());
+        }
     }
 
     // Persist settings
@@ -106,8 +110,9 @@ pub fn start_as_spoke(app_handle: AppHandle, state: State<'_, GlobalState>, code
 
 #[command]
 pub fn get_connection_status(state: State<'_, GlobalState>) -> Result<String, String> {
-    let mode = state.mode.lock().map_err(|_| "Failed to lock network mode".to_string())?;
-    if *mode == "hub" {
+    let mode_guard = state.mode.lock().map_err(|e| e.to_string())?;
+    let mode = &*mode_guard;
+    if mode == "hub" {
         return Ok("Server Online".to_string());
     }
     if *mode == "spoke" {

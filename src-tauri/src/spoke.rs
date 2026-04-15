@@ -17,7 +17,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
     let hub_addr_clone = hub_address.clone();
 
     // Background mDNS discovery
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         info!("Starting spoke mDNS discovery...");
         let mdns = match ServiceDaemon::new() {
             Ok(m) => m,
@@ -41,9 +41,9 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                 if let Some(addr) = addr {
                     if let Ok(mut current_hub) = hub_addr_clone.lock() {
                         if current_hub.is_none() {
-                            let hub_url = format!("{}:{}", addr, info.get_port());
-                            info!("Discovered Hub at: {}", hub_url);
-                            *current_hub = Some(hub_url);
+                            let addr_str = format!("{}:{}", addr, info.get_port());
+                            info!("Discovered Hub at: {}", addr_str);
+                            *current_hub = Some(addr_str);
                         }
                     }
                 }
@@ -56,17 +56,19 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
     let pairing_token_sync = pairing_token.clone();
     let app_handle_sync = app_handle.clone();
     let pairing_code_clone = pairing_code.clone();
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         let client = Client::new();
 
         loop {
             let addr = {
-                hub_addr_sync.lock().ok().and_then(|lock| lock.clone())
+                let lock = hub_addr_sync.lock().ok();
+                lock.and_then(|l| l.clone())
             };
 
             if let Some(addr) = addr {
                 let current_token = {
-                    pairing_token_sync.lock().ok().and_then(|lock| lock.clone())
+                    let lock = pairing_token_sync.lock().ok();
+                    lock.and_then(|l| l.clone())
                 };
 
                 if current_token.is_none() {
@@ -89,7 +91,8 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                 }
 
                 let token_to_use = {
-                    pairing_token_sync.lock().ok().and_then(|lock| lock.clone())
+                    let lock = pairing_token_sync.lock().ok();
+                    lock.and_then(|l| l.clone())
                 };
 
                 if let Some(token) = token_to_use {
@@ -104,13 +107,12 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
     let hub_addr_ws = hub_address.clone();
     let pairing_token_ws = pairing_token.clone();
     let app_handle_ws = app_handle.clone();
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         loop {
             let (addr, token) = {
-                match (hub_addr_ws.lock(), pairing_token_ws.lock()) {
-                    (Ok(addr_lock), Ok(token_lock)) => (addr_lock.clone(), token_lock.clone()),
-                    _ => (None, None),
-                }
+                let addr_lock = hub_addr_ws.lock().ok();
+                let token_lock = pairing_token_ws.lock().ok();
+                (addr_lock.and_then(|l| l.clone()), token_lock.and_then(|l| l.clone()))
             };
 
             if let (Some(addr), Some(token)) = (addr, token) {
