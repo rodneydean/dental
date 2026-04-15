@@ -1,6 +1,9 @@
 use crate::db::get_db_conn;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, command};
+use tauri::{AppHandle, command, Manager};
+use std::fs;
+use std::io::Write;
+use base64::{Engine as _, engine::general_purpose};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Setting {
@@ -42,4 +45,41 @@ pub fn list_settings(app_handle: AppHandle) -> Result<Vec<Setting>, String> {
         settings.push(setting.map_err(|e| e.to_string())?);
     }
     Ok(settings)
+}
+
+#[command]
+pub fn save_logo(app_handle: AppHandle, base64_image: String) -> Result<String, String> {
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    if !app_dir.exists() {
+        fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
+    }
+
+    let logo_path = app_dir.join("clinic_logo.png");
+
+    // Remove data:image/png;base64, prefix if present
+    let base64_data = if base64_image.contains(',') {
+        base64_image.split(',').collect::<Vec<&str>>()[1]
+    } else {
+        &base64_image
+    };
+
+    let decoded = general_purpose::STANDARD.decode(base64_data).map_err(|e| e.to_string())?;
+    let mut file = fs::File::create(&logo_path).map_err(|e| e.to_string())?;
+    file.write_all(&decoded).map_err(|e| e.to_string())?;
+
+    Ok(logo_path.to_string_lossy().to_string())
+}
+
+#[command]
+pub fn get_logo(app_handle: AppHandle) -> Result<Option<String>, String> {
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let logo_path = app_dir.join("clinic_logo.png");
+
+    if !logo_path.exists() {
+        return Ok(None);
+    }
+
+    let data = fs::read(logo_path).map_err(|e| e.to_string())?;
+    let base64_data = general_purpose::STANDARD.encode(data);
+    Ok(Some(format!("data:image/png;base64,{}", base64_data)))
 }

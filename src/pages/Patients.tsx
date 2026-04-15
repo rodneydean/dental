@@ -31,10 +31,11 @@ import {
   FileText,
   Stethoscope,
   Send,
-  Printer,
+  Download,
 } from "lucide-react";
 import PatientForm from "@/components/PatientForm";
 import { dataManager, Patient, Appointment, Treatment, PatientNote, SickSheet } from "@/lib/dataManager";
+import { pdfGenerator } from "@/lib/pdfGenerator";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -217,46 +218,7 @@ const Patients = () => {
   };
 
   const exportSickSheet = (sheet: SickSheet) => {
-    // Basic implementation: Print the content
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Sick Sheet - ${sheet.patient_name}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; }
-            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .content { margin-top: 40px; line-height: 1.6; }
-            .footer { margin-top: 100px; display: flex; justify-content: space-between; }
-            .signature { border-top: 1px solid #333; width: 200px; text-align: center; padding-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>SICK SHEET / MEDICAL CERTIFICATE</h1>
-          </div>
-          <div class="content">
-            <p><strong>Date:</strong> ${new Date(sheet.created_at).toLocaleDateString()}</p>
-            <p>This is to certify that <strong>${sheet.patient_name}</strong> was examined and found to be unfit for work/duty.</p>
-            <p><strong>Period:</strong> From ${sheet.start_date} to ${sheet.end_date}</p>
-            <p><strong>Reason / Diagnosis:</strong> ${sheet.reason}</p>
-          </div>
-          <div class="footer">
-            <div>
-              <p>Issued by:</p>
-              <p><strong>Dr. ${sheet.doctor_name}</strong></p>
-            </div>
-            <div class="signature">
-              <p>Doctor's Signature</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+    pdfGenerator.generateSickSheet(sheet);
   };
 
   return (
@@ -427,8 +389,17 @@ const Patients = () => {
       {/* History Dialog */}
       <Dialog open={!!viewingHistory} onOpenChange={() => setViewingHistory(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>Clinical History: {viewingHistory?.name}</DialogTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mr-8 h-8 text-xs"
+              onClick={() => viewingHistory && pdfGenerator.generateMedicalHistory(viewingHistory, appointments.filter(a => a.patient_id === viewingHistory.id), treatments.filter(t => t.patient_id === viewingHistory.id), patientNotes)}
+            >
+              <Download className="h-3.5 w-3.5 mr-2" />
+              Download History
+            </Button>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -630,7 +601,7 @@ const Patients = () => {
                           className="h-7 w-7 text-primary"
                           onClick={() => exportSickSheet(sheet)}
                         >
-                          <Printer className="h-4 w-4" />
+                          <Download className="h-4 w-4" />
                         </Button>
                       </div>
                       <p className="text-[10px] font-bold text-gray-500 uppercase mt-2">Reason</p>

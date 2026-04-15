@@ -275,6 +275,14 @@ class DataManager {
     await invoke("set_setting", { key, value });
   }
 
+  public async saveLogo(base64Image: string): Promise<string> {
+    return await invoke<string>("save_logo", { base64Image });
+  }
+
+  public async getLogo(): Promise<string | null> {
+    return await invoke<string | null>("get_logo");
+  }
+
   // Lifecycle methods
   public async getWaiverRequests(): Promise<WaiverRequest[]> {
     return await invoke<WaiverRequest[]>("list_waiver_requests");

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { dataManager, Patient, Treatment, Payment } from "@/lib/dataManager";
+import { pdfGenerator } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -394,10 +395,10 @@ const Payments = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer">
-                          <FileText className="h-4 w-4 mr-2" /> View Invoice
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => pdfGenerator.generateInvoice(payment)}>
+                          <FileText className="h-4 w-4 mr-2" /> Download Invoice
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => pdfGenerator.generateReceipt(payment)}>
                           <Download className="h-4 w-4 mr-2" /> Download Receipt
                         </DropdownMenuItem>
                       </DropdownMenuContent>
