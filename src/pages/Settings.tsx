@@ -59,7 +59,7 @@ const Settings = () => {
     return () => {
       if (unlisten) unlisten();
     };
-  }, []);
+  }, [user?.role]);
 
   const loadServices = async () => {
     try {
