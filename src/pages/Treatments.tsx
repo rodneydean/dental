@@ -87,17 +87,17 @@ const Treatments = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Treatments & Diagnoses</h1>
-          <p className="text-gray-600 mt-1">Record and manage patient clinical records</p>
+          <h1 className="text-xl font-semibold text-gray-900">Treatments & Diagnoses</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Record and manage patient clinical records</p>
         </div>
         {user?.role === "DOCTOR" && (
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-linear-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg text-white">
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
                 <Plus className="h-4 w-4 mr-2" />
                 New Treatment
               </Button>
@@ -119,63 +119,59 @@ const Treatments = () => {
       </div>
 
       {/* Search & Filter */}
-      <Card className="border-0 shadow-lg">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search by patient name or diagnosis..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Filter className="h-4 w-4" />
-              <span>Filters</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
+          <Input
+            placeholder="Search by patient name or diagnosis..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-9 text-sm rounded-sm border-gray-200"
+          />
+        </div>
+        <Button variant="outline" size="sm" className="flex items-center space-x-2 border-gray-200 h-9 rounded-sm text-xs font-medium">
+          <Filter className="h-3.5 w-3.5" />
+          <span>Filters</span>
+        </Button>
+      </div>
 
       {/* Treatments List */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-3">
         {isLoading ? (
-            <div className="text-center py-12">Loading treatments...</div>
+            <div className="text-center py-12 text-sm text-gray-500">Loading treatments...</div>
         ) : filteredTreatments.length > 0 ? (
           filteredTreatments
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .map((treatment) => (
               <Card
                 key={treatment.id}
-                className="border-0 shadow-md hover:shadow-lg transition-all bg-white overflow-hidden group"
+                className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white overflow-hidden rounded-sm"
               >
                 <CardContent className="p-0">
                   <div className="flex flex-col lg:flex-row">
                     {/* Date Column */}
-                    <div className="lg:w-48 bg-gray-50 p-6 flex flex-col justify-center items-center border-r border-gray-100">
-                      <div className="text-blue-600 mb-1">
-                        <Calendar className="h-5 w-5 mx-auto mb-1" />
-                        <span className="font-bold">{treatment.date}</span>
+                    <div className="lg:w-40 bg-gray-50 p-4 flex flex-col justify-center items-center border-r border-gray-100">
+                      <div className="text-primary/70 mb-0.5">
+                        <Calendar className="h-3.5 w-3.5 mx-auto mb-1" />
+                        <span className="text-xs font-semibold">{treatment.date}</span>
                       </div>
-                      <Badge variant="outline" className="mt-2 bg-white">
+                      <Badge variant="outline" className="mt-1 bg-white text-[10px] h-5 px-1.5 rounded-sm border-gray-200">
                         {formatCurrency(treatment.cost)}
                       </Badge>
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 p-6">
+                    <div className="flex-1 p-4">
                       <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-4 mb-4">
-                          <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                            <User className="h-5 w-5" />
+                        <div className="flex items-center space-x-3 mb-3">
+                          <div className="p-2 bg-purple-50 rounded-sm text-purple-600">
+                            <User className="h-4 w-4" />
                           </div>
                           <div>
-                            <h3 className="text-xl font-bold text-gray-900">
+                            <h3 className="text-sm font-semibold text-gray-900">
                               {treatment.patient_name}
                             </h3>
-                            <p className="text-sm font-medium text-purple-600">
+                            <p className="text-[11px] font-medium text-purple-600 uppercase tracking-tight">
                               Diagnosis: {treatment.diagnosis}
                             </p>
                           </div>
@@ -183,8 +179,8 @@ const Treatments = () => {
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-5 w-5 text-gray-400" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4 text-gray-400" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -200,26 +196,26 @@ const Treatments = () => {
                         </DropdownMenu>
                       </div>
 
-                      <div className="space-y-4">
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <p className="text-sm font-bold text-gray-700 mb-1 flex items-center">
-                            <Stethoscope className="h-4 w-4 mr-2 text-blue-500" />
+                      <div className="space-y-3">
+                        <div className="bg-gray-50 rounded-sm p-3 border border-gray-100">
+                          <p className="text-[10px] font-bold text-gray-500 mb-1 flex items-center uppercase tracking-widest">
+                            <Stethoscope className="h-3 w-3 mr-2 text-primary" />
                             Treatment Performed
                           </p>
-                          <p className="text-sm text-gray-600 leading-relaxed">
+                          <p className="text-xs text-gray-600 leading-relaxed">
                             {treatment.treatment}
                           </p>
                         </div>
 
                         {treatment.medications.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {treatment.medications.map((med, idx) => (
                               <Badge
                                 key={idx}
-                                variant="secondary"
-                                className="bg-blue-50 text-blue-700 border-blue-100 py-1"
+                                variant="outline"
+                                className="bg-blue-50/50 text-primary border-blue-100 py-0 h-5 text-[10px] font-medium rounded-sm"
                               >
-                                <Pill className="h-3 w-3 mr-1" />
+                                <Pill className="h-2.5 w-2.5 mr-1" />
                                 {med.name} ({med.dosage})
                               </Badge>
                             ))}

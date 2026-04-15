@@ -139,12 +139,12 @@ const AppointmentForm = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="patient">Patient *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="patient" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Patient *</Label>
           <Select value={formData.patient_id} onValueChange={handlePatientChange}>
-            <SelectTrigger>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
               <SelectValue placeholder="Select a patient" />
             </SelectTrigger>
             <SelectContent>
@@ -157,10 +157,10 @@ const AppointmentForm = ({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="doctor">Doctor *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="doctor" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Doctor *</Label>
           <Select value={formData.doctor_id} onValueChange={handleDoctorChange}>
-            <SelectTrigger>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
               <SelectValue placeholder="Select a doctor" />
             </SelectTrigger>
             <SelectContent>
@@ -175,25 +175,26 @@ const AppointmentForm = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="date">Date *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="date" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Date *</Label>
           <Input
             id="date"
             type="date"
             value={formData.date}
             onChange={(e) => handleChange("date", e.target.value)}
             min={new Date().toISOString().split("T")[0]}
+            className="h-9 text-sm rounded-sm border-gray-200"
             required
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="time">Time *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="time" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Time *</Label>
           <Select
             value={formData.time}
             onValueChange={(value) => handleChange("time", value)}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
               <SelectValue placeholder="Select time" />
             </SelectTrigger>
             <SelectContent>
@@ -208,13 +209,13 @@ const AppointmentForm = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="appointment_type">Appointment Type *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="appointment_type" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Type *</Label>
           <Select
             value={formData.appointment_type}
             onValueChange={(value) => handleChange("appointment_type", value)}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
@@ -227,13 +228,13 @@ const AppointmentForm = ({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="duration">Duration (minutes)</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="duration" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Duration</Label>
           <Select
             value={formData.duration.toString()}
             onValueChange={(value) => handleChange("duration", parseInt(value))}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -249,15 +250,15 @@ const AppointmentForm = ({
       </div>
 
       {appointment && (
-        <div className="space-y-2">
-          <Label htmlFor="status">Status</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Status</Label>
           <Select
             value={formData.status}
             onValueChange={(value) =>
               handleChange("status", value)
             }
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -271,26 +272,27 @@ const AppointmentForm = ({
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="notes">Notes</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="notes" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Notes</Label>
         <Textarea
           id="notes"
           value={formData.notes}
           onChange={(e) => handleChange("notes", e.target.value)}
           placeholder="Additional notes or special instructions..."
-          rows={3}
+          rows={2}
+          className="text-sm rounded-sm border-gray-200"
         />
       </div>
 
-      <div className="flex space-x-3 pt-4">
-        <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+      <div className="flex space-x-3 pt-2">
+        <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-sm h-9 text-sm font-semibold">
           {appointment ? "Update Appointment" : "Schedule Appointment"}
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={onCancel}
-          className="flex-1"
+          className="flex-1 rounded-sm h-9 text-sm font-semibold border-gray-200"
         >
           Cancel
         </Button>

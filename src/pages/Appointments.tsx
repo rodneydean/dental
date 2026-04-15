@@ -10,8 +10,6 @@ import {
   Edit,
   Trash2,
   Filter,
-  CheckCircle2,
-  XCircle,
   CalendarDays,
   User,
   Search,
@@ -128,43 +126,19 @@ const Appointments = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "scheduled":
-        return (
-          <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-            <Clock className="h-3 w-3 mr-1" /> Scheduled
-          </Badge>
-        );
-      case "completed":
-        return (
-          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-            <CheckCircle2 className="h-3 w-3 mr-1" /> Completed
-          </Badge>
-        );
-      case "cancelled":
-        return (
-          <Badge className="bg-red-100 text-red-700 border-red-200">
-            <XCircle className="h-3 w-3 mr-1" /> Cancelled
-          </Badge>
-        );
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Appointments</h1>
-          <p className="text-gray-600 mt-1">Manage patient schedule and visits</p>
+          <h1 className="text-xl font-semibold text-gray-900">Appointments</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage patient schedule and visits</p>
         </div>
         {user?.role === "RECEPTION" && (
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg text-white">
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
                 <Plus className="h-4 w-4 mr-2" />
                 New Appointment
               </Button>
@@ -186,96 +160,97 @@ const Appointments = () => {
       </div>
 
       {/* Filters */}
-      <Card className="border-0 shadow-lg">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search by patient or type..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <div className="flex bg-gray-100 p-1 rounded-lg">
-                {["all", "scheduled", "completed", "cancelled"].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setFilterStatus(status)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      filterStatus === status
-                        ? "bg-white text-blue-600 shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    <span className="capitalize">{status}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
+          <Input
+            placeholder="Search by patient or type..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-9 text-sm rounded-sm border-gray-200"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <Filter className="h-3.5 w-3.5 text-gray-400" />
+          <div className="flex bg-gray-100 p-1 rounded-sm border border-gray-200">
+            {["all", "scheduled", "completed", "cancelled"].map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={`px-3 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-sm transition-all ${
+                  filterStatus === status
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Appointments List */}
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-3">
         {isLoading ? (
-           <div className="text-center py-12">Loading appointments...</div>
+           <div className="text-center py-12 text-sm text-gray-500">Loading appointments...</div>
         ) : filteredAppointments.length > 0 ? (
           filteredAppointments
             .sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime())
             .map((apt) => (
               <Card
                 key={apt.id}
-                className="border-0 shadow-md hover:shadow-lg transition-shadow bg-white overflow-hidden group"
+                className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white overflow-hidden rounded-sm"
               >
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row">
-                    <div className="md:w-48 bg-gray-50 p-4 flex flex-col justify-center items-center border-r border-gray-100">
-                      <div className="flex items-center text-blue-600 mb-1">
-                        <CalendarIcon className="h-4 w-4 mr-2" />
-                        <span className="font-bold">{apt.date}</span>
+                    <div className="md:w-40 bg-gray-50 p-4 flex flex-col justify-center items-center border-r border-gray-100">
+                      <div className="flex items-center text-primary/70 mb-0.5">
+                        <CalendarIcon className="h-3.5 w-3.5 mr-2" />
+                        <span className="text-xs font-semibold">{apt.date}</span>
                       </div>
                       <div className="flex items-center text-gray-900">
-                        <Clock className="h-4 w-4 mr-2" />
-                        <span className="text-lg font-bold">{apt.time}</span>
+                        <Clock className="h-3.5 w-3.5 mr-2 text-gray-400" />
+                        <span className="text-base font-bold">{apt.time}</span>
                       </div>
-                      <span className="text-xs text-gray-500 mt-1">
-                        {apt.duration} minutes
+                      <span className="text-[10px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">
+                        {apt.duration} MIN
                       </span>
                     </div>
 
-                    <div className="flex-1 p-6 flex items-center justify-between">
+                    <div className="flex-1 p-4 flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-blue-50 rounded-full text-blue-600">
-                          <User className="h-6 w-6" />
+                        <div className="p-2 bg-blue-50 rounded-sm text-primary">
+                          <User className="h-5 w-5" />
                         </div>
                         <div>
-                          <h3 className="text-xl font-bold text-gray-900">
+                          <h3 className="text-sm font-semibold text-gray-900">
                             {apt.patient_name}
                           </h3>
-                          <p className="text-gray-600 flex items-center mt-1">
-                            <span className="w-2 h-2 bg-blue-400 rounded-full mr-2" />
+                          <p className="text-xs text-gray-500 flex items-center mt-0.5">
                             {apt.appointment_type}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-6">
+                      <div className="flex items-center space-x-4">
                         <div className="hidden lg:block text-right">
-                          <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">
+                          <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest mb-1">
                             Status
                           </p>
-                          {getStatusBadge(apt.status)}
+                          <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0 h-5 rounded-sm ${
+                            apt.status === 'scheduled' ? 'border-blue-200 bg-blue-50 text-blue-700' :
+                            apt.status === 'completed' ? 'border-green-200 bg-green-50 text-green-700' :
+                            'border-red-200 bg-red-50 text-red-700'
+                          }`}>
+                            {apt.status.toUpperCase()}
+                          </Badge>
                         </div>
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-5 w-5 text-gray-400" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4 text-gray-400" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">

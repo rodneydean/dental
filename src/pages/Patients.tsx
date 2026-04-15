@@ -137,19 +137,19 @@ const Patients = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-xl font-semibold text-gray-900">
             {user?.role === "DOCTOR" ? "Patient Records" : "Patient Management"}
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-xs text-gray-500 mt-0.5">
             {user?.role === "DOCTOR" ? "View and manage clinical patient data" : "Manage patient registrations and contacts"}
           </p>
         </div>
         {user?.role === "RECEPTION" && (
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg text-white">
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Add New Patient
               </Button>
@@ -168,42 +168,38 @@ const Patients = () => {
       </div>
 
       {/* Search */}
-      <Card className="border-0 shadow-lg">
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search patients by name, email, or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
+          <Input
+            placeholder="Search patients by name, email, or phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-9 text-sm rounded-sm border-gray-200"
+          />
+        </div>
+      </div>
 
       {/* Patients Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredPatients.map((patient) => (
           <Card
             key={patient.id}
-            className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white"
+            className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white rounded-sm"
           >
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 px-4 pt-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-white font-semibold">
+                  <Avatar className="h-10 w-10 rounded-sm">
+                    <AvatarFallback className="bg-blue-50 text-primary font-semibold text-sm rounded-sm">
                       {getPatientInitials(patient.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-lg text-gray-900">
+                    <CardTitle className="text-sm font-semibold text-gray-900">
                       {patient.name}
                     </CardTitle>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-xs text-gray-500">
                       Age: {calculateAge(patient.date_of_birth)}
                     </p>
                   </div>
@@ -229,46 +225,47 @@ const Patients = () => {
                 </DropdownMenu>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center text-sm text-gray-600">
-                  <Phone className="h-4 w-4 mr-2 text-blue-500" />
+            <CardContent className="space-y-3 px-4 pb-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center text-xs text-gray-600">
+                  <Phone className="h-3.5 w-3.5 mr-2 text-primary/70" />
                   {patient.phone || "No phone"}
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <Mail className="h-4 w-4 mr-2 text-green-500" />
+                <div className="flex items-center text-xs text-gray-600">
+                  <Mail className="h-3.5 w-3.5 mr-2 text-primary/70" />
                   {patient.email || "No email"}
                 </div>
               </div>
 
               {patient.allergies && (
-                <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-                  <div className="flex items-center text-red-700 mb-1">
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    <span className="font-medium text-sm">Allergies</span>
+                <div className="bg-red-50 p-2 rounded-sm border border-red-100">
+                  <div className="flex items-center text-red-700 mb-0.5">
+                    <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+                    <span className="font-semibold text-[10px] uppercase tracking-wider">Allergies</span>
                   </div>
-                  <p className="text-sm text-red-600">{patient.allergies}</p>
+                  <p className="text-xs text-red-600">{patient.allergies}</p>
                 </div>
               )}
 
               {user?.role === "DOCTOR" && patient.medical_history && (
-                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                  <p className="text-sm text-blue-700 font-medium mb-1">
+                <div className="bg-blue-50 p-2 rounded-sm border border-blue-100">
+                  <p className="text-[10px] text-primary font-semibold uppercase tracking-wider mb-0.5">
                     Medical History
                   </p>
-                  <p className="text-sm text-blue-600 line-clamp-2">
+                  <p className="text-xs text-primary/80 line-clamp-2">
                     {patient.medical_history}
                   </p>
                 </div>
               )}
 
-              <div className="pt-2">
+              <div className="pt-1">
                 <Button 
                   variant="outline" 
-                  className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
+                  size="sm"
+                  className="w-full text-primary border-gray-200 hover:bg-gray-50 h-8 text-xs font-medium rounded-sm"
                   onClick={() => setViewingHistory(patient)}
                 >
-                  <FileText className="h-4 w-4 mr-2" />
+                  <FileText className="h-3.5 w-3.5 mr-2" />
                   View Records
                 </Button>
               </div>

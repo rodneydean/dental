@@ -174,16 +174,16 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {/* Patient and Appointment Selection */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="patient">Patient *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="patient" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Patient *</Label>
           <Select
             value={formData.patient_id}
             onValueChange={handlePatientChange}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
               <SelectValue placeholder="Select a patient" />
             </SelectTrigger>
             <SelectContent>
@@ -196,14 +196,14 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="appointment">Related Appointment</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="appointment" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Related Appointment</Label>
           <Select
             value={formData.appointment_id}
             onValueChange={handleAppointmentChange}
             disabled={!formData.patient_id}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
               <SelectValue placeholder="Select appointment (optional)" />
             </SelectTrigger>
             <SelectContent>
@@ -219,8 +219,8 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
 
       {/* Treatment Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="date">Treatment Date *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="date" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Treatment Date *</Label>
           <Input
             id="date"
             type="date"
@@ -228,13 +228,14 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, date: e.target.value }))
             }
+            className="h-9 text-sm rounded-sm border-gray-200"
             required
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="cost" className="flex items-center">
-            <DollarSign className="h-4 w-4 mr-1 text-green-600" />
+        <div className="space-y-1.5">
+          <Label htmlFor="cost" className="flex items-center text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <DollarSign className="h-3 w-3 mr-1 text-green-600" />
             Service Fee / Cost ($)
           </Label>
           <Input
@@ -250,13 +251,14 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
               }))
             }
             placeholder="0.00"
+            className="h-9 text-sm rounded-sm border-gray-200"
           />
-          <p className="text-[10px] text-gray-500 italic">This will be added to the patient's bill for checkout.</p>
+          <p className="text-[9px] text-gray-400 italic">Added to patient's bill for checkout.</p>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="diagnosis">Diagnosis *</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="diagnosis" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Diagnosis *</Label>
         <Textarea
           id="diagnosis"
           value={formData.diagnosis}
@@ -265,12 +267,13 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
           }
           placeholder="Enter patient diagnosis..."
           rows={2}
+          className="text-sm rounded-sm border-gray-200"
           required
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="treatment">Treatment Performed *</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="treatment" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Treatment Performed *</Label>
         <Textarea
           id="treatment"
           value={formData.treatment}
@@ -278,15 +281,16 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
             setFormData((prev) => ({ ...prev, treatment: e.target.value }))
           }
           placeholder="Describe the treatment performed..."
-          rows={3}
+          rows={2}
+          className="text-sm rounded-sm border-gray-200"
           required
         />
       </div>
 
       {/* Medications Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Label className="text-lg font-semibold">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+          <Label className="text-xs font-bold uppercase tracking-widest text-gray-900">
             Prescribed Medications
           </Label>
           <Button
@@ -294,47 +298,45 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
             onClick={addMedication}
             variant="outline"
             size="sm"
+            className="h-7 text-[10px] font-bold uppercase tracking-wider rounded-sm border-gray-200"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-3 w-3 mr-1.5" />
             Add Medication
           </Button>
         </div>
 
         {formData.medications.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-            <Pill className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-            <p>No medications prescribed</p>
-            <p className="text-sm">
-              Click "Add Medication" to prescribe medications
-            </p>
+          <div className="text-center py-6 text-gray-400 bg-gray-50 border border-gray-100 rounded-sm">
+            <Pill className="h-8 w-8 mx-auto mb-2 opacity-20" />
+            <p className="text-[10px] font-medium uppercase tracking-tight">No medications prescribed</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {formData.medications.map((medication, index) => (
-              <Card key={index} className="p-4 bg-blue-50 border-blue-200">
-                <div className="flex items-center justify-between mb-3">
-                  <Badge variant="secondary">Medication {index + 1}</Badge>
+              <Card key={index} className="p-3 bg-blue-50/30 border-blue-100 rounded-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="outline" className="text-[9px] font-bold uppercase border-blue-200 bg-blue-50 text-primary h-5 px-2">Medication {index + 1}</Badge>
                   <Button
                     type="button"
                     onClick={() => removeMedication(index)}
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="text-red-600 hover:text-red-700"
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-sm"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Medication Name *</Label>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-tight">Medication Name *</Label>
                     <Select
                       value={medication.name}
                       onValueChange={(value) =>
                         updateMedication(index, "name", value)
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs rounded-sm border-gray-200 bg-white">
                         <SelectValue placeholder="Select medication" />
                       </SelectTrigger>
                       <SelectContent>
@@ -347,26 +349,27 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Dosage *</Label>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-tight">Dosage *</Label>
                     <Input
                       value={medication.dosage}
                       onChange={(e) =>
                         updateMedication(index, "dosage", e.target.value)
                       }
-                      placeholder="e.g., 500mg, 2 tablets"
+                      placeholder="e.g., 500mg"
+                      className="h-8 text-xs rounded-sm border-gray-200 bg-white"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Frequency *</Label>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-tight">Frequency *</Label>
                     <Select
                       value={medication.frequency}
                       onValueChange={(value) =>
                         updateMedication(index, "frequency", value)
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs rounded-sm border-gray-200 bg-white">
                         <SelectValue placeholder="Select frequency" />
                       </SelectTrigger>
                       <SelectContent>
@@ -379,27 +382,29 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Duration</Label>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-tight">Duration</Label>
                     <Input
                       value={medication.duration}
                       onChange={(e) =>
                         updateMedication(index, "duration", e.target.value)
                       }
-                      placeholder="e.g., 7 days, 2 weeks"
+                      placeholder="e.g., 7 days"
+                      className="h-8 text-xs rounded-sm border-gray-200 bg-white"
                     />
                   </div>
                 </div>
 
-                <div className="mt-3 space-y-2">
-                  <Label>Special Instructions</Label>
+                <div className="mt-2 space-y-1">
+                  <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-tight">Instructions</Label>
                   <Textarea
                     value={medication.instructions}
                     onChange={(e) =>
                       updateMedication(index, "instructions", e.target.value)
                     }
-                    placeholder="Take with food, avoid alcohol, etc..."
-                    rows={2}
+                    placeholder="Special instructions..."
+                    rows={1}
+                    className="text-xs rounded-sm border-gray-200 bg-white min-h-[40px]"
                   />
                 </div>
               </Card>
@@ -408,12 +413,12 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
         )}
       </div>
 
-      <Separator />
+      <Separator className="bg-gray-100" />
 
       {/* Additional Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="follow_up_date">Follow-up Date</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="follow_up_date" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Follow-up Date</Label>
           <Input
             id="follow_up_date"
             type="date"
@@ -425,12 +430,13 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
               }))
             }
             min={new Date().toISOString().split("T")[0]}
+            className="h-9 text-sm rounded-sm border-gray-200"
           />
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="notes">Additional Notes</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="notes" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Additional Notes</Label>
         <Textarea
           id="notes"
           value={formData.notes}
@@ -438,19 +444,20 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
             setFormData((prev) => ({ ...prev, notes: e.target.value }))
           }
           placeholder="Post-treatment care instructions, observations, etc..."
-          rows={3}
+          rows={2}
+          className="text-sm rounded-sm border-gray-200"
         />
       </div>
 
-      <div className="flex space-x-3 pt-4">
-        <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+      <div className="flex space-x-3 pt-2">
+        <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-sm h-9 text-sm font-semibold">
           {treatment ? "Update Treatment" : "Save Treatment"}
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={onCancel}
-          className="flex-1"
+          className="flex-1 rounded-sm h-9 text-sm font-semibold border-gray-200"
         >
           Cancel
         </Button>

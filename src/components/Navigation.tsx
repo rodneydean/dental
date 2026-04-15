@@ -100,78 +100,74 @@ const Navigation = () => {
   };
 
   return (
-    <nav className="bg-white shadow-lg border-b border-gray-100 sticky top-0 z-50">
+    <nav className="bg-[#0078d4] text-white shadow-sm border-b border-[#005a9e] sticky top-0 z-50">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-12">
           {/* Logo and Brand */}
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-linear-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg">
-              <Activity className="h-6 w-6 text-white" />
+            <div className="p-1.5 bg-white/10 rounded-sm">
+              <Activity className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-linear-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent">
+              <h1 className="text-lg font-semibold text-white tracking-tight">
                 DentalCare
               </h1>
-              <p className="text-xs text-gray-500 -mt-1">{user?.role} Workspace</p>
             </div>
           </div>
 
           {/* Navigation Items */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center space-x-1 h-full">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
 
               return (
-                <Link key={item.path} to={item.path}>
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    className={`flex items-center space-x-2 relative ${
+                <Link key={item.path} to={item.path} className="h-full flex items-center">
+                  <button
+                    className={`flex items-center space-x-2 px-3 h-full text-xs font-medium transition-colors outline-hidden ${
                       isActive
-                        ? "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
-                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                        ? "bg-[#005a9e] border-b-2 border-white"
+                        : "hover:bg-white/10"
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
-                    <span className="font-medium">{item.label}</span>
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{item.label}</span>
                     {item.badge && (
-                      <Badge
-                        variant="destructive"
-                        className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                      <span
+                        className="ml-1.5 bg-red-600 text-white text-[10px] px-1.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-bold"
                       >
                         {item.badge}
-                      </Badge>
+                      </span>
                     )}
-                  </Button>
+                  </button>
                 </Link>
               );
             })}
           </div>
 
           {/* Right Side Actions */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             {/* Connection Status */}
-            <div className="hidden lg:flex items-center px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
+            <div className="hidden lg:flex items-center px-2 py-0.5 bg-white/10 rounded-sm">
               {connStatus === "Connected" ? (
-                <Cloud className="h-3 w-3 text-green-500 mr-2" />
+                <Cloud className="h-3 w-3 text-green-300 mr-2" />
               ) : (
-                <CloudOff className="h-3 w-3 text-red-500 mr-2" />
+                <CloudOff className="h-3 w-3 text-red-300 mr-2" />
               )}
-              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+              <span className="text-[10px] font-semibold uppercase tracking-wider">
                 {connStatus}
               </span>
             </div>
 
             {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative">
+            <Button variant="ghost" size="sm" className="relative h-8 w-8 p-0 text-white hover:bg-white/10 rounded-sm">
               <Bell className="h-4 w-4" />
               {notifications > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                <span
+                  className="absolute top-1 right-1 bg-red-600 text-white text-[9px] px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center font-bold"
                 >
                   {notifications}
-                </Badge>
+                </span>
               )}
             </Button>
 
@@ -180,10 +176,10 @@ const Navigation = () => {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="relative h-10 w-10 rounded-full"
+                  className="relative h-8 w-8 p-0 hover:bg-white/10 rounded-sm"
                 >
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-white font-semibold">
+                  <Avatar className="h-7 w-7 rounded-sm">
+                    <AvatarFallback className="bg-white/20 text-white font-semibold text-xs rounded-sm">
                       {user ? getInitials(user.full_name) : "?"}
                     </AvatarFallback>
                   </Avatar>

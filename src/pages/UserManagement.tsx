@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { UserPlus, Trash2, Users } from "lucide-react";
 
@@ -108,14 +109,15 @@ const UserManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-1">Manage staff accounts and permissions</p>
+          <h1 className="text-xl font-semibold text-gray-900">User Management</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage staff accounts and permissions</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
               <UserPlus className="h-4 w-4 mr-2" />
               Add New Staff
             </Button>
@@ -177,57 +179,57 @@ const UserManagement = () => {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl">
-            <Users className="h-5 w-5 mr-2 text-blue-600" />
+      <Card className="border border-gray-200 shadow-sm rounded-sm overflow-hidden">
+        <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
+          <CardTitle className="flex items-center text-xs font-semibold uppercase tracking-wider text-gray-900">
+            <Users className="h-4 w-4 mr-2 text-primary" />
             Active Staff Accounts
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Full Name</TableHead>
-                <TableHead>Username</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Created At</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+            <TableHeader className="bg-gray-50/50">
+              <TableRow className="border-b border-gray-200 hover:bg-transparent">
+                <TableHead className="h-9 text-[10px] font-bold uppercase tracking-widest text-gray-500 px-4">Full Name</TableHead>
+                <TableHead className="h-9 text-[10px] font-bold uppercase tracking-widest text-gray-500 px-4">Username</TableHead>
+                <TableHead className="h-9 text-[10px] font-bold uppercase tracking-widest text-gray-500 px-4">Role</TableHead>
+                <TableHead className="h-9 text-[10px] font-bold uppercase tracking-widest text-gray-500 px-4">Created At</TableHead>
+                <TableHead className="h-9 text-[10px] font-bold uppercase tracking-widest text-gray-500 px-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">Loading users...</TableCell>
+                  <TableCell colSpan={5} className="text-center py-12 text-xs text-gray-500">Loading users...</TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">No users found</TableCell>
+                  <TableCell colSpan={5} className="text-center py-12 text-xs text-gray-400">No users found</TableCell>
                 </TableRow>
               ) : (
                 users.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.full_name}</TableCell>
-                    <TableCell>{u.username}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        u.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                        u.role === 'DOCTOR' ? 'bg-blue-100 text-blue-700' :
-                        'bg-green-100 text-green-700'
+                  <TableRow key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+                    <TableCell className="px-4 py-3 text-sm font-medium text-gray-900">{u.full_name}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-gray-600">{u.username}</TableCell>
+                    <TableCell className="px-4 py-3">
+                      <Badge variant="outline" className={`text-[10px] font-bold px-2 py-0 h-5 rounded-sm uppercase tracking-tight ${
+                        u.role === 'ADMIN' ? 'border-purple-200 bg-purple-50 text-purple-700' :
+                        u.role === 'DOCTOR' ? 'border-blue-200 bg-blue-50 text-primary' :
+                        'border-green-200 bg-green-50 text-green-700'
                       }`}>
                         {u.role}
-                      </span>
+                      </Badge>
                     </TableCell>
-                    <TableCell>{new Date(u.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="px-4 py-3 text-xs text-gray-500">{new Date(u.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDeleteUser(u.id)}
                         disabled={u.id === currentUser?.id}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>

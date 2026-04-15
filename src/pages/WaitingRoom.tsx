@@ -171,59 +171,61 @@ const WaitingRoom = () => {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Waiting Room</h1>
-          <p className="text-gray-600">Manage patient arrivals and consultations</p>
+          <h1 className="text-xl font-semibold text-gray-900">Waiting Room</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage patient arrivals and consultations</p>
         </div>
       </div>
 
       <Tabs defaultValue="arrivals" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
-          <TabsTrigger value="arrivals">Arrivals</TabsTrigger>
-          <TabsTrigger value="queue">Queue</TabsTrigger>
-          {user?.role !== 'RECEPTION' && <TabsTrigger value="waivers">Waivers</TabsTrigger>}
+        <TabsList className="grid w-full grid-cols-3 lg:w-[360px] h-9 p-1 bg-gray-100 border border-gray-200 rounded-sm">
+          <TabsTrigger value="arrivals" className="text-xs font-semibold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Arrivals</TabsTrigger>
+          <TabsTrigger value="queue" className="text-xs font-semibold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Queue</TabsTrigger>
+          {user?.role !== 'RECEPTION' && <TabsTrigger value="waivers" className="text-xs font-semibold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Waivers</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="arrivals" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {appointments.filter(a => a.status === 'scheduled').map(appt => (
-              <Card key={appt.id} className="shadow-md">
-                <CardHeader className="pb-2">
+              <Card key={appt.id} className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+                <CardHeader className="pb-3 pt-4 px-4">
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{appt.patient_name}</CardTitle>
-                    <Badge variant="outline">{appt.time}</Badge>
+                    <CardTitle className="text-sm font-semibold text-gray-900">{appt.patient_name}</CardTitle>
+                    <Badge variant="outline" className="text-[10px] font-bold h-5 rounded-sm border-gray-200">{appt.time}</Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-sm text-gray-500">
-                    <p>Doctor: {appt.doctor_name || "Not assigned"}</p>
-                    <p>Type: {appt.appointment_type}</p>
+                <CardContent className="space-y-4 px-4 pb-4">
+                  <div className="text-[11px] font-medium text-gray-500 uppercase tracking-tight">
+                    <p>Doctor: <span className="text-gray-900">{appt.doctor_name || "Not assigned"}</span></p>
+                    <p className="mt-0.5">Type: <span className="text-gray-900">{appt.appointment_type}</span></p>
                   </div>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 pt-2">
                     {!appt.reception_fee_paid && !appt.reception_fee_waived ? (
                       <div className="flex gap-2">
-                        <Button size="sm" className="flex-1" onClick={() => handlePayFee(appt)}>
-                          <CreditCard className="h-4 w-4 mr-1" /> Pay ${receptionFee}
+                        <Button size="sm" className="flex-1 h-8 text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-sm" onClick={() => handlePayFee(appt)}>
+                          <CreditCard className="h-3.5 w-3.5 mr-1.5 text-green-600" /> Pay ${receptionFee}
                         </Button>
-                        <Button size="sm" variant="outline" className="flex-1" onClick={() => handleRequestWaiver(appt)}>
-                          Request Waiver
+                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs font-medium border-gray-200 text-gray-700 hover:bg-gray-50 rounded-sm" onClick={() => handleRequestWaiver(appt)}>
+                          Waiver
                         </Button>
                       </div>
                     ) : (
-                      <Badge className="w-fit bg-green-100 text-green-700 hover:bg-green-100">
+                      <Badge variant="outline" className="w-fit text-[10px] font-bold px-2 py-0 h-5 rounded-sm border-green-200 bg-green-50 text-green-700 uppercase">
                         {appt.reception_fee_paid ? "Fee Paid" : "Fee Waived"}
                       </Badge>
                     )}
 
                     <Button
-                      className="w-full bg-indigo-600 hover:bg-indigo-700"
+                      size="sm"
+                      className="w-full bg-primary hover:bg-primary/90 text-white h-8 text-xs font-medium rounded-sm"
                       onClick={() => handleAdmit(appt)}
                       disabled={requirePaymentBeforeAdmit && !appt.reception_fee_paid && !appt.reception_fee_waived}
                     >
-                      <UserCheck className="h-4 w-4 mr-2" /> Admit
+                      <UserCheck className="h-3.5 w-3.5 mr-2" /> Admit
                     </Button>
                   </div>
                 </CardContent>
@@ -233,31 +235,31 @@ const WaitingRoom = () => {
         </TabsContent>
 
         <TabsContent value="queue" className="mt-6">
-          <div className="space-y-4">
+          <div className="space-y-3">
             {appointments.filter(a => a.status === 'admitted' || a.status === 'in_consultation').map(appt => (
-              <Card key={appt.id} className={`border-l-4 ${appt.status === 'in_consultation' ? 'border-l-green-500' : 'border-l-blue-500'}`}>
-                <CardContent className="flex items-center justify-between p-6">
+              <Card key={appt.id} className={`border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden border-l-4 ${appt.status === 'in_consultation' ? 'border-l-green-500' : 'border-l-primary'}`}>
+                <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-full ${appt.status === 'in_consultation' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                      {appt.status === 'in_consultation' ? <Stethoscope /> : <Clock />}
+                    <div className={`p-2 rounded-sm ${appt.status === 'in_consultation' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-primary'}`}>
+                      {appt.status === 'in_consultation' ? <Stethoscope className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg">{appt.patient_name}</h3>
-                      <p className="text-sm text-gray-500">
-                        Doctor: {appt.doctor_name} | Status: <span className="capitalize">{appt.status.replace('_', ' ')}</span>
+                      <h3 className="font-semibold text-sm text-gray-900">{appt.patient_name}</h3>
+                      <p className="text-[11px] font-medium text-gray-500 uppercase tracking-tight">
+                        Doctor: <span className="text-gray-900">{appt.doctor_name}</span> | Status: <span className={`font-bold ${appt.status === 'in_consultation' ? 'text-green-600' : 'text-primary'}`}>{appt.status.replace('_', ' ').toUpperCase()}</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     {user?.role === 'DOCTOR' && appt.status === 'admitted' && (
-                      <Button onClick={() => handleCallPatient(appt)}>Call Patient</Button>
+                      <Button size="sm" className="h-8 text-xs font-medium bg-primary text-white rounded-sm" onClick={() => handleCallPatient(appt)}>Call Patient</Button>
                     )}
                     {user?.role === 'RECEPTION' && appt.status === 'in_consultation' && (
-                      <Button variant="outline" onClick={() => handleCheckout(appt)}>Checkout</Button>
+                      <Button variant="outline" size="sm" className="h-8 text-xs font-medium border-gray-200 rounded-sm" onClick={() => handleCheckout(appt)}>Checkout</Button>
                     )}
                     {appt.status === 'in_consultation' && (
-                       <Badge variant="secondary" className="h-fit">In Consultation</Badge>
+                       <Badge variant="outline" className="h-6 text-[10px] font-bold border-green-200 bg-green-50 text-green-700 uppercase px-2 rounded-sm">In Consultation</Badge>
                     )}
                   </div>
                 </CardContent>

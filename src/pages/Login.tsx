@@ -28,38 +28,40 @@ const Login = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Dentist Management</CardTitle>
-          <CardDescription className="text-center">Enter your credentials to login</CardDescription>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <Card className="w-full max-w-sm border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+        <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-6">
+          <CardTitle className="text-xl font-semibold text-center text-gray-900 tracking-tight">DentalCare Login</CardTitle>
+          <CardDescription className="text-center text-xs font-medium uppercase tracking-widest text-gray-500 mt-1">Management System</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="username" className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Username</Label>
               <Input
                 id="username"
                 type="text"
                 placeholder="Enter username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                className="h-10 text-sm rounded-sm border-gray-200"
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" title="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Password</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter password"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="h-10 text-sm rounded-sm border-gray-200"
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Login"}
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white rounded-sm h-10 font-semibold mt-2" disabled={isLoading}>
+              {isLoading ? "Authenticating..." : "Sign In"}
             </Button>
           </form>
         </CardContent>

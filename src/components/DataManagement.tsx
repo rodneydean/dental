@@ -165,86 +165,86 @@ const DataManagement = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Data Management</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-xl font-semibold text-gray-900">Data Management</h1>
+          <p className="text-xs text-gray-500 mt-0.5">
             Backup, export, and manage your practice data
           </p>
         </div>
       </div>
 
       {/* Storage Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-0 shadow-lg bg-linear-to-br from-blue-50 to-blue-100">
-          <CardContent className="pt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white">
+          <CardContent className="pt-4 pb-4 px-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-600 text-sm font-medium">
-                  Total Patients
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
+                  Patients
                 </p>
-                <p className="text-3xl font-bold text-blue-900">
+                <p className="text-xl font-bold text-gray-900 mt-1">
                   {stats.totalPatients}
                 </p>
               </div>
-              <div className="p-3 bg-blue-200 rounded-full">
-                <Database className="h-6 w-6 text-blue-700" />
+              <div className="p-2 bg-blue-50 rounded-sm">
+                <Database className="h-5 w-5 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-linear-to-br from-green-50 to-green-100">
-          <CardContent className="pt-6">
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white">
+          <CardContent className="pt-4 pb-4 px-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-600 text-sm font-medium">
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
                   Appointments
                 </p>
-                <p className="text-3xl font-bold text-green-900">
+                <p className="text-xl font-bold text-gray-900 mt-1">
                   {stats.totalAppointments}
                 </p>
               </div>
-              <div className="p-3 bg-green-200 rounded-full">
-                <BarChart3 className="h-6 w-6 text-green-700" />
+              <div className="p-2 bg-green-50 rounded-sm">
+                <BarChart3 className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-linear-to-br from-purple-50 to-purple-100">
-          <CardContent className="pt-6">
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white">
+          <CardContent className="pt-4 pb-4 px-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-600 text-sm font-medium">
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
                   Treatments
                 </p>
-                <p className="text-3xl font-bold text-purple-900">
+                <p className="text-xl font-bold text-gray-900 mt-1">
                   {stats.totalTreatments}
                 </p>
               </div>
-              <div className="p-3 bg-purple-200 rounded-full">
-                <FileText className="h-6 w-6 text-purple-700" />
+              <div className="p-2 bg-purple-50 rounded-sm">
+                <FileText className="h-5 w-5 text-purple-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-linear-to-br from-orange-50 to-orange-100">
-          <CardContent className="pt-6">
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white">
+          <CardContent className="pt-4 pb-4 px-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-600 text-sm font-medium">
-                  Storage Used
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
+                  Storage
                 </p>
-                <p className="text-3xl font-bold text-orange-900">
+                <p className="text-xl font-bold text-gray-900 mt-1">
                   {stats.storageUsed}
                 </p>
               </div>
-              <div className="p-3 bg-orange-200 rounded-full">
-                <HardDrive className="h-6 w-6 text-orange-700" />
+              <div className="p-2 bg-orange-50 rounded-sm">
+                <HardDrive className="h-5 w-5 text-orange-600" />
               </div>
             </div>
           </CardContent>
@@ -252,79 +252,81 @@ const DataManagement = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Export & Backup */}
-        <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <Download className="h-6 w-6 mr-3 text-blue-600" />
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+          <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
+            <CardTitle className="flex items-center text-xs font-semibold uppercase tracking-wider text-gray-900">
+              <Download className="h-4 w-4 mr-2 text-primary" />
               Export & Backup
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4">
             <div className="space-y-3">
               <Button
+                size="sm"
                 onClick={handleExportJSON}
-                className="w-full justify-start bg-blue-600 hover:bg-blue-700"
+                className="w-full justify-start bg-primary hover:bg-primary/90 text-white rounded-sm h-9 text-xs font-semibold"
               >
-                <Database className="h-4 w-4 mr-2" />
+                <Database className="h-3.5 w-3.5 mr-2" />
                 Export Complete Database (JSON)
               </Button>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => handleExportCSV("patients")}
-                  className="justify-start"
+                  className="justify-start border-gray-200 text-[10px] h-8 font-semibold uppercase tracking-tight"
                 >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Patients CSV
+                  <FileText className="h-3 w-3 mr-2 text-primary" />
+                  Patients
                 </Button>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => handleExportCSV("appointments")}
-                  className="justify-start"
+                  className="justify-start border-gray-200 text-[10px] h-8 font-semibold uppercase tracking-tight"
                 >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Appointments CSV
+                  <FileText className="h-3 w-3 mr-2 text-primary" />
+                  Appointments
                 </Button>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => handleExportCSV("treatments")}
-                  className="justify-start"
+                  className="justify-start border-gray-200 text-[10px] h-8 font-semibold uppercase tracking-tight"
                 >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Treatments CSV
+                  <FileText className="h-3 w-3 mr-2 text-primary" />
+                  Treatments
                 </Button>
               </div>
             </div>
 
-            <Separator />
-
-            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
-              <div className="font-medium text-blue-900 mb-1">Last Backup:</div>
-              <div className="text-blue-700">
+            <div className="text-[10px] font-medium text-gray-500 bg-blue-50/50 p-2 rounded-sm border border-blue-100 flex items-center justify-between">
+              <span className="uppercase tracking-widest font-bold">Last Backup:</span>
+              <span className="text-primary font-bold">
                 {stats.lastBackup
                   ? formatDate(stats.lastBackup)
-                  : "No backups yet"}
-              </div>
+                  : "NONE"}
+              </span>
             </div>
           </CardContent>
         </Card>
 
         {/* Import & Restore */}
-        <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <Upload className="h-6 w-6 mr-3 text-green-600" />
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+          <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
+            <CardTitle className="flex items-center text-xs font-semibold uppercase tracking-wider text-gray-900">
+              <Upload className="h-4 w-4 mr-2 text-green-600" />
               Import & Restore
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4">
             <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
               <DialogTrigger asChild>
-                <Button className="w-full justify-start bg-green-600 hover:bg-green-700">
-                  <Upload className="h-4 w-4 mr-2" />
+                <Button size="sm" className="w-full justify-start bg-green-600 hover:bg-green-700 text-white rounded-sm h-9 text-xs font-semibold">
+                  <Upload className="h-3.5 w-3.5 mr-2" />
                   Import Database File
                 </Button>
               </DialogTrigger>
@@ -363,8 +365,8 @@ const DataManagement = () => {
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline" className="w-full justify-start">
-                  <History className="h-4 w-4 mr-2" />
+                <Button variant="outline" size="sm" className="w-full justify-start border-gray-200 h-9 text-xs font-semibold">
+                  <History className="h-3.5 w-3.5 mr-2 text-primary" />
                   View Backup History
                 </Button>
               </DialogTrigger>
@@ -417,68 +419,66 @@ const DataManagement = () => {
       </div>
 
       {/* Data Validation */}
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl">
-            <Settings className="h-6 w-6 mr-3 text-purple-600" />
-            Data Validation & Cleanup
+      <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+        <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
+          <CardTitle className="flex items-center text-xs font-semibold uppercase tracking-wider text-gray-900">
+            <Settings className="h-4 w-4 mr-2 text-purple-600" />
+            Validation & Cleanup
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium">Data Integrity Check</h3>
-              <p className="text-sm text-gray-600">
-                Scan for orphaned records and duplicates
-              </p>
+              <h3 className="text-sm font-semibold text-gray-900">Data Integrity Check</h3>
+              <p className="text-xs text-gray-500">Scan for orphaned records and duplicates</p>
             </div>
             <Button
               onClick={validateData}
               disabled={isValidating}
               variant="outline"
+              size="sm"
+              className="h-8 border-gray-200 text-xs font-semibold"
             >
               {isValidating ? (
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                <RefreshCw className="h-3.5 w-3.5 mr-2 animate-spin" />
               ) : (
-                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-green-600" />
               )}
-              {isValidating ? "Validating..." : "Validate Data"}
+              {isValidating ? "Validating..." : "Validate"}
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-              <div className="text-2xl font-bold text-blue-900">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-blue-50/50 p-3 rounded-sm border border-blue-100 text-center">
+              <div className="text-xl font-bold text-primary">
                 {validationResults.orphanedAppointments}
               </div>
-              <div className="text-sm text-blue-600">Orphaned Appointments</div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Orphaned Appointments</div>
             </div>
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-              <div className="text-2xl font-bold text-purple-900">
+            <div className="bg-purple-50/50 p-3 rounded-sm border border-purple-100 text-center">
+              <div className="text-xl font-bold text-purple-700">
                 {validationResults.orphanedTreatments}
               </div>
-              <div className="text-sm text-purple-600">Orphaned Treatments</div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Orphaned Treatments</div>
             </div>
-            <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-              <div className="text-2xl font-bold text-orange-900">
+            <div className="bg-orange-50/50 p-3 rounded-sm border border-orange-100 text-center">
+              <div className="text-xl font-bold text-orange-700">
                 {validationResults.duplicatePatients}
               </div>
-              <div className="text-sm text-orange-600">
-                Potential Duplicates
-              </div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Duplicates</div>
             </div>
           </div>
 
           {(validationResults.orphanedAppointments > 0 ||
             validationResults.orphanedTreatments > 0) && (
-            <div className="flex items-center justify-between bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <div className="flex items-center justify-between bg-yellow-50/50 p-3 rounded-sm border border-yellow-200">
               <div className="flex items-center">
-                <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+                <AlertTriangle className="h-4 w-4 text-yellow-600 mr-3" />
                 <div>
-                  <div className="font-medium text-yellow-800">
+                  <div className="text-xs font-bold text-yellow-800 uppercase tracking-tight">
                     Data Issues Found
                   </div>
-                  <div className="text-sm text-yellow-700">
+                  <div className="text-[10px] text-yellow-700">
                     Orphaned records detected that can be cleaned up
                   </div>
                 </div>
@@ -486,31 +486,31 @@ const DataManagement = () => {
               <Button
                 onClick={handleCleanupData}
                 size="sm"
-                className="bg-yellow-600 hover:bg-yellow-700"
+                className="h-7 bg-yellow-600 hover:bg-yellow-700 text-white text-[10px] font-bold uppercase rounded-sm"
               >
                 Clean Up
               </Button>
             </div>
           )}
 
-          <Separator />
+          <Separator className="bg-gray-100" />
 
           {/* Danger Zone */}
-          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+          <div className="bg-red-50/50 p-4 rounded-sm border border-red-200">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium text-red-900 flex items-center">
+                <h3 className="text-xs font-bold text-red-900 flex items-center uppercase tracking-widest">
                   <AlertTriangle className="h-4 w-4 mr-2" />
                   Danger Zone
                 </h3>
-                <p className="text-sm text-red-700">
+                <p className="text-[10px] text-red-700 mt-0.5">
                   Permanently delete all practice data
                 </p>
               </div>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">
-                    <Trash2 className="h-4 w-4 mr-2" />
+                  <Button variant="destructive" size="sm" className="h-8 text-xs font-semibold rounded-sm">
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
                     Clear All Data
                   </Button>
                 </AlertDialogTrigger>

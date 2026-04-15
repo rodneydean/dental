@@ -10,7 +10,6 @@ import {
   DollarSign,
   Calendar,
   CreditCard,
-  CheckCircle2,
   MoreVertical,
   Download,
   FileText,
@@ -148,17 +147,17 @@ const Payments = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Payments & Billing</h1>
-          <p className="text-gray-600 mt-1">Track revenue and process patient billing</p>
+          <h1 className="text-xl font-semibold text-gray-900">Payments & Billing</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Track revenue and process patient billing</p>
         </div>
         {user?.role === "RECEPTION" && (
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg text-white">
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Process Payment
               </Button>
@@ -269,50 +268,50 @@ const Payments = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-0 shadow-lg bg-linear-to-br from-emerald-50 to-emerald-100">
-          <CardContent className="pt-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white">
+          <CardContent className="pt-4 pb-4 px-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-600 text-sm font-medium">Filtered Revenue</p>
-                <p className="text-3xl font-bold text-emerald-900">
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Filtered Revenue</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">
                   {formatCurrency(totalRevenue)}
                 </p>
               </div>
-              <div className="p-3 bg-emerald-200 rounded-xl">
-                <DollarSign className="h-6 w-6 text-emerald-700" />
+              <div className="p-2 bg-green-50 rounded-sm">
+                <DollarSign className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-linear-to-br from-blue-50 to-blue-100">
-          <CardContent className="pt-6">
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white">
+          <CardContent className="pt-4 pb-4 px-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-600 text-sm font-medium">Total Transactions</p>
-                <p className="text-3xl font-bold text-blue-900">
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Transactions</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">
                   {filteredPayments.length}
                 </p>
               </div>
-              <div className="p-3 bg-blue-200 rounded-xl">
-                <CreditCard className="h-6 w-6 text-blue-700" />
+              <div className="p-2 bg-blue-50 rounded-sm">
+                <CreditCard className="h-5 w-5 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-linear-to-br from-indigo-50 to-indigo-100">
-          <CardContent className="pt-6">
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white">
+          <CardContent className="pt-4 pb-4 px-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-indigo-600 text-sm font-medium">Average Payment</p>
-                <p className="text-3xl font-bold text-indigo-900">
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Average Payment</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">
                   {formatCurrency(filteredPayments.length > 0 ? totalRevenue / filteredPayments.length : 0)}
                 </p>
               </div>
-              <div className="p-3 bg-indigo-200 rounded-xl">
-                <TrendingUp className="h-6 w-6 text-indigo-700" />
+              <div className="p-2 bg-indigo-50 rounded-sm">
+                <TrendingUp className="h-5 w-5 text-indigo-600" />
               </div>
             </div>
           </CardContent>
@@ -320,82 +319,78 @@ const Payments = () => {
       </div>
 
       {/* Filters & Search */}
-      <Card className="border-0 shadow-lg">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search by patient name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <div className="flex bg-gray-100 p-1 rounded-lg">
-                {["all", "cash", "card", "transfer"].map((method) => (
-                  <button
-                    key={method}
-                    onClick={() => setFilterMethod(method)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      filterMethod === method
-                        ? "bg-white text-emerald-600 shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    <span className="capitalize">{method}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
+          <Input
+            placeholder="Search by patient name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-9 text-sm rounded-sm border-gray-200"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <Filter className="h-3.5 w-3.5 text-gray-400" />
+          <div className="flex bg-gray-100 p-1 rounded-sm border border-gray-200">
+            {["all", "cash", "card", "transfer"].map((method) => (
+              <button
+                key={method}
+                onClick={() => setFilterMethod(method)}
+                className={`px-3 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-sm transition-all ${
+                  filterMethod === method
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {method}
+              </button>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Payments List */}
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-3">
         {isLoading ? (
-            <div className="text-center py-12">Loading payments...</div>
+            <div className="text-center py-12 text-sm text-gray-500">Loading payments...</div>
         ) : filteredPayments.length > 0 ? (
           filteredPayments
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .map((payment) => (
-              <Card key={payment.id} className="border-0 shadow-md hover:shadow-lg transition-shadow bg-white overflow-hidden">
+              <Card key={payment.id} className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white overflow-hidden rounded-sm">
                 <CardContent className="p-0">
-                  <div className="flex flex-col sm:flex-row items-center p-6 gap-6">
-                    <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shrink-0">
-                      <DollarSign className="h-6 w-6" />
+                  <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
+                    <div className="h-10 w-10 bg-green-50 rounded-sm flex items-center justify-center text-green-600 shrink-0">
+                      <DollarSign className="h-5 w-5" />
                     </div>
 
                     <div className="flex-1 text-center sm:text-left">
-                      <h3 className="text-lg font-bold text-gray-900">{payment.patient_name}</h3>
-                      <div className="flex flex-wrap justify-center sm:justify-start gap-4 mt-1 text-sm text-gray-500">
+                      <h3 className="text-sm font-semibold text-gray-900">{payment.patient_name}</h3>
+                      <div className="flex flex-wrap justify-center sm:justify-start gap-3 mt-0.5 text-[10px] font-medium text-gray-500 uppercase tracking-tight">
                         <span className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-1" />
+                          <Calendar className="h-3 w-3 mr-1 text-gray-400" />
                           {payment.date}
                         </span>
                         <span className="flex items-center capitalize">
-                          <CreditCard className="h-4 w-4 mr-1" />
+                          <CreditCard className="h-3 w-3 mr-1 text-gray-400" />
                           {payment.method}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-center sm:items-end gap-2">
-                      <p className="text-2xl font-bold text-gray-900">
+                    <div className="flex flex-col items-center sm:items-end gap-1">
+                      <p className="text-base font-bold text-gray-900">
                         {formatCurrency(payment.amount)}
                       </p>
-                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                        <CheckCircle2 className="h-3 w-3 mr-1" /> {payment.status}
+                      <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 h-5 rounded-sm border-green-200 bg-green-50 text-green-700 uppercase">
+                        {payment.status}
                       </Badge>
                     </div>
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-5 w-5 text-gray-400" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4 text-gray-400" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -412,10 +407,10 @@ const Payments = () => {
               </Card>
             ))
         ) : (
-          <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-200">
-            <CreditCard className="h-16 w-16 text-gray-200 mx-auto mb-4" />
-            <h3 className="text-xl font-medium text-gray-900 mb-2">No payments found</h3>
-            <p className="text-gray-500">No payment records match your current filters.</p>
+          <div className="text-center py-16 bg-white rounded-sm border border-dashed border-gray-200">
+            <CreditCard className="h-12 w-12 text-gray-200 mx-auto mb-4" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">No payments found</h3>
+            <p className="text-xs text-gray-400">No payment records match your current filters.</p>
           </div>
         )}
       </div>

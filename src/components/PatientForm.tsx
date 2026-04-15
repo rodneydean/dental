@@ -46,109 +46,118 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Full Name *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Full Name *</Label>
           <Input
             id="name"
             value={formData.name}
             onChange={(e) => handleChange("name", e.target.value)}
             placeholder="Enter full name"
+            className="h-9 text-sm rounded-sm border-gray-200"
             required
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="phone" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Phone Number</Label>
           <Input
             id="phone"
             type="tel"
             value={formData.phone}
             onChange={(e) => handleChange("phone", e.target.value)}
             placeholder="(555) 123-4567"
+            className="h-9 text-sm rounded-sm border-gray-200"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="email">Email Address</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Email Address</Label>
           <Input
             id="email"
             type="email"
             value={formData.email}
             onChange={(e) => handleChange("email", e.target.value)}
             placeholder="patient@example.com"
+            className="h-9 text-sm rounded-sm border-gray-200"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="date_of_birth">Date of Birth</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="date_of_birth" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Date of Birth</Label>
           <Input
             id="date_of_birth"
             type="date"
             value={formData.date_of_birth}
             onChange={(e) => handleChange("date_of_birth", e.target.value)}
+            className="h-9 text-sm rounded-sm border-gray-200"
           />
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="address">Address</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="address" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Address</Label>
         <Input
           id="address"
           value={formData.address}
           onChange={(e) => handleChange("address", e.target.value)}
           placeholder="Street address, city, state, zip"
+          className="h-9 text-sm rounded-sm border-gray-200"
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="emergency_contact">Emergency Contact</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="emergency_contact" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Emergency Contact</Label>
           <Input
             id="emergency_contact"
             value={formData.emergency_contact}
             onChange={(e) => handleChange("emergency_contact", e.target.value)}
             placeholder="Contact person name"
+            className="h-9 text-sm rounded-sm border-gray-200"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="emergency_phone">Emergency Phone</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="emergency_phone" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Emergency Phone</Label>
           <Input
             id="emergency_phone"
             type="tel"
             value={formData.emergency_phone}
             onChange={(e) => handleChange("emergency_phone", e.target.value)}
             placeholder="(555) 123-4567"
+            className="h-9 text-sm rounded-sm border-gray-200"
           />
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="medical_history">Medical History</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="medical_history" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Medical History</Label>
         <Textarea
           id="medical_history"
           value={formData.medical_history}
           onChange={(e) => handleChange("medical_history", e.target.value)}
           placeholder="Previous medical conditions, surgeries, medications..."
-          rows={3}
+          rows={2}
+          className="text-sm rounded-sm border-gray-200"
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="allergies">Allergies & Medications</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="allergies" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Allergies & Medications</Label>
         <Textarea
           id="allergies"
           value={formData.allergies}
           onChange={(e) => handleChange("allergies", e.target.value)}
           placeholder="Known allergies, current medications..."
-          rows={3}
+          rows={2}
+          className="text-sm rounded-sm border-gray-200"
         />
       </div>
 
-      <div className="flex space-x-3 pt-4">
-        <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+      <div className="flex space-x-3 pt-2">
+        <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-sm h-9 text-sm font-semibold">
           {patient ? "Update Patient" : "Register Patient"}
         </Button>
         {onCancel && (
@@ -156,7 +165,7 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
             type="button"
             variant="outline"
             onClick={onCancel}
-            className="flex-1"
+            className="flex-1 rounded-sm h-9 text-sm font-semibold border-gray-200"
           >
             Cancel
           </Button>
