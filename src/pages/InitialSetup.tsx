@@ -28,6 +28,10 @@ const InitialSetup = ({ onComplete }: { onComplete: () => void }) => {
         fullName
       });
       setUser(user);
+
+      // Also start as hub by default if choosing Hub tab
+      await invoke("start_as_hub");
+
       toast.success("Initial Admin account created successfully!");
       onComplete();
     } catch (error) {

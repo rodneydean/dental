@@ -65,6 +65,34 @@ const UsageGuide = () => {
                   </p>
                 </div>
               </div>
+
+              <div className="mt-6 border-t border-gray-100 pt-6">
+                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-4">Pairing & Setup</h4>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">1</div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-700">Get the Code from the Hub</p>
+                      <p className="text-xs text-gray-500 mt-1">Go to <strong>Settings</strong> on your Hub instance. Look for the "Pairing Code" in the Network section.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">2</div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-700">Enter Code on Spoke</p>
+                      <p className="text-xs text-gray-500 mt-1">When setting up a Spoke, enter the 6-character code. The Spoke will try to find the Hub automatically using mDNS.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">3</div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-700">Manual Connection (Fallback)</p>
+                      <p className="text-xs text-gray-500 mt-1">If automatic discovery fails, enter the Hub's IP address (displayed in the Hub's Settings page) in the "Hub Address" field on the Spoke.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-start gap-3 p-4 bg-blue-50/50 rounded-sm border border-blue-100">
                 <Shield className="h-4 w-4 text-primary mt-0.5" />
                 <div>
