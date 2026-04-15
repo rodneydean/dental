@@ -1,6 +1,6 @@
-# DentalCare - Modern Clinic Management System
+# Skryme Dental - Modern Clinic Management System
 
-DentalCare is a robust, cross-platform desktop application built with Tauri, React, and Rust. It is designed to manage dental clinics with a focus on real-time synchronization, role-based access control, and offline reliability.
+Skryme Dental is a robust, cross-platform desktop application built with Tauri, React, and Rust. It is designed to manage dental clinics with a focus on real-time synchronization, role-based access control, and offline reliability.
 
 ## 🚀 Features
 
@@ -58,7 +58,7 @@ pnpm tauri build
 
 ## 🏗 Architecture
 
-DentalCare uses a **Hub-and-Spoke** model:
+Skryme Dental uses a **Hub-and-Spoke** model:
 - **Hub:** Acts as the central server. It hosts the master database and manages WebSocket connections.
 - **Spoke:** Connects to a Hub. It maintains a local SQLite database for offline capability and syncs changes when connected.
 

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { dataManager, Service } from "@/lib/dataManager";
-import { Save, Settings as SettingsIcon, Server, Laptop, RefreshCw, Copy, Check, Plus, Trash2, Stethoscope } from "lucide-react";
+import { Save, Settings as SettingsIcon, Server, Laptop, RefreshCw, Copy, Check, Plus, Trash2, Stethoscope, Upload, Image as ImageIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkForUpdates } from "@/lib/updater";
 import { invoke } from "@tauri-apps/api/core";
@@ -21,6 +21,16 @@ const Settings = () => {
   const [receptionFee, setReceptionFee] = useState<string>("0");
   const [requirePaymentBeforeAdmit, setRequirePaymentBeforeAdmit] = useState<boolean>(true);
   const [autoUpdate, setAutoUpdate] = useState<boolean>(false);
+
+  // Branding settings
+  const [clinicName, setClinicName] = useState("");
+  const [clinicAddress, setClinicAddress] = useState("");
+  const [clinicPhone, setClinicPhone] = useState("");
+  const [clinicWebsite, setClinicWebsite] = useState("");
+  const [clinicTaxId, setClinicTaxId] = useState("");
+  const [clinicFooter, setClinicFooter] = useState("");
+  const [logo, setLogo] = useState<string | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -47,15 +57,41 @@ const Settings = () => {
 
   const loadSettings = async () => {
     try {
-      const [fee, requirePay, autoUpd] = await Promise.all([
+      const [
+        fee,
+        requirePay,
+        autoUpd,
+        name,
+        address,
+        phone,
+        website,
+        taxId,
+        footer,
+        logoData
+      ] = await Promise.all([
         dataManager.getSetting("reception_fee"),
         dataManager.getSetting("require_payment_before_admit"),
-        dataManager.getSetting("auto_update")
+        dataManager.getSetting("auto_update"),
+        dataManager.getSetting("clinic_name"),
+        dataManager.getSetting("clinic_address"),
+        dataManager.getSetting("clinic_phone"),
+        dataManager.getSetting("clinic_website"),
+        dataManager.getSetting("clinic_tax_id"),
+        dataManager.getSetting("clinic_footer"),
+        dataManager.getLogo()
       ]);
       setReceptionFee(fee || "0");
       setRequirePaymentBeforeAdmit(requirePay === "true");
       setAutoUpdate(autoUpd === "true");
-    } catch {
+      setClinicName(name || "");
+      setClinicAddress(address || "");
+      setClinicPhone(phone || "");
+      setClinicWebsite(website || "");
+      setClinicTaxId(taxId || "");
+      setClinicFooter(footer || "");
+      setLogo(logoData);
+    } catch (error) {
+      console.error(error);
       toast.error("Failed to load settings");
     } finally {
       setIsLoading(false);
@@ -88,11 +124,34 @@ const Settings = () => {
     toast.success("Copied to clipboard");
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogo(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = async () => {
     try {
-      const promises = [
+      const promises: Promise<unknown>[] = [
         dataManager.setSetting("auto_update", autoUpdate.toString())
       ];
+
+      if (user?.role === 'ADMIN' || user?.role === 'DOCTOR') {
+        promises.push(dataManager.setSetting("clinic_name", clinicName));
+        promises.push(dataManager.setSetting("clinic_address", clinicAddress));
+        promises.push(dataManager.setSetting("clinic_phone", clinicPhone));
+        promises.push(dataManager.setSetting("clinic_website", clinicWebsite));
+        promises.push(dataManager.setSetting("clinic_tax_id", clinicTaxId));
+        promises.push(dataManager.setSetting("clinic_footer", clinicFooter));
+        if (logo && logo.startsWith('data:image')) {
+          promises.push(dataManager.saveLogo(logo));
+        }
+      }
 
       if (user?.role === 'ADMIN') {
         promises.push(dataManager.setSetting("reception_fee", receptionFee));
@@ -149,6 +208,77 @@ const Settings = () => {
           <p className="text-xs text-gray-500 mt-0.5">Configure clinic rules and fees</p>
         </div>
       </div>
+
+      {(user?.role === 'ADMIN' || user?.role === 'DOCTOR') && (
+        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+          <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-900">Clinic Branding & Documents</CardTitle>
+            <CardDescription className="text-[10px] text-gray-400 font-medium uppercase tracking-tight">Configure how your clinic appears on printed documents</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="clinicName">Clinic Name</Label>
+                  <Input id="clinicName" value={clinicName} onChange={(e) => setClinicName(e.target.value)} placeholder="Main Dental Clinic" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="clinicAddress">Address</Label>
+                  <Input id="clinicAddress" value={clinicAddress} onChange={(e) => setClinicAddress(e.target.value)} placeholder="123 Medical Way, City" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="clinicPhone">Phone Number</Label>
+                  <Input id="clinicPhone" value={clinicPhone} onChange={(e) => setClinicPhone(e.target.value)} placeholder="+1 (555) 000-0000" />
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="clinicWebsite">Website</Label>
+                  <Input id="clinicWebsite" value={clinicWebsite} onChange={(e) => setClinicWebsite(e.target.value)} placeholder="www.dentalclinic.com" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="clinicTaxId">Tax ID / License Number</Label>
+                  <Input id="clinicTaxId" value={clinicTaxId} onChange={(e) => setClinicTaxId(e.target.value)} placeholder="TX-123456789" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="clinicFooter">Custom Footer Text</Label>
+                  <Input id="clinicFooter" value={clinicFooter} onChange={(e) => setClinicFooter(e.target.value)} placeholder="Thank you for choosing our clinic." />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Clinic Logo</Label>
+              <div className="flex items-center space-x-4">
+                <div className="h-20 w-20 border-2 border-dashed border-gray-200 rounded-sm flex items-center justify-center bg-gray-50 overflow-hidden">
+                  {logo ? (
+                    <img src={logo} alt="Logo Preview" className="h-full w-full object-contain" />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 text-gray-300" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <Label
+                    htmlFor="logo-upload"
+                    className="flex items-center justify-center h-9 px-4 rounded-sm border border-gray-200 bg-white text-xs font-semibold cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Logo
+                  </Label>
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tight">Recommended: Square PNG with transparent background</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {user?.role === 'ADMIN' && (
         <>

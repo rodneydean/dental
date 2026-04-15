@@ -48,6 +48,8 @@ pub fn run() {
       commands::settings::get_setting,
       commands::settings::set_setting,
       commands::settings::list_settings,
+      commands::settings::save_logo,
+      commands::settings::get_logo,
       commands::lifecycle::list_waiver_requests,
       commands::lifecycle::create_waiver_request,
       commands::lifecycle::update_waiver_status,

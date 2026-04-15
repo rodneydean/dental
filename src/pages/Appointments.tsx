@@ -11,6 +11,7 @@ import {
   Trash2,
   Filter,
   CalendarDays,
+  Download,
   User,
   Search,
 } from "lucide-react";
@@ -31,6 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import AppointmentForm from "@/components/AppointmentForm";
 import { dataManager, Appointment } from "@/lib/dataManager";
+import { pdfGenerator } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { listen } from "@tauri-apps/api/event";
@@ -259,6 +261,12 @@ const Appointments = () => {
                               className="cursor-pointer"
                             >
                               <Edit className="h-4 w-4 mr-2" /> Edit Appointment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => pdfGenerator.generateAppointmentCard(apt)}
+                              className="cursor-pointer"
+                            >
+                              <Download className="h-4 w-4 mr-2" /> Download Card
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDeleteAppointment(apt.id)}

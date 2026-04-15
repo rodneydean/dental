@@ -63,7 +63,7 @@ const InitialSetup = ({ onComplete }: { onComplete: () => void }) => {
       <Card className="w-full max-w-sm border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
         <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-6">
           <CardTitle className="text-xl font-semibold text-center text-gray-900 tracking-tight">System Configuration</CardTitle>
-          <CardDescription className="text-center text-xs font-medium uppercase tracking-widest text-gray-500 mt-1">DentalCare Initial Setup</CardDescription>
+          <CardDescription className="text-center text-xs font-medium uppercase tracking-widest text-gray-500 mt-1">Skryme Dental Initial Setup</CardDescription>
         </CardHeader>
         <CardContent className="p-6">
           <Tabs value={setupMode} onValueChange={(v) => setSetupMode(v as "hub" | "spoke")} className="w-full">

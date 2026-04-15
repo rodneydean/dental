@@ -31,7 +31,7 @@ const Login = () => {
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <Card className="w-full max-w-sm border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
         <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-6">
-          <CardTitle className="text-xl font-semibold text-center text-gray-900 tracking-tight">DentalCare Login</CardTitle>
+          <CardTitle className="text-xl font-semibold text-center text-gray-900 tracking-tight">Skryme Dental Login</CardTitle>
           <CardDescription className="text-center text-xs font-medium uppercase tracking-widest text-gray-500 mt-1">Management System</CardDescription>
         </CardHeader>
         <CardContent className="p-6">

@@ -15,6 +15,7 @@ import {
   Clock,
   User,
   Pill,
+  Download,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -33,6 +34,7 @@ import {
 import { Label } from "@/components/ui/label";
 import TreatmentForm from "@/components/TreatmentForm";
 import { dataManager, Treatment } from "@/lib/dataManager";
+import { pdfGenerator } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -184,6 +186,9 @@ const Treatments = () => {
                             <DropdownMenuItem onClick={() => setViewingTreatment(treatment)}>
                               <FileText className="h-4 w-4 mr-2" /> View Details
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => pdfGenerator.generatePrescription(treatment, treatment.medications)}>
+                              <Download className="h-4 w-4 mr-2" /> Download Rx
+                            </DropdownMenuItem>
                             {user?.role === "DOCTOR" && (
                               <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50">
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete Record
@@ -309,8 +314,19 @@ const Treatments = () => {
                 <div className="text-xs text-gray-400">
                   Recorded: {new Date(viewingTreatment.created_at).toLocaleString()}
                 </div>
-                <div className="font-bold text-xl">
-                  Total: {formatCurrency(viewingTreatment.cost)}
+                <div className="flex items-center space-x-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => pdfGenerator.generatePrescription(viewingTreatment, viewingTreatment.medications)}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-2" />
+                    Download Rx
+                  </Button>
+                  <div className="font-bold text-xl">
+                    Total: {formatCurrency(viewingTreatment.cost)}
+                  </div>
                 </div>
               </div>
             </div>

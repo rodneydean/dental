@@ -12,11 +12,18 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  DialogHeader as DialogHeaderComponent,
+  DialogTitle as DialogTitleComponent,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   Search,
   Plus,
@@ -31,10 +38,11 @@ import {
   FileText,
   Stethoscope,
   Send,
-  Printer,
+  Download,
 } from "lucide-react";
 import PatientForm from "@/components/PatientForm";
 import { dataManager, Patient, Appointment, Treatment, PatientNote, SickSheet } from "@/lib/dataManager";
+import { pdfGenerator } from "@/lib/pdfGenerator";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -47,7 +55,7 @@ const Patients = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showAddSheet, setShowAddSheet] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [viewingHistory, setViewingHistory] = useState<Patient | null>(null);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
@@ -118,7 +126,7 @@ const Patients = () => {
     try {
       await dataManager.addPatient(patientData);
       await loadData();
-      setShowAddDialog(false);
+      setShowAddSheet(false);
       toast.success("Patient added successfully");
     } catch {
       toast.error("Failed to add patient");
@@ -217,46 +225,7 @@ const Patients = () => {
   };
 
   const exportSickSheet = (sheet: SickSheet) => {
-    // Basic implementation: Print the content
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Sick Sheet - ${sheet.patient_name}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; }
-            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .content { margin-top: 40px; line-height: 1.6; }
-            .footer { margin-top: 100px; display: flex; justify-content: space-between; }
-            .signature { border-top: 1px solid #333; width: 200px; text-align: center; padding-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>SICK SHEET / MEDICAL CERTIFICATE</h1>
-          </div>
-          <div class="content">
-            <p><strong>Date:</strong> ${new Date(sheet.created_at).toLocaleDateString()}</p>
-            <p>This is to certify that <strong>${sheet.patient_name}</strong> was examined and found to be unfit for work/duty.</p>
-            <p><strong>Period:</strong> From ${sheet.start_date} to ${sheet.end_date}</p>
-            <p><strong>Reason / Diagnosis:</strong> ${sheet.reason}</p>
-          </div>
-          <div class="footer">
-            <div>
-              <p>Issued by:</p>
-              <p><strong>Dr. ${sheet.doctor_name}</strong></p>
-            </div>
-            <div class="signature">
-              <p>Doctor's Signature</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+    pdfGenerator.generateSickSheet(sheet);
   };
 
   return (
@@ -272,23 +241,25 @@ const Patients = () => {
           </p>
         </div>
         {(user?.role === "RECEPTION" || user?.role === "DOCTOR" || user?.role === "ADMIN") && (
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
+          <Sheet open={showAddSheet} onOpenChange={setShowAddSheet}>
+            <SheetTrigger asChild>
               <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Add New Patient
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Patient</DialogTitle>
-                <DialogDescription>
+            </SheetTrigger>
+            <SheetContent className="sm:max-w-2xl overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Add New Patient</SheetTitle>
+                <SheetDescription>
                   Enter the patient's information to create a new record.
-                </DialogDescription>
-              </DialogHeader>
-              <PatientForm onSave={handleAddPatient} onCancel={()=>{}} />
-            </DialogContent>
-          </Dialog>
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-6">
+                <PatientForm onSave={handleAddPatient} onCancel={() => setShowAddSheet(false)} />
+              </div>
+            </SheetContent>
+          </Sheet>
         )}
       </div>
 
@@ -413,7 +384,7 @@ const Patients = () => {
             </p>
             {!searchTerm && (user?.role === "RECEPTION" || user?.role === "DOCTOR" || user?.role === "ADMIN") && (
               <Button
-                onClick={() => setShowAddDialog(true)}
+                onClick={() => setShowAddSheet(true)}
                 className="bg-primary hover:bg-primary/90 text-white rounded-sm h-9"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -424,12 +395,12 @@ const Patients = () => {
         </Card>
       )}
 
-      {/* History Dialog */}
-      <Dialog open={!!viewingHistory} onOpenChange={() => setViewingHistory(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Clinical History: {viewingHistory?.name}</DialogTitle>
-          </DialogHeader>
+      {/* History Sheet */}
+      <Sheet open={!!viewingHistory} onOpenChange={(open) => !open && setViewingHistory(null)}>
+        <SheetContent side="right" className="sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Clinical History: {viewingHistory?.name}</SheetTitle>
+          </SheetHeader>
           <div className="space-y-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
@@ -572,9 +543,9 @@ const Patients = () => {
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Create Sick Sheet</DialogTitle>
-                      </DialogHeader>
+                      <DialogHeaderComponent>
+                        <DialogTitleComponent>Create Sick Sheet</DialogTitleComponent>
+                      </DialogHeaderComponent>
                       <div className="space-y-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
@@ -630,7 +601,7 @@ const Patients = () => {
                           className="h-7 w-7 text-primary"
                           onClick={() => exportSickSheet(sheet)}
                         >
-                          <Printer className="h-4 w-4" />
+                          <Download className="h-4 w-4" />
                         </Button>
                       </div>
                       <p className="text-[10px] font-bold text-gray-500 uppercase mt-2">Reason</p>
@@ -644,27 +615,29 @@ const Patients = () => {
               </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      {/* Edit Patient Dialog */}
-      <Dialog
+      {/* Edit Patient Sheet */}
+      <Sheet
         open={!!editingPatient}
-        onOpenChange={() => setEditingPatient(null)}
+        onOpenChange={(open) => !open && setEditingPatient(null)}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Patient</DialogTitle>
-          </DialogHeader>
-          {editingPatient && (
-            <PatientForm
-              patient={editingPatient}
-              onSave={handleEditPatient}
-              onCancel={()=>{}}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Patient</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            {editingPatient && (
+              <PatientForm
+                patient={editingPatient}
+                onSave={handleEditPatient}
+                onCancel={() => setEditingPatient(null)}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
