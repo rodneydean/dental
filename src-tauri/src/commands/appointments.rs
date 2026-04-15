@@ -1,6 +1,6 @@
 use crate::db::get_db_conn;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, command};
+use tauri::{AppHandle, command, Emitter};
 use uuid::Uuid;
 use chrono::Utc;
 
@@ -142,11 +142,11 @@ pub fn update_appointment(
     conn.execute(
         "UPDATE appointments SET doctor_id = ?1, doctor_name = ?2, date = ?3, time = ?4, status = ?5, type = ?6, notes = ?7, duration = ?8, reception_fee_paid = ?9, reception_fee_waived = ?10, updated_at = ?11, sync_status = 'pending' WHERE id = ?12",
         rusqlite::params![
-            doctor_id,
+            doctor_id.clone(),
             doctor_name,
             date,
             time,
-            status,
+            status.clone(),
             appointment_type,
             notes,
             actual_duration,
@@ -156,6 +156,20 @@ pub fn update_appointment(
             id
         ],
     ).map_err(|e| e.to_string())?;
+
+    if status == "admitted" {
+        let patient_name: String = conn.query_row(
+            "SELECT patient_name FROM appointments WHERE id = ?1",
+            [&id],
+            |row| row.get(0)
+        ).unwrap_or_else(|_| "Unknown".to_string());
+
+        let _ = app_handle.emit("sync-event", serde_json::json!({
+            "type": "patient_admitted",
+            "patient_name": patient_name,
+            "doctor_id": doctor_id
+        }));
+    }
 
     Ok(())
 }

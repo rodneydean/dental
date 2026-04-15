@@ -56,6 +56,14 @@ export interface Setting {
   value: string;
 }
 
+export interface Service {
+  id: string;
+  name: string;
+  standard_fee: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Medication {
   id: string;
   name: string;
@@ -273,6 +281,19 @@ class DataManager {
 
   public async setSetting(key: string, value: string): Promise<void> {
     await invoke("set_setting", { key, value });
+  }
+
+  // Service methods
+  public async getServices(): Promise<Service[]> {
+    return await invoke<Service[]>("list_services");
+  }
+
+  public async addService(service: { name: string; standard_fee: number }): Promise<Service> {
+    return await invoke<Service>("create_service", { ...service });
+  }
+
+  public async deleteService(id: string): Promise<void> {
+    await invoke("delete_service", { id });
   }
 
   // Lifecycle methods

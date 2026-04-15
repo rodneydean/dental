@@ -13,9 +13,9 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Pill, DollarSign } from "lucide-react";
+import { Plus, Trash2, Pill, DollarSign, Briefcase } from "lucide-react";
 import { toast } from "sonner";
-import { dataManager, Patient, Appointment, Treatment, Medication } from "@/lib/dataManager";
+import { dataManager, Patient, Appointment, Treatment, Medication, Service } from "@/lib/dataManager";
 
 interface TreatmentFormProps {
   treatment?: Treatment;
@@ -52,6 +52,7 @@ const frequencies = [
 const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [formData, setFormData] = useState<Omit<Treatment, "id" | "created_at" | "updated_at">>({
     patient_id: treatment?.patient_id || "",
     patient_name: treatment?.patient_name || "",
@@ -67,12 +68,14 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
 
   useEffect(() => {
     const loadOptions = async () => {
-        const [pts, apts] = await Promise.all([
+        const [pts, apts, svcs] = await Promise.all([
             dataManager.getPatients(),
-            dataManager.getAppointments()
+            dataManager.getAppointments(),
+            dataManager.getServices()
         ]);
         setPatients(pts);
         setAppointments(apts);
+        setServices(svcs);
     };
     loadOptions();
   }, []);
@@ -130,6 +133,17 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       appointment_id,
       date: selectedAppointment?.date || prev.date,
     }));
+  };
+
+  const handleServiceChange = (serviceName: string) => {
+    const selectedService = services.find(s => s.name === serviceName);
+    if (selectedService) {
+      setFormData(prev => ({
+        ...prev,
+        treatment: selectedService.name,
+        cost: selectedService.standard_fee,
+      }));
+    }
   };
 
   const addMedication = () => {
@@ -220,6 +234,25 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       {/* Treatment Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
+          <Label htmlFor="service" className="flex items-center text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <Briefcase className="h-3 w-3 mr-1 text-primary" />
+            Select Service (Autofills Treatment & Fee)
+          </Label>
+          <Select onValueChange={handleServiceChange}>
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
+              <SelectValue placeholder="Select a service" />
+            </SelectTrigger>
+            <SelectContent>
+              {services.map((service) => (
+                <SelectItem key={service.id} value={service.name}>
+                  {service.name} (KSH {service.standard_fee.toLocaleString()})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
           <Label htmlFor="date" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Treatment Date *</Label>
           <Input
             id="date"
@@ -236,7 +269,7 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
         <div className="space-y-1.5">
           <Label htmlFor="cost" className="flex items-center text-xs font-semibold uppercase tracking-wider text-gray-500">
             <DollarSign className="h-3 w-3 mr-1 text-green-600" />
-            Service Fee / Cost ($)
+            Service Fee / Cost (KSH)
           </Label>
           <Input
             id="cost"

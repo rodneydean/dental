@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { dataManager } from "@/lib/dataManager";
-import { Save, Settings as SettingsIcon, Server, Laptop, RefreshCw, Copy, Check } from "lucide-react";
+import { dataManager, Service } from "@/lib/dataManager";
+import { Save, Settings as SettingsIcon, Server, Laptop, RefreshCw, Copy, Check, Plus, Trash2, Stethoscope } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkForUpdates } from "@/lib/updater";
 import { invoke } from "@tauri-apps/api/core";
@@ -24,11 +24,26 @@ const Settings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceFee, setNewServiceFee] = useState("");
 
   useEffect(() => {
     loadSettings();
     loadNetworkInfo();
+    if (user?.role === 'ADMIN') {
+      loadServices();
+    }
   }, []);
+
+  const loadServices = async () => {
+    try {
+      const loadedServices = await dataManager.getServices();
+      setServices(loadedServices);
+    } catch {
+      toast.error("Failed to load services");
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -91,6 +106,35 @@ const Settings = () => {
     }
   };
 
+  const handleAddService = async () => {
+    if (!newServiceName || !newServiceFee) {
+      toast.error("Please fill in both name and fee");
+      return;
+    }
+    try {
+      await dataManager.addService({
+        name: newServiceName,
+        standard_fee: parseFloat(newServiceFee)
+      });
+      setNewServiceName("");
+      setNewServiceFee("");
+      loadServices();
+      toast.success("Service added");
+    } catch {
+      toast.error("Failed to add service");
+    }
+  };
+
+  const handleDeleteService = async (id: string) => {
+    try {
+      await dataManager.deleteService(id);
+      loadServices();
+      toast.success("Service deleted");
+    } catch {
+      toast.error("Failed to delete service");
+    }
+  };
+
   if (isLoading) return <div>Loading settings...</div>;
 
   return (
@@ -107,35 +151,101 @@ const Settings = () => {
       </div>
 
       {user?.role === 'ADMIN' && (
-        <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
-          <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-900">Financial Settings</CardTitle>
-            <CardDescription className="text-[10px] text-gray-400 font-medium uppercase tracking-tight">Manage consultation fees and payment rules</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 p-6">
-            <div className="grid w-full max-w-sm items-center gap-1.5">
-              <Label htmlFor="receptionFee">Standard Reception Fee ($)</Label>
-              <Input
-                type="number"
-                id="receptionFee"
-                value={receptionFee}
-                onChange={(e) => setReceptionFee(e.target.value)}
-                placeholder="50"
-              />
-            </div>
+        <>
+          <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+            <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-900">Financial Settings</CardTitle>
+              <CardDescription className="text-[10px] text-gray-400 font-medium uppercase tracking-tight">Manage consultation fees and payment rules</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 p-6">
+              <div className="grid w-full max-w-sm items-center gap-1.5">
+                <Label htmlFor="receptionFee">Standard Reception Fee (KSH)</Label>
+                <Input
+                  type="number"
+                  id="receptionFee"
+                  value={receptionFee}
+                  onChange={(e) => setReceptionFee(e.target.value)}
+                  placeholder="50"
+                />
+              </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="requirePayment"
-                checked={requirePaymentBeforeAdmit}
-                onChange={(e) => setRequirePaymentBeforeAdmit(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
-              />
-              <Label htmlFor="requirePayment">Require payment/waiver before admitting patient</Label>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="requirePayment"
+                  checked={requirePaymentBeforeAdmit}
+                  onChange={(e) => setRequirePaymentBeforeAdmit(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                />
+                <Label htmlFor="requirePayment">Require payment/waiver before admitting patient</Label>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+            <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-900">Services & Fees</CardTitle>
+              <CardDescription className="text-[10px] text-gray-400 font-medium uppercase tracking-tight">Configure available treatments and their standard costs</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-gray-50 p-4 rounded-sm border border-gray-100">
+                <div className="space-y-1.5">
+                  <Label htmlFor="serviceName" className="text-[10px] font-bold uppercase text-gray-500">Service Name</Label>
+                  <Input
+                    id="serviceName"
+                    value={newServiceName}
+                    onChange={(e) => setNewServiceName(e.target.value)}
+                    placeholder="e.g., Routine Cleaning"
+                    className="h-9 text-sm rounded-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="serviceFee" className="text-[10px] font-bold uppercase text-gray-500">Standard Fee (KSH)</Label>
+                  <Input
+                    id="serviceFee"
+                    type="number"
+                    value={newServiceFee}
+                    onChange={(e) => setNewServiceFee(e.target.value)}
+                    placeholder="1000"
+                    className="h-9 text-sm rounded-sm"
+                  />
+                </div>
+                <Button onClick={handleAddService} className="h-9 bg-primary hover:bg-primary/90 text-white font-semibold rounded-sm">
+                  <Plus className="h-4 w-4 mr-2" /> Add Service
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {services.map((service) => (
+                  <div key={service.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-sm hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-blue-50 text-primary rounded-sm">
+                        <Stethoscope size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{service.name}</p>
+                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">KSH {service.standard_fee.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteService(service.id)}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                ))}
+                {services.length === 0 && (
+                  <div className="text-center py-10 border border-dashed border-gray-200 rounded-sm">
+                    <p className="text-sm text-gray-400 italic">No services configured yet</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">

@@ -28,13 +28,21 @@ const WaitingRoom = () => {
   useEffect(() => {
     loadData();
     const unlisten = listen("sync-event", (event) => {
-      const payload = event.payload as { type: string };
+      const payload = event.payload as any;
       loadData();
       if (payload.type === "waiver_request" && user?.role === "DOCTOR") {
         toast.info("New waiver request received");
       }
       if (payload.type === "waiver_status_updated" && user?.role === "RECEPTION") {
         toast.success("A waiver request has been processed");
+      }
+      if (payload.type === "patient_registered" && (user?.role === "DOCTOR" || user?.role === "ADMIN")) {
+        toast.info(`New patient registered: ${payload.name}`);
+      }
+      if (payload.type === "patient_admitted" && user?.role === "DOCTOR") {
+        if (!payload.doctor_id || payload.doctor_id === user.id) {
+          toast.info(`Patient admitted and waiting for you: ${payload.patient_name}`);
+        }
       }
     });
 
@@ -207,7 +215,7 @@ const WaitingRoom = () => {
                     {!appt.reception_fee_paid && !appt.reception_fee_waived ? (
                       <div className="flex gap-2">
                         <Button size="sm" className="flex-1 h-8 text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-sm" onClick={() => handlePayFee(appt)}>
-                          <CreditCard className="h-3.5 w-3.5 mr-1.5 text-green-600" /> Pay ${receptionFee}
+                          <CreditCard className="h-3.5 w-3.5 mr-1.5 text-green-600" /> Pay KSH {receptionFee.toLocaleString()}
                         </Button>
                         <Button size="sm" variant="outline" className="flex-1 h-8 text-xs font-medium border-gray-200 text-gray-700 hover:bg-gray-50 rounded-sm" onClick={() => handleRequestWaiver(appt)}>
                           Waiver

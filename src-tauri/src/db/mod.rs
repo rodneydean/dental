@@ -260,6 +260,18 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS services (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            standard_fee REAL NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            sync_status TEXT DEFAULT 'synced'
+        )",
+        [],
+    )?;
+
     // Add columns to existing tables if they don't have them
     {
         let mut stmt = conn.prepare("PRAGMA table_info(appointments)")?;
@@ -283,7 +295,7 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
     }
 
     // Add sync_status to existing tables if they don't have it (for existing DBs)
-    let tables = vec!["users", "patients", "appointments", "treatments", "payments", "waiver_requests", "doctor_status", "patient_notes", "sick_sheets"];
+    let tables = vec!["users", "patients", "appointments", "treatments", "payments", "waiver_requests", "doctor_status", "patient_notes", "sick_sheets", "services"];
     for table in tables {
         // First check if column exists to avoid errors
         let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;

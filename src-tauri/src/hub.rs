@@ -19,6 +19,7 @@ use crate::commands::treatments::Treatment;
 use crate::commands::payments::Payment;
 use crate::commands::lifecycle::{WaiverRequest, DoctorStatus};
 use crate::commands::settings::Setting;
+use crate::commands::services::Service;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 use local_ip_address::local_ip;
 use std::collections::HashMap;
@@ -58,6 +59,7 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
         .route("/sync/waivers", get(get_waivers_handler).post(post_waivers_handler))
         .route("/sync/doctor_statuses", get(get_doctor_statuses_handler).post(post_doctor_statuses_handler))
         .route("/sync/settings", get(get_settings_handler).post(post_settings_handler))
+        .route("/sync/services", get(get_services_handler).post(post_services_handler))
         .route("/ws", get(ws_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
@@ -637,6 +639,41 @@ async fn post_settings_handler(
         );
     }
     let _ = state.tx.send("settings_updated".to_string());
+    axum::http::StatusCode::OK.into_response()
+}
+
+async fn get_services_handler(State(state): State<HubState>) -> impl IntoResponse {
+    match crate::commands::services::list_services(state.app_handle) {
+        Ok(services) => Json(SyncResponse {
+            data: services,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        }).into_response(),
+        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
+    }
+}
+
+async fn post_services_handler(
+    State(state): State<HubState>,
+    Json(services): Json<Vec<Service>>,
+) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    for s in services {
+        let _ = conn.execute(
+            "INSERT INTO services (id, name, standard_fee, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'synced')
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                standard_fee = excluded.standard_fee,
+                updated_at = excluded.updated_at
+             WHERE excluded.updated_at > services.updated_at",
+            rusqlite::params![s.id, s.name, s.standard_fee, s.created_at, s.updated_at],
+        );
+    }
+    let _ = state.tx.send("services_updated".to_string());
     axum::http::StatusCode::OK.into_response()
 }
 

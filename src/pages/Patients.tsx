@@ -340,7 +340,7 @@ const Patients = () => {
                       <History className="h-4 w-4 mr-2" />
                       Clinical History
                     </DropdownMenuItem>
-                    {(user?.role === "RECEPTION" || user?.role === "DOCTOR" || user?.role === "ADMIN") && (
+                    {(user?.role === "DOCTOR" || user?.role === "ADMIN") && (
                       <DropdownMenuItem onClick={() => setEditingPatient(patient)}>
                         <Edit className="h-4 w-4 mr-2" />
                         Edit Details

@@ -62,10 +62,7 @@ const Index = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
+    return `KSH ${amount.toLocaleString()}`;
   };
 
   const getRecentActivity = () => {

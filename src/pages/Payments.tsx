@@ -140,10 +140,7 @@ const Payments = () => {
   const totalRevenue = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
+    return `KSH ${amount.toLocaleString()}`;
   };
 
   return (
@@ -213,7 +210,7 @@ const Payments = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Amount ($) *</Label>
+                    <Label>Amount (KSH) *</Label>
                     <Input
                       type="number"
                       step="0.01"

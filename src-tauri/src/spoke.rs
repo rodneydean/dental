@@ -241,6 +241,7 @@ async fn push_local_changes(client: &Client, hub_addr: &str, token: &str, app_ha
     push_waivers(client, hub_addr, token, app_handle).await?;
     push_doctor_statuses(client, hub_addr, token, app_handle).await?;
     push_settings(client, hub_addr, token, app_handle).await?;
+    push_services(client, hub_addr, token, app_handle).await?;
     Ok(())
 }
 
@@ -514,6 +515,7 @@ async fn pull_remote_changes(client: &Client, hub_addr: &str, token: &str, app_h
     pull_waivers(client, hub_addr, token, app_handle).await?;
     pull_doctor_statuses(client, hub_addr, token, app_handle).await?;
     pull_settings(client, hub_addr, token, app_handle).await?;
+    pull_services(client, hub_addr, token, app_handle).await?;
     Ok(())
 }
 
@@ -759,6 +761,64 @@ async fn pull_sick_sheets(client: &Client, hub_addr: &str, token: &str, app_hand
                 rusqlite::params![
                     s.id, s.patient_id, s.patient_name, s.doctor_id, s.doctor_name,
                     s.start_date, s.end_date, s.reason, s.created_at, s.updated_at
+                ],
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn push_services(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let services: Vec<crate::commands::services::Service> = {
+        let conn = get_db_conn(app_handle)?;
+        let mut stmt = conn.prepare("SELECT id, name, standard_fee, created_at, updated_at FROM services WHERE sync_status = 'pending'")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(crate::commands::services::Service {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                standard_fee: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    if !services.is_empty() {
+        let res = client.post(format!("http://{}/sync/services", hub_addr))
+            .header("Authorization", token)
+            .json(&services)
+            .send()
+            .await?;
+
+        if res.status().is_success() {
+            let conn = get_db_conn(app_handle)?;
+            conn.execute("UPDATE services SET sync_status = 'synced' WHERE sync_status = 'pending'", [])?;
+        }
+    }
+    Ok(())
+}
+
+async fn pull_services(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let conn = get_db_conn(app_handle)?;
+    let res = client.get(format!("http://{}/sync/services", hub_addr))
+        .header("Authorization", token)
+        .send()
+        .await?;
+    if res.status().is_success() {
+        let sync_res: SyncResponse<crate::commands::services::Service> = res.json().await?;
+        for s in sync_res.data {
+            let _ = conn.execute(
+                "INSERT INTO services (id, name, standard_fee, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 'synced')
+                 ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    standard_fee = excluded.standard_fee,
+                    updated_at = excluded.updated_at,
+                    sync_status = 'synced'
+                 WHERE excluded.updated_at > services.updated_at",
+                rusqlite::params![
+                    s.id, s.name, s.standard_fee, s.created_at, s.updated_at
                 ],
             );
         }

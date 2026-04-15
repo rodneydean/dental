@@ -1,6 +1,6 @@
 use crate::db::get_db_conn;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, command};
+use tauri::{AppHandle, command, Emitter};
 use uuid::Uuid;
 use chrono::Utc;
 
@@ -83,6 +83,8 @@ pub fn create_patient(
             Some(now.clone()),
         ],
     ).map_err(|e| e.to_string())?;
+
+    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_registered", "name": name }));
 
     Ok(Patient {
         id,

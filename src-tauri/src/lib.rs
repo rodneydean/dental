@@ -54,6 +54,9 @@ pub fn run() {
       commands::lifecycle::get_doctor_status,
       commands::lifecycle::list_doctor_statuses,
       commands::lifecycle::update_doctor_status,
+      commands::services::list_services,
+      commands::services::create_service,
+      commands::services::delete_service,
     ])
     .setup(|app| {
       db::init_db(app.handle())?;
