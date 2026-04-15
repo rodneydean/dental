@@ -122,20 +122,13 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                     .header("Authorization", token)
                     .body(());
 
-                let request = match request_res {
-                    Ok(req) => req,
-                    Err(e) => {
-                        error!("Failed to build WebSocket request: {}", e);
-                        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-                        continue;
-                    }
-                };
-
-                if let Ok((mut socket, _)) = tokio_tungstenite::connect_async(request).await {
+                if let Ok(request) = request_res {
+                    if let Ok((mut socket, _)) = tokio_tungstenite::connect_async(request).await {
                     use futures_util::StreamExt;
-                    while let Some(msg_res) = socket.next().await {
-                        if let Ok(tokio_tungstenite::tungstenite::Message::Text(text)) = msg_res {
-                            let _ = app_handle_ws.emit("sync-event", serde_json::json!({ "type": text }));
+                        while let Some(msg_res) = socket.next().await {
+                            if let Ok(tokio_tungstenite::tungstenite::Message::Text(text)) = msg_res {
+                                let _ = app_handle_ws.emit("sync-event", serde_json::json!({ "type": text }));
+                            }
                         }
                     }
                 }
