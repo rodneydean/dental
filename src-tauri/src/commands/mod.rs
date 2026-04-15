@@ -8,3 +8,4 @@ pub mod network;
 pub mod settings;
 pub mod lifecycle;
 pub mod services;
+pub mod data;

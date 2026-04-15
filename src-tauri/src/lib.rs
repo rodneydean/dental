@@ -59,6 +59,10 @@ pub fn run() {
       commands::services::list_services,
       commands::services::create_service,
       commands::services::delete_service,
+      commands::data::get_db_stats,
+      commands::data::validate_db_data,
+      commands::data::cleanup_db_data,
+      commands::data::backup_db,
     ])
     .setup(|app| {
       db::init_db(app.handle())?;

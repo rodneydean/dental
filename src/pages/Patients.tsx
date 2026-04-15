@@ -60,6 +60,11 @@ const Patients = () => {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [viewingHistory, setViewingHistory] = useState<Patient | null>(null);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
+  const [showAllPatients, setShowAllPatients] = useState(user?.role !== "RECEPTION");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const patientsPerPage = 9;
 
   // Notes and Sick Sheets state
   const [patientNotes, setPatientNotes] = useState<PatientNote[]>([]);
@@ -98,13 +103,28 @@ const Patients = () => {
 
   useEffect(() => {
     const filtered = patients.filter(
-      (patient) =>
-        patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (patient.email && patient.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (patient.phone && patient.phone.includes(searchTerm))
+      (patient) => {
+        const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (patient.email && patient.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (patient.phone && patient.phone.includes(searchTerm));
+
+        if (!showAllPatients && user?.role === "RECEPTION") {
+          const today = new Date().toISOString().split("T")[0];
+          const patientDate = patient.created_at.split("T")[0];
+          return matchesSearch && patientDate === today;
+        }
+
+        return matchesSearch;
+      }
     );
     setFilteredPatients(filtered);
-  }, [patients, searchTerm]);
+    setCurrentPage(1); // Reset to first page on search/filter
+  }, [patients, searchTerm, showAllPatients, user?.role]);
+
+  const indexOfLastPatient = currentPage * patientsPerPage;
+  const indexOfFirstPatient = indexOfLastPatient - patientsPerPage;
+  const currentPatients = filteredPatients.slice(indexOfFirstPatient, indexOfLastPatient);
+  const totalPages = Math.ceil(filteredPatients.length / patientsPerPage);
 
   const loadData = async () => {
     try {
@@ -247,7 +267,7 @@ const Patients = () => {
         )}
       </div>
 
-      {/* Search */}
+      {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
@@ -258,11 +278,35 @@ const Patients = () => {
             className="pl-9 h-9 text-sm rounded-sm border-gray-200"
           />
         </div>
+        {user?.role === "RECEPTION" && (
+          <div className="flex bg-gray-100 p-1 rounded-sm border border-gray-200">
+            <button
+              onClick={() => setShowAllPatients(false)}
+              className={`px-3 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-sm transition-all ${
+                !showAllPatients
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Today's Patients
+            </button>
+            <button
+              onClick={() => setShowAllPatients(true)}
+              className={`px-3 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-sm transition-all ${
+                showAllPatients
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              All Patients
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Patients Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredPatients.map((patient) => (
+        {currentPatients.map((patient) => (
           <Card
             key={patient.id}
             className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white rounded-sm"
@@ -354,6 +398,52 @@ const Patients = () => {
         ))}
       </div>
 
+      {/* Pagination Controls */}
+      {filteredPatients.length > patientsPerPage && (
+        <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+          <p className="text-xs text-gray-500">
+            Showing <span className="font-medium">{indexOfFirstPatient + 1}</span> to <span className="font-medium">{Math.min(indexOfLastPatient, filteredPatients.length)}</span> of <span className="font-medium">{filteredPatients.length}</span> patients
+          </p>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              className="h-8 rounded-sm border-gray-200 text-xs"
+            >
+              Previous
+            </Button>
+            <div className="flex items-center">
+              {[...Array(totalPages)].map((_, i) => (
+                <Button
+                  key={i + 1}
+                  variant={currentPage === i + 1 ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`h-8 w-8 p-0 rounded-sm text-xs ${
+                    currentPage === i + 1
+                      ? "bg-primary text-white hover:bg-primary/90"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {i + 1}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              className="h-8 rounded-sm border-gray-200 text-xs"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
       {filteredPatients.length === 0 && (
         <Card className="border-0 shadow-lg">
           <CardContent className="text-center py-12">
@@ -381,12 +471,51 @@ const Patients = () => {
 
       {/* History Sheet */}
       <Sheet open={!!viewingHistory} onOpenChange={(open) => !open && setViewingHistory(null)}>
-        <SheetContent side="right" className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Clinical History: {viewingHistory?.name}</SheetTitle>
+        <SheetContent side="right" className="sm:max-w-3xl overflow-y-auto border-l border-gray-200 p-0">
+          <SheetHeader className="bg-gray-50/50 p-6 border-b border-gray-100 sticky top-0 z-10">
+            <div className="flex items-center space-x-4">
+              <Avatar className="h-12 w-12 rounded-sm border-2 border-white shadow-sm">
+                <AvatarFallback className="bg-primary text-white font-bold rounded-sm">
+                  {viewingHistory ? getPatientInitials(viewingHistory.name) : ""}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <SheetTitle className="text-xl font-bold text-gray-900">
+                  {viewingHistory?.name}
+                </SheetTitle>
+                <div className="flex items-center text-xs text-gray-500 mt-1">
+                  <span className="bg-blue-100 text-primary px-2 py-0.5 rounded-sm font-semibold mr-3">
+                    ID: {viewingHistory?.id.slice(0, 8).toUpperCase()}
+                  </span>
+                  <Calendar className="h-3 w-3 mr-1" />
+                  Born: {viewingHistory?.date_of_birth} ({calculateAge(viewingHistory?.date_of_birth || "")} yrs)
+                </div>
+              </div>
+            </div>
           </SheetHeader>
-          <div className="space-y-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-8 p-6">
+            {/* Quick Contact & Alerts Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-3 rounded-sm border border-gray-100 shadow-sm">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Contact Info</p>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium flex items-center"><Phone className="h-3 w-3 mr-2 text-primary/60" /> {viewingHistory?.phone}</p>
+                  <p className="text-xs font-medium flex items-center"><Mail className="h-3 w-3 mr-2 text-primary/60" /> {viewingHistory?.email || "N/A"}</p>
+                </div>
+              </div>
+              <div className="bg-red-50 p-3 rounded-sm border border-red-100 shadow-sm">
+                <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1 flex items-center">
+                  <AlertTriangle className="h-3 w-3 mr-1" /> Allergies
+                </p>
+                <p className="text-xs font-bold text-red-700">{viewingHistory?.allergies || "None Reported"}</p>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-sm border border-blue-100 shadow-sm">
+                <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Medical History</p>
+                <p className="text-xs font-semibold text-primary line-clamp-2">{viewingHistory?.medical_history || "No significant history"}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center">
@@ -442,22 +571,6 @@ const Patients = () => {
               </Card>
             </div>
             
-            <div className="bg-blue-50 p-4 rounded-sm border border-blue-100">
-              <h4 className="font-semibold text-blue-900 mb-2 flex items-center text-sm">
-                <AlertTriangle className="h-4 w-4 mr-2 text-primary" />
-                Medical Alerts
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] font-bold text-blue-700 uppercase">Allergies</p>
-                  <p className="text-sm text-blue-900">{viewingHistory?.allergies || "None reported"}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-blue-700 uppercase">Chronic Conditions</p>
-                  <p className="text-sm text-blue-900">{viewingHistory?.medical_history || "None reported"}</p>
-                </div>
-              </div>
-            </div>
 
             <Separator />
 

@@ -23,7 +23,7 @@ pub struct Patient {
 #[command]
 pub fn list_patients(app_handle: AppHandle) -> Result<Vec<Patient>, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at FROM patients").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at FROM patients ORDER BY created_at DESC").map_err(|e| e.to_string())?;
 
     let patient_iter = stmt.query_map([], |row| {
         Ok(Patient {

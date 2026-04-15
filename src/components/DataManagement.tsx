@@ -51,9 +51,19 @@ const DataManagement = () => {
     validateData();
   }, []);
 
-  const loadStats = () => {
-    const currentStats = dataManager.getStorageStats();
-    setStats(currentStats);
+  const loadStats = async () => {
+    try {
+      const currentStats = await dataManager.getStorageStats();
+      setStats({
+        totalPatients: currentStats.total_patients,
+        totalAppointments: currentStats.total_appointments,
+        totalTreatments: currentStats.total_treatments,
+        storageUsed: currentStats.storage_used,
+        lastBackup: currentStats.last_backup,
+      });
+    } catch {
+      toast.error("Failed to load statistics");
+    }
   };
 
   const loadBackupHistory = () => {
@@ -63,18 +73,24 @@ const DataManagement = () => {
 
   const validateData = async () => {
     setIsValidating(true);
-    // Add small delay to show loading state
-    setTimeout(() => {
-      const results = dataManager.validateData();
-      setValidationResults(results);
+    try {
+      const results = await dataManager.validateData();
+      setValidationResults({
+        orphanedAppointments: results.orphaned_appointments,
+        orphanedTreatments: results.orphaned_treatments,
+        duplicatePatients: results.duplicate_patients,
+      });
+    } catch {
+      toast.error("Validation failed");
+    } finally {
       setIsValidating(false);
-    }, 500);
+    }
   };
 
-  const handleExportJSON = () => {
+  const handleExportJSON = async () => {
     try {
-      dataManager.exportToFile();
-      toast.success("Data exported successfully");
+      await dataManager.createBackup();
+      toast.success("Backup created successfully in application data folder");
       loadStats();
       loadBackupHistory();
     } catch (error) {
@@ -132,11 +148,15 @@ const DataManagement = () => {
     }
   };
 
-  const handleCleanupData = () => {
-    const result = dataManager.cleanupOrphanedData();
-    toast.success(`Cleaned up ${result.cleaned} orphaned records`);
-    validateData();
-    loadStats();
+  const handleCleanupData = async () => {
+    try {
+      const result = await dataManager.cleanupOrphanedData();
+      toast.success(`Cleaned up ${result.cleaned} orphaned records`);
+      validateData();
+      loadStats();
+    } catch {
+      toast.error("Cleanup failed");
+    }
   };
 
 

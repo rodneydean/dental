@@ -136,6 +136,20 @@ export interface BackupEntry {
     paymentCount: number;
 }
 
+export interface DbStats {
+  total_patients: number;
+  total_appointments: number;
+  total_treatments: number;
+  storage_used: string;
+  last_backup: string | null;
+}
+
+export interface ValidationResults {
+  orphaned_appointments: number;
+  orphaned_treatments: number;
+  duplicate_patients: number;
+}
+
 class DataManager {
   private static instance: DataManager;
 
@@ -326,15 +340,34 @@ class DataManager {
     await invoke("update_doctor_status", { doctor_id, current_appointment_id });
   }
 
+  // Data Management methods
+  public async getStorageStats(): Promise<DbStats> {
+    return await invoke<DbStats>("get_db_stats");
+  }
+
+  public async validateData(): Promise<ValidationResults> {
+    return await invoke<ValidationResults>("validate_db_data");
+  }
+
+  public async cleanupOrphanedData(): Promise<{ cleaned: number }> {
+    const cleaned = await invoke<number>("cleanup_db_data");
+    return { cleaned };
+  }
+
+  public async createBackup(): Promise<string> {
+    return await invoke<string>("backup_db");
+  }
+
   // Mocked for DataManagement component to avoid errors for now
-  public getStorageStats() { return { totalPatients: 0, totalAppointments: 0, totalTreatments: 0, storageUsed: "0 KB", lastBackup: null }; }
   public getBackupHistory(): BackupEntry[] { return []; }
-  public validateData() { return { orphanedAppointments: 0, orphanedTreatments: 0, duplicatePatients: 0 }; }
-  public exportToFile(): void {}
+  public exportToFile(): void {
+    this.createBackup().then(() => {
+      // In a real app we might trigger a save dialog, but here we just create a backup file in the app data dir
+    });
+  }
   public exportToCSV(_dataType?: string): void {}
   public async importFromFile(_file?: File) { return { success: true, message: "Imported" }; }
   public restoreFromBackup(_id?: string) { return { success: true, message: "Restored" }; }
-  public cleanupOrphanedData() { return { cleaned: 0 }; }
   public clearAllData(): void {}
 }
 
