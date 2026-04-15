@@ -30,9 +30,14 @@ import {
   History,
   FileText,
   Stethoscope,
+  Send,
+  Printer,
 } from "lucide-react";
 import PatientForm from "@/components/PatientForm";
-import { dataManager, Patient, Appointment, Treatment } from "@/lib/dataManager";
+import { dataManager, Patient, Appointment, Treatment, PatientNote, SickSheet } from "@/lib/dataManager";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -47,9 +52,40 @@ const Patients = () => {
   const [viewingHistory, setViewingHistory] = useState<Patient | null>(null);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
 
+  // Notes and Sick Sheets state
+  const [patientNotes, setPatientNotes] = useState<PatientNote[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [sickSheets, setSickSheets] = useState<SickSheet[]>([]);
+  const [showAddSickSheet, setShowAddSickSheet] = useState(false);
+  const [newSickSheet, setNewSickSheet] = useState({
+    start_date: new Date().toISOString().split("T")[0],
+    end_date: new Date().toISOString().split("T")[0],
+    reason: "",
+  });
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (viewingHistory) {
+      loadPatientExtras(viewingHistory.id);
+    }
+  }, [viewingHistory]);
+
+  const loadPatientExtras = async (patientId: string) => {
+    try {
+      const [notes, sheets] = await Promise.all([
+        dataManager.getPatientNotes(patientId),
+        dataManager.getSickSheets(patientId),
+      ]);
+      setPatientNotes(notes);
+      setSickSheets(sheets);
+    } catch {
+      toast.error("Failed to load clinical details");
+    }
+  };
 
   useEffect(() => {
     const filtered = patients.filter(
@@ -134,19 +170,108 @@ const Patients = () => {
     return age;
   };
 
+  const handleAddNote = async () => {
+    if (!viewingHistory || !newNote.trim()) return;
+    setIsSubmittingNote(true);
+    try {
+      await dataManager.addPatientNote({
+        patient_id: viewingHistory.id,
+        doctor_id: user?.id || "unknown",
+        doctor_name: user?.full_name || "Doctor",
+        note: newNote,
+      });
+      setNewNote("");
+      await loadPatientExtras(viewingHistory.id);
+      toast.success("Note added");
+    } catch {
+      toast.error("Failed to add note");
+    } finally {
+      setIsSubmittingNote(false);
+    }
+  };
+
+  const handleCreateSickSheet = async () => {
+    if (!viewingHistory || !newSickSheet.reason) {
+      toast.error("Please provide a reason");
+      return;
+    }
+    try {
+      await dataManager.addSickSheet({
+        patient_id: viewingHistory.id,
+        patient_name: viewingHistory.name,
+        doctor_id: user?.id || "unknown",
+        doctor_name: user?.full_name || "Doctor",
+        ...newSickSheet,
+      });
+      setShowAddSickSheet(false);
+      setNewSickSheet({
+        start_date: new Date().toISOString().split("T")[0],
+        end_date: new Date().toISOString().split("T")[0],
+        reason: "",
+      });
+      await loadPatientExtras(viewingHistory.id);
+      toast.success("Sick sheet created");
+    } catch {
+      toast.error("Failed to create sick sheet");
+    }
+  };
+
+  const exportSickSheet = (sheet: SickSheet) => {
+    // Basic implementation: Print the content
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Sick Sheet - ${sheet.patient_name}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .content { margin-top: 40px; line-height: 1.6; }
+            .footer { margin-top: 100px; display: flex; justify-content: space-between; }
+            .signature { border-top: 1px solid #333; width: 200px; text-align: center; padding-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>SICK SHEET / MEDICAL CERTIFICATE</h1>
+          </div>
+          <div class="content">
+            <p><strong>Date:</strong> ${new Date(sheet.created_at).toLocaleDateString()}</p>
+            <p>This is to certify that <strong>${sheet.patient_name}</strong> was examined and found to be unfit for work/duty.</p>
+            <p><strong>Period:</strong> From ${sheet.start_date} to ${sheet.end_date}</p>
+            <p><strong>Reason / Diagnosis:</strong> ${sheet.reason}</p>
+          </div>
+          <div class="footer">
+            <div>
+              <p>Issued by:</p>
+              <p><strong>Dr. ${sheet.doctor_name}</strong></p>
+            </div>
+            <div class="signature">
+              <p>Doctor's Signature</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
-            {user?.role === "DOCTOR" ? "Patient Records" : "Patient Management"}
+            {user?.role === "DOCTOR" || user?.role === "ADMIN" ? "Patient Records" : "Patient Management"}
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            {user?.role === "DOCTOR" ? "View and manage clinical patient data" : "Manage patient registrations and contacts"}
+            {user?.role === "DOCTOR" || user?.role === "ADMIN" ? "View and manage clinical patient data" : "Manage patient registrations and contacts"}
           </p>
         </div>
-        {user?.role === "RECEPTION" && (
+        {(user?.role === "RECEPTION" || user?.role === "DOCTOR" || user?.role === "ADMIN") && (
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
@@ -215,7 +340,7 @@ const Patients = () => {
                       <History className="h-4 w-4 mr-2" />
                       Clinical History
                     </DropdownMenuItem>
-                    {user?.role === "RECEPTION" && (
+                    {(user?.role === "RECEPTION" || user?.role === "DOCTOR" || user?.role === "ADMIN") && (
                       <DropdownMenuItem onClick={() => setEditingPatient(patient)}>
                         <Edit className="h-4 w-4 mr-2" />
                         Edit Details
@@ -286,10 +411,10 @@ const Patients = () => {
                 ? "No patients match your search criteria."
                 : "Get started by adding your first patient."}
             </p>
-            {!searchTerm && user?.role === "RECEPTION" && (
+            {!searchTerm && (user?.role === "RECEPTION" || user?.role === "DOCTOR" || user?.role === "ADMIN") && (
               <Button
                 onClick={() => setShowAddDialog(true)}
-                className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                className="bg-primary hover:bg-primary/90 text-white rounded-sm h-9"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add First Patient
@@ -362,20 +487,160 @@ const Patients = () => {
               </Card>
             </div>
             
-            <div className="bg-blue-50 p-4 rounded-xl">
-              <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
-                <AlertTriangle className="h-4 w-4 mr-2" />
+            <div className="bg-blue-50 p-4 rounded-sm border border-blue-100">
+              <h4 className="font-semibold text-blue-900 mb-2 flex items-center text-sm">
+                <AlertTriangle className="h-4 w-4 mr-2 text-primary" />
                 Medical Alerts
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-bold text-blue-700 uppercase">Allergies</p>
+                  <p className="text-[10px] font-bold text-blue-700 uppercase">Allergies</p>
                   <p className="text-sm text-blue-900">{viewingHistory?.allergies || "None reported"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-blue-700 uppercase">Chronic Conditions</p>
+                  <p className="text-[10px] font-bold text-blue-700 uppercase">Chronic Conditions</p>
                   <p className="text-sm text-blue-900">{viewingHistory?.medical_history || "None reported"}</p>
                 </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Notes Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-gray-900 flex items-center text-sm uppercase tracking-wider">
+                  <FileText className="h-4 w-4 mr-2 text-primary" />
+                  Clinical Notes
+                </h4>
+              </div>
+
+              {(user?.role === "DOCTOR" || user?.role === "ADMIN") && (
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder="Add a new clinical note..."
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    className="text-sm rounded-sm border-gray-200"
+                    rows={2}
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      onClick={handleAddNote}
+                      disabled={isSubmittingNote || !newNote.trim()}
+                      className="bg-primary hover:bg-primary/90 text-white rounded-sm h-8"
+                    >
+                      <Send className="h-3.5 w-3.5 mr-2" />
+                      Add Note
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {patientNotes.map((note) => (
+                  <div key={note.id} className="bg-gray-50 p-3 rounded-sm border border-gray-100">
+                    <div className="flex justify-between items-start mb-1">
+                      <p className="text-[10px] font-bold text-primary uppercase">Dr. {note.doctor_name}</p>
+                      <p className="text-[10px] text-gray-400">{new Date(note.created_at).toLocaleString()}</p>
+                    </div>
+                    <p className="text-xs text-gray-700">{note.note}</p>
+                  </div>
+                ))}
+                {patientNotes.length === 0 && (
+                  <p className="text-xs text-gray-500 italic text-center py-4">No clinical notes recorded.</p>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Sick Sheets Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-gray-900 flex items-center text-sm uppercase tracking-wider">
+                  <Calendar className="h-4 w-4 mr-2 text-primary" />
+                  Sick Sheets
+                </h4>
+                {(user?.role === "DOCTOR" || user?.role === "ADMIN") && (
+                  <Dialog open={showAddSickSheet} onOpenChange={setShowAddSickSheet}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 text-xs rounded-sm border-gray-200">
+                        <Plus className="h-3.5 w-3.5 mr-2" />
+                        Create Sick Sheet
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Create Sick Sheet</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold uppercase text-gray-500">Start Date</Label>
+                            <Input
+                              type="date"
+                              value={newSickSheet.start_date}
+                              onChange={(e) => setNewSickSheet(prev => ({ ...prev, start_date: e.target.value }))}
+                              className="h-9 text-sm rounded-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold uppercase text-gray-500">End Date</Label>
+                            <Input
+                              type="date"
+                              value={newSickSheet.end_date}
+                              onChange={(e) => setNewSickSheet(prev => ({ ...prev, end_date: e.target.value }))}
+                              className="h-9 text-sm rounded-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase text-gray-500">Reason / Diagnosis</Label>
+                          <Textarea
+                            placeholder="Enter reason for sick leave..."
+                            value={newSickSheet.reason}
+                            onChange={(e) => setNewSickSheet(prev => ({ ...prev, reason: e.target.value }))}
+                            className="text-sm rounded-sm"
+                            rows={3}
+                          />
+                        </div>
+                        <Button onClick={handleCreateSickSheet} className="w-full bg-primary hover:bg-primary/90 text-white rounded-sm">
+                          Generate Sick Sheet
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {sickSheets.map((sheet) => (
+                  <Card key={sheet.id} className="border border-gray-200 shadow-none rounded-sm">
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-500 uppercase">Period</p>
+                          <p className="text-xs font-semibold">{sheet.start_date} to {sheet.end_date}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-primary"
+                          onClick={() => exportSickSheet(sheet)}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-2">Reason</p>
+                      <p className="text-xs text-gray-700 line-clamp-2">{sheet.reason}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+                {sickSheets.length === 0 && (
+                  <p className="text-xs text-gray-500 italic col-span-2 text-center py-4">No sick sheets issued.</p>
+                )}
               </div>
             </div>
           </div>

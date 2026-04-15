@@ -2,7 +2,7 @@ use mdns_sd::{ServiceDaemon, ServiceEvent};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 use crate::db::get_db_conn;
-use crate::commands::patients::Patient;
+use crate::commands::patients::{Patient, PatientNote, SickSheet};
 use crate::commands::appointments::Appointment;
 use crate::commands::treatments::Treatment;
 use crate::commands::payments::Payment;
@@ -236,6 +236,8 @@ async fn push_local_changes(client: &Client, hub_addr: &str, token: &str, app_ha
     push_appointments(client, hub_addr, token, app_handle).await?;
     push_treatments(client, hub_addr, token, app_handle).await?;
     push_payments(client, hub_addr, token, app_handle).await?;
+    push_patient_notes(client, hub_addr, token, app_handle).await?;
+    push_sick_sheets(client, hub_addr, token, app_handle).await?;
     push_waivers(client, hub_addr, token, app_handle).await?;
     push_doctor_statuses(client, hub_addr, token, app_handle).await?;
     push_settings(client, hub_addr, token, app_handle).await?;
@@ -396,6 +398,75 @@ async fn push_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
     Ok(())
 }
 
+async fn push_patient_notes(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let notes: Vec<PatientNote> = {
+        let conn = get_db_conn(app_handle)?;
+        let mut stmt = conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note, created_at, updated_at FROM patient_notes WHERE sync_status = 'pending'")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(PatientNote {
+                id: row.get(0)?,
+                patient_id: row.get(1)?,
+                doctor_id: row.get(2)?,
+                doctor_name: row.get(3)?,
+                note: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        })?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    if !notes.is_empty() {
+        let res = client.post(format!("http://{}/sync/patient_notes", hub_addr))
+            .header("Authorization", token)
+            .json(&notes)
+            .send()
+            .await?;
+
+        if res.status().is_success() {
+            let conn = get_db_conn(app_handle)?;
+            conn.execute("UPDATE patient_notes SET sync_status = 'synced' WHERE sync_status = 'pending'", [])?;
+        }
+    }
+    Ok(())
+}
+
+async fn push_sick_sheets(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let sheets: Vec<SickSheet> = {
+        let conn = get_db_conn(app_handle)?;
+        let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, doctor_id, doctor_name, start_date, end_date, reason, created_at, updated_at FROM sick_sheets WHERE sync_status = 'pending'")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(SickSheet {
+                id: row.get(0)?,
+                patient_id: row.get(1)?,
+                patient_name: row.get(2)?,
+                doctor_id: row.get(3)?,
+                doctor_name: row.get(4)?,
+                start_date: row.get(5)?,
+                end_date: row.get(6)?,
+                reason: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    if !sheets.is_empty() {
+        let res = client.post(format!("http://{}/sync/sick_sheets", hub_addr))
+            .header("Authorization", token)
+            .json(&sheets)
+            .send()
+            .await?;
+
+        if res.status().is_success() {
+            let conn = get_db_conn(app_handle)?;
+            conn.execute("UPDATE sick_sheets SET sync_status = 'synced' WHERE sync_status = 'pending'", [])?;
+        }
+    }
+    Ok(())
+}
+
 async fn push_payments(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let payments: Vec<Payment> = {
         let conn = get_db_conn(app_handle)?;
@@ -438,6 +509,8 @@ async fn pull_remote_changes(client: &Client, hub_addr: &str, token: &str, app_h
     pull_appointments(client, hub_addr, token, app_handle).await?;
     pull_treatments(client, hub_addr, token, app_handle).await?;
     pull_payments(client, hub_addr, token, app_handle).await?;
+    pull_patient_notes(client, hub_addr, token, app_handle).await?;
+    pull_sick_sheets(client, hub_addr, token, app_handle).await?;
     pull_waivers(client, hub_addr, token, app_handle).await?;
     pull_doctor_statuses(client, hub_addr, token, app_handle).await?;
     pull_settings(client, hub_addr, token, app_handle).await?;
@@ -631,6 +704,62 @@ async fn pull_settings(client: &Client, hub_addr: &str, token: &str, app_handle:
             let _ = conn.execute(
                 "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 rusqlite::params![s.key, s.value],
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn pull_patient_notes(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let conn = get_db_conn(app_handle)?;
+    let res = client.get(format!("http://{}/sync/patient_notes", hub_addr))
+        .header("Authorization", token)
+        .send()
+        .await?;
+    if res.status().is_success() {
+        let sync_res: SyncResponse<PatientNote> = res.json().await?;
+        for n in sync_res.data {
+            let _ = conn.execute(
+                "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')
+                 ON CONFLICT(id) DO UPDATE SET
+                    note = excluded.note,
+                    updated_at = excluded.updated_at,
+                    sync_status = 'synced'
+                 WHERE excluded.updated_at > patient_notes.updated_at",
+                rusqlite::params![
+                    n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note,
+                    n.created_at, n.updated_at
+                ],
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn pull_sick_sheets(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let conn = get_db_conn(app_handle)?;
+    let res = client.get(format!("http://{}/sync/sick_sheets", hub_addr))
+        .header("Authorization", token)
+        .send()
+        .await?;
+    if res.status().is_success() {
+        let sync_res: SyncResponse<SickSheet> = res.json().await?;
+        for s in sync_res.data {
+            let _ = conn.execute(
+                "INSERT INTO sick_sheets (id, patient_id, patient_name, doctor_id, doctor_name, start_date, end_date, reason, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'synced')
+                 ON CONFLICT(id) DO UPDATE SET
+                    start_date = excluded.start_date,
+                    end_date = excluded.end_date,
+                    reason = excluded.reason,
+                    updated_at = excluded.updated_at,
+                    sync_status = 'synced'
+                 WHERE excluded.updated_at > sick_sheets.updated_at",
+                rusqlite::params![
+                    s.id, s.patient_id, s.patient_name, s.doctor_id, s.doctor_name,
+                    s.start_date, s.end_date, s.reason, s.created_at, s.updated_at
+                ],
             );
         }
     }

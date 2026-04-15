@@ -65,6 +65,29 @@ export interface Medication {
   instructions: string;
 }
 
+export interface PatientNote {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  doctor_name: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SickSheet {
+  id: string;
+  patient_id: string;
+  patient_name: string;
+  doctor_id: string;
+  doctor_name: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Treatment {
   id: string;
   patient_id: string;
@@ -144,6 +167,35 @@ class DataManager {
       allergies: updates.allergies ?? current.allergies,
       emergency_contact: updates.emergency_contact ?? current.emergency_contact,
       emergency_phone: updates.emergency_phone ?? current.emergency_phone,
+    });
+  }
+
+  public async getPatientNotes(patient_id: string): Promise<PatientNote[]> {
+    return await invoke<PatientNote[]>("list_patient_notes", { patientId: patient_id });
+  }
+
+  public async addPatientNote(note: Omit<PatientNote, "id" | "created_at" | "updated_at">): Promise<PatientNote> {
+    return await invoke<PatientNote>("create_patient_note", {
+      patientId: note.patient_id,
+      doctorId: note.doctor_id,
+      doctorName: note.doctor_name,
+      note: note.note
+    });
+  }
+
+  public async getSickSheets(patient_id: string): Promise<SickSheet[]> {
+    return await invoke<SickSheet[]>("list_sick_sheets", { patientId: patient_id });
+  }
+
+  public async addSickSheet(sheet: Omit<SickSheet, "id" | "created_at" | "updated_at">): Promise<SickSheet> {
+    return await invoke<SickSheet>("create_sick_sheet", {
+      patientId: sheet.patient_id,
+      patientName: sheet.patient_name,
+      doctorId: sheet.doctor_id,
+      doctorName: sheet.doctor_name,
+      startDate: sheet.start_date,
+      endDate: sheet.end_date,
+      reason: sheet.reason
     });
   }
 

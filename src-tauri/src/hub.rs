@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use tauri::AppHandle;
 use crate::db::get_db_conn;
-use crate::commands::patients::Patient;
+use crate::commands::patients::{Patient, PatientNote, SickSheet};
 use crate::commands::appointments::Appointment;
 use crate::commands::treatments::Treatment;
 use crate::commands::payments::Payment;
@@ -53,6 +53,8 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
         .route("/sync/appointments", get(get_appointments_handler).post(post_appointments_handler))
         .route("/sync/treatments", get(get_treatments_handler).post(post_treatments_handler))
         .route("/sync/payments", get(get_payments_handler).post(post_payments_handler))
+        .route("/sync/patient_notes", get(get_patient_notes_handler).post(post_patient_notes_handler))
+        .route("/sync/sick_sheets", get(get_sick_sheets_handler).post(post_sick_sheets_handler))
         .route("/sync/waivers", get(get_waivers_handler).post(post_waivers_handler))
         .route("/sync/doctor_statuses", get(get_doctor_statuses_handler).post(post_doctor_statuses_handler))
         .route("/sync/settings", get(get_settings_handler).post(post_settings_handler))
@@ -477,6 +479,135 @@ async fn post_doctor_statuses_handler(
         );
     }
     let _ = state.tx.send("doctor_status_updated".to_string());
+    axum::http::StatusCode::OK.into_response()
+}
+
+async fn get_patient_notes_handler(State(state): State<HubState>) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let mut stmt = match conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note, created_at, updated_at FROM patient_notes") {
+        Ok(s) => s,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let note_iter = stmt.query_map([], |row| {
+        Ok(PatientNote {
+            id: row.get(0)?,
+            patient_id: row.get(1)?,
+            doctor_id: row.get(2)?,
+            doctor_name: row.get(3)?,
+            note: row.get(4)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
+        })
+    });
+
+    match note_iter {
+        Ok(iter) => {
+            let notes: Vec<PatientNote> = iter.filter_map(|r| r.ok()).collect();
+            Json(SyncResponse {
+                data: notes,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            }).into_response()
+        },
+        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn post_patient_notes_handler(
+    State(state): State<HubState>,
+    Json(notes): Json<Vec<PatientNote>>,
+) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    for n in notes {
+        let _ = conn.execute(
+            "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')
+             ON CONFLICT(id) DO UPDATE SET
+                note = excluded.note,
+                updated_at = excluded.updated_at
+             WHERE excluded.updated_at > patient_notes.updated_at",
+            rusqlite::params![
+                n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note,
+                n.created_at, n.updated_at
+            ],
+        );
+    }
+    let _ = state.tx.send("patient_note".to_string());
+    axum::http::StatusCode::OK.into_response()
+}
+
+async fn get_sick_sheets_handler(State(state): State<HubState>) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let mut stmt = match conn.prepare("SELECT id, patient_id, patient_name, doctor_id, doctor_name, start_date, end_date, reason, created_at, updated_at FROM sick_sheets") {
+        Ok(s) => s,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let sheet_iter = stmt.query_map([], |row| {
+        Ok(SickSheet {
+            id: row.get(0)?,
+            patient_id: row.get(1)?,
+            patient_name: row.get(2)?,
+            doctor_id: row.get(3)?,
+            doctor_name: row.get(4)?,
+            start_date: row.get(5)?,
+            end_date: row.get(6)?,
+            reason: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
+        })
+    });
+
+    match sheet_iter {
+        Ok(iter) => {
+            let sheets: Vec<SickSheet> = iter.filter_map(|r| r.ok()).collect();
+            Json(SyncResponse {
+                data: sheets,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            }).into_response()
+        },
+        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn post_sick_sheets_handler(
+    State(state): State<HubState>,
+    Json(sheets): Json<Vec<SickSheet>>,
+) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    for s in sheets {
+        let _ = conn.execute(
+            "INSERT INTO sick_sheets (id, patient_id, patient_name, doctor_id, doctor_name, start_date, end_date, reason, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'synced')
+             ON CONFLICT(id) DO UPDATE SET
+                start_date = excluded.start_date,
+                end_date = excluded.end_date,
+                reason = excluded.reason,
+                updated_at = excluded.updated_at
+             WHERE excluded.updated_at > sick_sheets.updated_at",
+            rusqlite::params![
+                s.id, s.patient_id, s.patient_name, s.doctor_id, s.doctor_name,
+                s.start_date, s.end_date, s.reason, s.created_at, s.updated_at
+            ],
+        );
+    }
+    let _ = state.tx.send("sick_sheet".to_string());
     axum::http::StatusCode::OK.into_response()
 }
 
