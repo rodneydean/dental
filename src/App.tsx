@@ -15,6 +15,7 @@ import DataManagement from "./components/DataManagement";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import InitialSetup from "./pages/InitialSetup";
+import Reports from "./pages/Reports";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { invoke } from "@tauri-apps/api/core";
 import UserManagement from "./pages/UserManagement";
@@ -65,6 +66,7 @@ const AppContent = () => {
           <Route path="/treatments" element={<Treatments />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/waiting-room" element={<WaitingRoom />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/guide" element={<UsageGuide />} />
           <Route path="/settings" element={<Settings />} />
           {user.role === 'ADMIN' && (

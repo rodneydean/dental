@@ -387,5 +387,93 @@ export const pdfGenerator = {
 
     addFooter(doc, branding);
     doc.save(`Sick_Sheet_${sheet.patient_name.replace(/\s+/g, '_')}.pdf`);
+  },
+
+  async generateReport(startDate: string, endDate: string, appointments: Appointment[], treatments: Treatment[], payments: Payment[]) {
+    const branding = await getBranding();
+    const doc = new jsPDF();
+    let y = addLetterhead(doc, branding);
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(33, 33, 33);
+    doc.text("CLINIC PERFORMANCE REPORT", 105, y, { align: "center" });
+    y += 10;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Period: ${startDate} to ${endDate}`, 105, y, { align: "center" });
+    y += 15;
+
+    // Summary Section
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, y, 170, 40, 'F');
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Executive Summary", 25, y + 8);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+    const completedAppts = appointments.filter(a => a.status === 'completed').length;
+
+    doc.text(`Total Appointments: ${appointments.length}`, 25, y + 18);
+    doc.text(`Completed Treatments: ${treatments.length}`, 25, y + 24);
+    doc.text(`Total Revenue: KSH ${totalRevenue.toLocaleString()}`, 25, y + 30);
+
+    doc.text(`Patient Attendance Rate: ${appointments.length > 0 ? ((completedAppts / appointments.length) * 100).toFixed(1) : 0}%`, 110, y + 18);
+    doc.text(`Avg. Transaction Value: KSH ${payments.length > 0 ? (totalRevenue / payments.length).toFixed(2) : 0}`, 110, y + 24);
+
+    y += 55;
+
+    // Financial Breakdown
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Financial Breakdown", 20, y);
+    y += 7;
+
+    const cashPayments = payments.filter(p => p.method === 'cash').reduce((sum, p) => sum + p.amount, 0);
+    const cardPayments = payments.filter(p => p.method === 'card').reduce((sum, p) => sum + p.amount, 0);
+    const transferPayments = payments.filter(p => p.method === 'transfer').reduce((sum, p) => sum + p.amount, 0);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Payment Method', 'Transactions', 'Total Amount']],
+      body: [
+        ['Cash', payments.filter(p => p.method === 'cash').length, `KSH ${cashPayments.toLocaleString()}`],
+        ['Card', payments.filter(p => p.method === 'card').length, `KSH ${cardPayments.toLocaleString()}`],
+        ['Transfer', payments.filter(p => p.method === 'transfer').length, `KSH ${transferPayments.toLocaleString()}`],
+      ],
+      foot: [['TOTAL', payments.length, `KSH ${totalRevenue.toLocaleString()}`]],
+      theme: 'grid',
+      headStyles: { fillColor: [46, 125, 50] },
+    });
+
+    y = doc.lastAutoTable.finalY + 15;
+
+    // Treatment Log
+    if (y > 220) { doc.addPage(); y = 20; }
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Treatment Activities", 20, y);
+    y += 7;
+
+    const treatmentRows = treatments.map(t => [
+        t.date,
+        t.patient_name,
+        t.diagnosis,
+        `KSH ${t.cost.toLocaleString()}`
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Date', 'Patient', 'Diagnosis', 'Cost']],
+      body: treatmentRows,
+      theme: 'striped',
+      headStyles: { fillColor: [0, 120, 212] },
+    });
+
+    addFooter(doc, branding);
+    doc.save(`Clinic_Report_${startDate}_to_${endDate}.pdf`);
   }
 };

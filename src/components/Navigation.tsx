@@ -22,6 +22,7 @@ import {
   Menu,
   Database,
   CreditCard,
+  BarChart3,
   Settings,
   Cloud,
   CloudOff,
@@ -84,6 +85,7 @@ const Navigation = () => {
     { path: "/treatments", label: "Treatments", icon: Stethoscope, roles: ["ADMIN", "DOCTOR"] },
     { path: "/payments", label: "Payments", icon: CreditCard, roles: ["ADMIN", "RECEPTION"] },
     { path: "/waiting-room", label: "Waiting Room", icon: Users, roles: ["ADMIN", "RECEPTION", "DOCTOR"] },
+    { path: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "RECEPTION"] },
     { path: "/users", label: "Users", icon: User, roles: ["ADMIN"] },
     { path: "/data-management", label: "Data", icon: Database, roles: ["ADMIN"] },
   ];
