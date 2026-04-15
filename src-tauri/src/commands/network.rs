@@ -34,16 +34,16 @@ pub fn get_local_ips() -> Vec<String> {
 }
 
 #[command]
-pub fn get_network_info(state: State<'_, GlobalState>) -> NetworkInfo {
-    let mode = state.mode.lock().unwrap().clone();
-    let pairing_code = state.pairing_code.lock().unwrap().clone();
+pub fn get_network_info(state: State<'_, GlobalState>) -> Result<NetworkInfo, String> {
+    let mode = state.mode.lock().map_err(|_| "Failed to lock network mode".to_string())?.clone();
+    let pairing_code = state.pairing_code.lock().map_err(|_| "Failed to lock pairing code".to_string())?.clone();
     let local_ips = get_local_ips();
 
-    NetworkInfo {
+    Ok(NetworkInfo {
         mode,
         pairing_code,
         local_ips,
-    }
+    })
 }
 
 #[command]
@@ -57,9 +57,9 @@ pub fn start_as_hub(app_handle: AppHandle, state: State<'_, GlobalState>) -> Res
     let code_upper = code.to_uppercase();
 
     {
-        let mut g_mode = state.mode.lock().unwrap();
+        let mut g_mode = state.mode.lock().map_err(|_| "Failed to lock network mode".to_string())?;
         *g_mode = "hub".to_string();
-        let mut g_code = state.pairing_code.lock().unwrap();
+        let mut g_code = state.pairing_code.lock().map_err(|_| "Failed to lock pairing code".to_string())?;
         *g_code = Some(code_upper.clone());
     }
 
@@ -81,9 +81,9 @@ pub fn start_as_hub(app_handle: AppHandle, state: State<'_, GlobalState>) -> Res
 #[command]
 pub fn start_as_spoke(app_handle: AppHandle, state: State<'_, GlobalState>, code: String, manual_addr: Option<String>) -> Result<(), String> {
     {
-        let mut g_mode = state.mode.lock().unwrap();
+        let mut g_mode = state.mode.lock().map_err(|_| "Failed to lock network mode".to_string())?;
         *g_mode = "spoke".to_string();
-        let mut g_code = state.pairing_code.lock().unwrap();
+        let mut g_code = state.pairing_code.lock().map_err(|_| "Failed to lock pairing code".to_string())?;
         *g_code = Some(code.clone());
     }
 
@@ -106,7 +106,7 @@ pub fn start_as_spoke(app_handle: AppHandle, state: State<'_, GlobalState>, code
 
 #[command]
 pub fn get_connection_status(state: State<'_, GlobalState>) -> Result<String, String> {
-    let mode = state.mode.lock().unwrap();
+    let mode = state.mode.lock().map_err(|_| "Failed to lock network mode".to_string())?;
     if *mode == "hub" {
         return Ok("Server Online".to_string());
     }

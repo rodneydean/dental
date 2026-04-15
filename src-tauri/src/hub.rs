@@ -178,7 +178,10 @@ async fn pair_handler(
     State(state): State<HubState>,
     Json(payload): Json<PairRequest>,
 ) -> impl IntoResponse {
-    let current_code = state.pairing_code.lock().unwrap();
+    let current_code = match state.pairing_code.lock() {
+        Ok(c) => c,
+        Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Failed to lock pairing code").into_response(),
+    };
     if let Some(ref code) = *current_code {
         if code == &payload.code {
             let token = uuid::Uuid::new_v4().to_string();

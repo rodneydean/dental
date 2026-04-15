@@ -77,10 +77,12 @@ pub fn run() {
       if let Some(mode_str) = mode {
           if mode_str == "hub" {
               if let Some(c) = code {
-                  let mut g_mode = state.mode.lock().unwrap();
-                  *g_mode = "hub".to_string();
-                  let mut g_code = state.pairing_code.lock().unwrap();
-                  *g_code = Some(c.clone());
+                  if let Ok(mut g_mode) = state.mode.lock() {
+                      *g_mode = "hub".to_string();
+                  }
+                  if let Ok(mut g_code) = state.pairing_code.lock() {
+                      *g_code = Some(c.clone());
+                  }
 
                   let app_clone = app_handle.clone();
                   tokio::spawn(async move {
@@ -89,10 +91,12 @@ pub fn run() {
               }
           } else if mode_str == "spoke" {
               if let Some(c) = code {
-                  let mut g_mode = state.mode.lock().unwrap();
-                  *g_mode = "spoke".to_string();
-                  let mut g_code = state.pairing_code.lock().unwrap();
-                  *g_code = Some(c.clone());
+                  if let Ok(mut g_mode) = state.mode.lock() {
+                      *g_mode = "spoke".to_string();
+                  }
+                  if let Ok(mut g_code) = state.pairing_code.lock() {
+                      *g_code = Some(c.clone());
+                  }
 
                   let app_clone = app_handle.clone();
                   tokio::spawn(async move {
