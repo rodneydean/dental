@@ -91,7 +91,7 @@ const Index = () => {
             {user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase() : 'User'} Dashboard
           </h1>
           <p className="text-gray-500 mt-1 text-sm">
-            Welcome back, {user?.full_name}. Here's the current status of DentalCare clinic.
+          Welcome back, {user?.full_name}. Here's the current status of Skryme Dental clinic.
           </p>
         </div>
         <div className="flex items-center space-x-2">

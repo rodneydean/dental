@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "dentist",
-  "version": "0.1.10",
+  "productName": "Skryme Dental",
+  "version": "0.1.9",
   "identifier": "com.dentist-management.app",
   "build": {
     "frontendDist": "../dist",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Dentist Management System",
+        "title": "Skryme Dental",
         "width": 800,
         "height": 600,
         "resizable": true,

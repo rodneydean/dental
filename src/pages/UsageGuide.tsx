@@ -27,7 +27,7 @@ const UsageGuide = () => {
             <BookOpen className="h-5 w-5 mr-3 text-primary" />
             System Usage Guide
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">Learn how to use DentalCare to manage your clinic efficiently.</p>
+          <p className="text-xs text-gray-500 mt-0.5">Learn how to use Skryme Dental to manage your clinic efficiently.</p>
         </div>
       </div>
 
@@ -49,7 +49,7 @@ const UsageGuide = () => {
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <p className="text-sm text-gray-600">
-                DentalCare uses a unique architecture designed for reliability and speed in local networks:
+                Skryme Dental uses a unique architecture designed for reliability and speed in local networks:
               </p>
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50/50 rounded-sm border border-gray-100">
