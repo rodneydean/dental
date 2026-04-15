@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,22 +13,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
   Download,
   Upload,
   Database,
   FileText,
-  Trash2,
   AlertTriangle,
   CheckCircle2,
   History,
@@ -152,13 +139,6 @@ const DataManagement = () => {
     loadStats();
   };
 
-  const handleClearAllData = () => {
-    dataManager.clearAllData();
-    toast.success("All data cleared successfully");
-    loadStats();
-    loadBackupHistory();
-    validateData();
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
