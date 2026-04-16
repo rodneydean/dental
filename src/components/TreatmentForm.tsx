@@ -447,23 +447,14 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-tight">Medication Name *</Label>
-                    <Select
+                    <Input
                       value={medication.name}
-                      onValueChange={(value) =>
-                        updateMedication(index, "name", value)
+                      onChange={(e) =>
+                        updateMedication(index, "name", e.target.value)
                       }
-                    >
-                      <SelectTrigger className="h-8 text-xs rounded-sm border-gray-200 bg-white">
-                        <SelectValue placeholder="Select medication" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {commonMedications.map((med) => (
-                          <SelectItem key={med} value={med}>
-                            {med}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="e.g., Amoxicillin"
+                      className="h-8 text-xs rounded-sm border-gray-200 bg-white"
+                    />
                   </div>
 
                   <div className="space-y-1">

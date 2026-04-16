@@ -389,7 +389,10 @@ class DataManager {
   }
 
   public async addInsuranceProvider(provider: { name: string; pays_reception_fee: boolean }): Promise<InsuranceProvider> {
-    return await invoke<InsuranceProvider>("create_insurance_provider", { ...provider });
+    return await invoke<InsuranceProvider>("create_insurance_provider", {
+      name: provider.name,
+      paysReceptionFee: provider.pays_reception_fee
+    });
   }
 
   public async deleteInsuranceProvider(id: string): Promise<void> {

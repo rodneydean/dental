@@ -22,11 +22,14 @@ import { invoke } from "@tauri-apps/api/core";
 import UserManagement from "./pages/UserManagement";
 import UsageGuide from "./pages/UsageGuide";
 import { checkForUpdates } from "./lib/updater";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { user, isLoading: authLoading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -43,6 +46,12 @@ const AppContent = () => {
     };
     checkSetup();
   }, []);
+
+  useEffect(() => {
+    if (user?.role === 'RECEPTION' && location.pathname !== '/reception') {
+      navigate('/reception');
+    }
+  }, [user, location.pathname, navigate]);
 
   if (authLoading || needsSetup === null) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
