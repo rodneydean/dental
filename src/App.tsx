@@ -10,6 +10,7 @@ import Appointments from "./pages/Appointments";
 import Treatments from "./pages/Treatments";
 import Payments from "./pages/Payments";
 import WaitingRoom from "./pages/WaitingRoom";
+import Reception from "./pages/Reception";
 import Settings from "./pages/Settings";
 import DataManagement from "./components/DataManagement";
 import NotFound from "./pages/NotFound";
@@ -55,12 +56,24 @@ const AppContent = () => {
     return <Login />;
   }
 
+  if (user.role === 'RECEPTION') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Routes>
+          <Route path="/reception" element={<Reception />} />
+          <Route path="*" element={<Reception />} />
+        </Routes>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       <main className="container mx-auto px-4 py-8">
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/reception" element={<Reception />} />
           <Route path="/patients" element={<Patients />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/treatments" element={<Treatments />} />
