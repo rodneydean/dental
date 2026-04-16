@@ -32,19 +32,6 @@ interface TreatmentFormProps {
   onCancel: () => void;
 }
 
-const commonMedications = [
-  "Amoxicillin",
-  "Ibuprofen",
-  "Acetaminophen",
-  "Clindamycin",
-  "Penicillin",
-  "Hydrocodone",
-  "Lidocaine",
-  "Chlorhexidine",
-  "Metronidazole",
-  "Doxycycline",
-];
-
 const frequencies = [
   "Once daily",
   "Twice daily",
