@@ -12,7 +12,7 @@ import {
   DollarSign,
   BarChart3
 } from "lucide-react";
-import { dataManager, Appointment, Treatment, Payment } from "@/lib/dataManager";
+import { dataManager, Appointment, Treatment, Payment, Patient } from "@/lib/dataManager";
 import { pdfGenerator } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 
@@ -24,6 +24,7 @@ const Reports = () => {
     new Date().toISOString().split("T")[0]
   );
 
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -37,11 +38,13 @@ const Reports = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [appts, treats, pays] = await Promise.all([
+      const [pts, appts, treats, pays] = await Promise.all([
+        dataManager.getPatients(),
         dataManager.getAppointments(),
         dataManager.getTreatments(),
         dataManager.getPayments()
       ]);
+      setPatients(pts);
       setAppointments(appts);
       setTreatments(treats);
       setPayments(pays);
@@ -58,6 +61,11 @@ const Reports = () => {
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
+    const filteredPatients = patients.filter(p => {
+      const d = new Date(p.created_at);
+      return d >= start && d <= end;
+    });
+
     const filteredAppts = appointments.filter(a => {
       const d = new Date(a.date);
       return d >= start && d <= end;
@@ -73,20 +81,55 @@ const Reports = () => {
       return d >= start && d <= end;
     });
 
-    return { filteredAppts, filteredTreats, filteredPays };
+    return { filteredPatients, filteredAppts, filteredTreats, filteredPays };
+  };
+
+  const setPreset = (preset: 'today' | 'week' | 'month' | 'quarter' | 'year') => {
+    const today = new Date();
+    let start = new Date();
+
+    switch(preset) {
+      case 'today': {
+        start = new Date(today);
+        break;
+      }
+      case 'week': {
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+        start = new Date(today.setDate(diff));
+        break;
+      }
+      case 'month': {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        break;
+      }
+      case 'quarter': {
+        const quarter = Math.floor((today.getMonth() / 3));
+        start = new Date(today.getFullYear(), quarter * 3, 1);
+        break;
+      }
+      case 'year': {
+        start = new Date(today.getFullYear(), 0, 1);
+        break;
+      }
+    }
+
+    setStartDate(start.toISOString().split("T")[0]);
+    setEndDate(new Date().toISOString().split("T")[0]);
   };
 
   const handleGenerateReport = async () => {
     setIsGenerating(true);
     try {
-      const { filteredAppts, filteredTreats, filteredPays } = getFilteredData();
+      const { filteredPatients, filteredAppts, filteredTreats, filteredPays } = getFilteredData();
 
       await pdfGenerator.generateReport(
         startDate,
         endDate,
         filteredAppts,
         filteredTreats,
-        filteredPays
+        filteredPays,
+        filteredPatients
       );
 
       toast.success("Report generated and downloaded successfully");
@@ -98,8 +141,9 @@ const Reports = () => {
     }
   };
 
-  const { filteredAppts, filteredTreats, filteredPays } = getFilteredData();
+  const { filteredPatients, filteredAppts, filteredTreats, filteredPays } = getFilteredData();
   const totalRevenue = filteredPays.reduce((sum, p) => sum + p.amount, 0);
+  const totalBilled = filteredTreats.reduce((sum, t) => sum + t.cost, 0);
 
   const formatCurrency = (amount: number) => {
     return `KSH ${amount.toLocaleString()}`;
@@ -123,6 +167,14 @@ const Reports = () => {
             <CardDescription className="text-[10px]">Select the time frame for the report</CardDescription>
           </CardHeader>
           <CardContent className="p-5 space-y-4">
+            <div className="grid grid-cols-2 gap-2 pb-2">
+              <Button variant="outline" size="sm" className="text-[10px] h-7" onClick={() => setPreset('today')}>Today</Button>
+              <Button variant="outline" size="sm" className="text-[10px] h-7" onClick={() => setPreset('week')}>This Week</Button>
+              <Button variant="outline" size="sm" className="text-[10px] h-7" onClick={() => setPreset('month')}>This Month</Button>
+              <Button variant="outline" size="sm" className="text-[10px] h-7" onClick={() => setPreset('quarter')}>This Quarter</Button>
+              <Button variant="outline" size="sm" className="text-[10px] h-7" onClick={() => setPreset('year')}>This Year</Button>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="start-date" className="text-xs">Start Date</Label>
               <Input
@@ -160,15 +212,27 @@ const Reports = () => {
 
         {/* Preview Stats */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card className="border-gray-200 shadow-sm rounded-sm">
               <CardContent className="pt-4 pb-4 px-4 flex items-center justify-between">
                 <div>
-                  <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Revenue</p>
-                  <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalRevenue)}</p>
+                  <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Collected Revenue</p>
+                  <p className="text-xl font-bold text-[#2e7d32] mt-1">{formatCurrency(totalRevenue)}</p>
                 </div>
                 <div className="p-2 bg-green-50 rounded-sm text-green-600">
                   <DollarSign className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-gray-200 shadow-sm rounded-sm">
+              <CardContent className="pt-4 pb-4 px-4 flex items-center justify-between">
+                <div>
+                  <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Total Billed</p>
+                  <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalBilled)}</p>
+                </div>
+                <div className="p-2 bg-blue-50 rounded-sm text-[#0078d4]">
+                  <TrendingUp className="h-5 w-5" />
                 </div>
               </CardContent>
             </Card>
@@ -242,6 +306,12 @@ const Reports = () => {
                         </span>
                       </div>
                       <div className="flex justify-between border-b border-gray-100 pb-1">
+                        <span className="text-xs text-gray-500">Collection Rate</span>
+                        <span className="text-xs font-semibold text-[#2e7d32]">
+                          {totalBilled > 0 ? ((totalRevenue / totalBilled) * 100).toFixed(1) : 0}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-100 pb-1">
                         <span className="text-xs text-gray-500">Appointment Completion Rate</span>
                         <span className="text-xs font-semibold">
                           {filteredAppts.length > 0
@@ -252,8 +322,7 @@ const Reports = () => {
                       <div className="flex justify-between border-b border-gray-100 pb-1">
                         <span className="text-xs text-gray-500">New Patients Found</span>
                         <span className="text-xs font-semibold">
-                          {/* We don't have patient creation date filtered here yet, but we could add it if needed */}
-                          Data analysis pending
+                          {filteredPatients.length}
                         </span>
                       </div>
                     </div>

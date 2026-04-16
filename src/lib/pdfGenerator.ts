@@ -389,7 +389,14 @@ export const pdfGenerator = {
     doc.save(`Sick_Sheet_${sheet.patient_name.replace(/\s+/g, '_')}.pdf`);
   },
 
-  async generateReport(startDate: string, endDate: string, appointments: Appointment[], treatments: Treatment[], payments: Payment[]) {
+  async generateReport(
+    startDate: string,
+    endDate: string,
+    appointments: Appointment[],
+    treatments: Treatment[],
+    payments: Payment[],
+    patients: Patient[]
+  ) {
     const branding = await getBranding();
     const doc = new jsPDF();
     let y = addLetterhead(doc, branding);
@@ -406,74 +413,142 @@ export const pdfGenerator = {
     y += 15;
 
     // Summary Section
-    doc.setFillColor(245, 245, 245);
-    doc.rect(20, y, 170, 40, 'F');
+    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+    const totalBilled = treatments.reduce((sum, t) => sum + t.cost, 0);
+    const completedAppts = appointments.filter(a => a.status === 'completed').length;
+    const cancelledAppts = appointments.filter(a => a.status === 'cancelled').length;
+
+    doc.setFillColor(245, 247, 250);
+    doc.rect(20, y, 170, 50, 'F');
 
     doc.setFont("helvetica", "bold");
-    doc.text("Executive Summary", 25, y + 8);
+    doc.setFontSize(12);
+    doc.text("Executive Summary", 25, y + 10);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
-    const completedAppts = appointments.filter(a => a.status === 'completed').length;
 
-    doc.text(`Total Appointments: ${appointments.length}`, 25, y + 18);
-    doc.text(`Completed Treatments: ${treatments.length}`, 25, y + 24);
-    doc.text(`Total Revenue: KSH ${totalRevenue.toLocaleString()}`, 25, y + 30);
+    // Left Column
+    doc.text(`Total Appointments: ${appointments.length}`, 25, y + 20);
+    doc.text(`Completed Appointments: ${completedAppts}`, 25, y + 26);
+    doc.text(`Cancelled Appointments: ${cancelledAppts}`, 25, y + 32);
+    doc.text(`New Patients Registered: ${patients.length}`, 25, y + 38);
 
-    doc.text(`Patient Attendance Rate: ${appointments.length > 0 ? ((completedAppts / appointments.length) * 100).toFixed(1) : 0}%`, 110, y + 18);
-    doc.text(`Avg. Transaction Value: KSH ${payments.length > 0 ? (totalRevenue / payments.length).toFixed(2) : 0}`, 110, y + 24);
-
-    y += 55;
-
-    // Financial Breakdown
-    doc.setFontSize(14);
+    // Right Column
     doc.setFont("helvetica", "bold");
-    doc.text("Financial Breakdown", 20, y);
-    y += 7;
+    doc.text(`Total Billed: KSH ${totalBilled.toLocaleString()}`, 110, y + 20);
+    doc.setTextColor(46, 125, 50); // Green
+    doc.text(`Total Collected: KSH ${totalRevenue.toLocaleString()}`, 110, y + 26);
+    doc.setTextColor(33, 33, 33); // Reset
+    doc.setFont("helvetica", "normal");
+    doc.text(`Collection Rate: ${totalBilled > 0 ? ((totalRevenue / totalBilled) * 100).toFixed(1) : 0}%`, 110, y + 32);
+    doc.text(`Avg. Revenue / Appointment: KSH ${completedAppts > 0 ? (totalRevenue / completedAppts).toFixed(0) : 0}`, 110, y + 38);
 
-    const cashPayments = payments.filter(p => p.method === 'cash').reduce((sum, p) => sum + p.amount, 0);
-    const cardPayments = payments.filter(p => p.method === 'card').reduce((sum, p) => sum + p.amount, 0);
-    const transferPayments = payments.filter(p => p.method === 'transfer').reduce((sum, p) => sum + p.amount, 0);
+    y += 65;
 
-    doc.autoTable({
-      startY: y,
-      head: [['Payment Method', 'Transactions', 'Total Amount']],
-      body: [
-        ['Cash', payments.filter(p => p.method === 'cash').length, `KSH ${cashPayments.toLocaleString()}`],
-        ['Card', payments.filter(p => p.method === 'card').length, `KSH ${cardPayments.toLocaleString()}`],
-        ['Transfer', payments.filter(p => p.method === 'transfer').length, `KSH ${transferPayments.toLocaleString()}`],
-      ],
-      foot: [['TOTAL', payments.length, `KSH ${totalRevenue.toLocaleString()}`]],
-      theme: 'grid',
-      headStyles: { fillColor: [46, 125, 50] },
-    });
+    // 1. New Patients
+    if (patients.length > 0) {
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("New Patients Registered", 20, y);
+      y += 7;
 
-    y = doc.lastAutoTable.finalY + 15;
+      const patientRows = patients.map(p => [
+        new Date(p.created_at).toLocaleDateString(),
+        p.name,
+        p.phone,
+        p.email || 'N/A'
+      ]);
 
-    // Treatment Log
-    if (y > 220) { doc.addPage(); y = 20; }
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Treatment Activities", 20, y);
-    y += 7;
+      doc.autoTable({
+        startY: y,
+        head: [['Date Registered', 'Patient Name', 'Phone', 'Email']],
+        body: patientRows,
+        theme: 'striped',
+        headStyles: { fillColor: [0, 120, 212] },
+      });
+      y = doc.lastAutoTable.finalY + 15;
+    }
 
-    const treatmentRows = treatments.map(t => [
-        t.date,
-        t.patient_name,
-        t.diagnosis,
-        `KSH ${t.cost.toLocaleString()}`
-    ]);
+    // 2. Active Appointments
+    const activeAppts = appointments.filter(a => a.status !== 'cancelled');
+    if (activeAppts.length > 0) {
+      if (y > 230) { doc.addPage(); y = 20; }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Appointments (Active/Completed)", 20, y);
+      y += 7;
 
-    doc.autoTable({
-      startY: y,
-      head: [['Date', 'Patient', 'Diagnosis', 'Cost']],
-      body: treatmentRows,
-      theme: 'striped',
-      headStyles: { fillColor: [0, 120, 212] },
-    });
+      const apptRows = activeAppts.map(a => [
+        a.date,
+        a.time,
+        a.patient_name,
+        a.appointment_type,
+        a.status.toUpperCase()
+      ]);
+
+      doc.autoTable({
+        startY: y,
+        head: [['Date', 'Time', 'Patient', 'Type', 'Status']],
+        body: apptRows,
+        theme: 'striped',
+        headStyles: { fillColor: [0, 120, 212] },
+      });
+      y = doc.lastAutoTable.finalY + 15;
+    }
+
+    // 3. Cancelled Appointments
+    if (cancelledAppts > 0) {
+      if (y > 230) { doc.addPage(); y = 20; }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(200, 0, 0);
+      doc.text("Cancelled Appointments", 20, y);
+      doc.setTextColor(33, 33, 33);
+      y += 7;
+
+      const cancelledRows = appointments.filter(a => a.status === 'cancelled').map(a => [
+        a.date,
+        a.patient_name,
+        a.appointment_type,
+        a.notes || 'No reason provided'
+      ]);
+
+      doc.autoTable({
+        startY: y,
+        head: [['Date', 'Patient', 'Type', 'Cancellation Notes']],
+        body: cancelledRows,
+        theme: 'striped',
+        headStyles: { fillColor: [180, 0, 0] },
+      });
+      y = doc.lastAutoTable.finalY + 15;
+    }
+
+    // 4. Detailed Transaction Log
+    if (payments.length > 0) {
+      if (y > 230) { doc.addPage(); y = 20; }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Detailed Transaction Log", 20, y);
+      y += 7;
+
+      const paymentRows = payments.map(p => [
+        p.date,
+        p.patient_name,
+        p.method.toUpperCase(),
+        `KSH ${p.amount.toLocaleString()}`
+      ]);
+
+      doc.autoTable({
+        startY: y,
+        head: [['Date', 'Patient', 'Method', 'Amount']],
+        body: paymentRows,
+        theme: 'grid',
+        headStyles: { fillColor: [46, 125, 50] },
+      });
+    }
 
     addFooter(doc, branding);
-    doc.save(`Clinic_Report_${startDate}_to_${endDate}.pdf`);
+    doc.save(`Full_Clinic_Report_${startDate}_to_${endDate}.pdf`);
   }
 };
