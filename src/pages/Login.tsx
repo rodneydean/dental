@@ -6,12 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { invoke } from "@tauri-apps/api/core";
 import { useAuth, User } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { setUser } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +22,9 @@ const Login = () => {
       const user = await invoke<User>("login", { username, password });
       setUser(user);
       toast.success(`Welcome back, ${user.full_name}`);
+      if (user.role === 'RECEPTION') {
+        navigate("/reception");
+      }
     } catch (error) {
       toast.error(error as string);
     } finally {

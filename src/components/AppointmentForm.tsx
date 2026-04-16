@@ -31,6 +31,7 @@ interface User {
 
 interface AppointmentFormProps {
   appointment?: Appointment;
+  patient?: Patient;
   onSave: (appointment: Omit<Appointment, "id" | "created_at" | "updated_at">) => void;
   onCancel: () => void;
 }
@@ -60,6 +61,7 @@ const timeSlots = [
 
 const AppointmentForm = ({
   appointment,
+  patient,
   onSave,
   onCancel,
 }: AppointmentFormProps) => {
@@ -67,8 +69,8 @@ const AppointmentForm = ({
   const [doctors, setDoctors] = useState<User[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [formData, setFormData] = useState({
-    patient_id: appointment?.patient_id || "",
-    patient_name: appointment?.patient_name || "",
+    patient_id: appointment?.patient_id || patient?.id || "",
+    patient_name: appointment?.patient_name || patient?.name || "",
     doctor_id: appointment?.doctor_id || "",
     doctor_name: appointment?.doctor_name || "",
     date: appointment?.date || "",
