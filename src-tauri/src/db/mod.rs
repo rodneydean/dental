@@ -27,7 +27,7 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::
         msg
     })?;
 
-    conn.execute("PRAGMA busy_timeout = 5000", []).map_err(|e| {
+    conn.pragma_update(None, "busy_timeout", 5000).map_err(|e| {
         log::error!("Failed to set busy_timeout: {}", e);
         e
     })?;
@@ -341,6 +341,6 @@ pub fn get_db_conn(app_handle: &tauri::AppHandle) -> Result<Connection, Box<dyn 
     let app_dir = app_handle.path().app_data_dir()?;
     let db_path = app_dir.join("dentist.db");
     let conn = Connection::open(db_path)?;
-    conn.execute("PRAGMA busy_timeout = 5000", [])?;
+    conn.pragma_update(None, "busy_timeout", 5000)?;
     Ok(conn)
 }
