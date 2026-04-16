@@ -65,7 +65,10 @@ pub fn run() {
       commands::data::backup_db,
     ])
     .setup(|app| {
-      db::init_db(app.handle())?;
+      if let Err(e) = db::init_db(app.handle()) {
+          log::error!("Failed to initialize database: {}", e);
+          return Err(e.into());
+      }
 
       // Auto-start Hub or Spoke based on persisted settings
       let app_handle = app.handle().clone();
