@@ -65,10 +65,17 @@ pub fn run() {
       commands::data::backup_db,
     ])
     .setup(|app| {
+      log::info!("Starting application setup...");
+
       if let Err(e) = db::init_db(app.handle()) {
-          log::error!("Failed to initialize database: {}", e);
+          log::error!("CRITICAL: Failed to initialize database: {}", e);
+          // Database is essential for the application to function.
+          // We return the error here which will cause the application to exit,
+          // but now with a clear error logged.
           return Err(e.into());
       }
+
+      log::info!("Database initialized successfully.");
 
       // Auto-start Hub or Spoke based on persisted settings
       let app_handle = app.handle().clone();
@@ -88,13 +95,18 @@ pub fn run() {
       });
 
       if let Some(mode_str) = mode {
+          log::info!("Auto-starting in {} mode", mode_str);
           if mode_str == "hub" {
               if let Some(c) = code {
                   if let Ok(mut g_mode) = state.mode.lock() {
                       *g_mode = "hub".to_string();
+                  } else {
+                      log::error!("Failed to lock network mode state");
                   }
                   if let Ok(mut g_code) = state.pairing_code.lock() {
                       *g_code = Some(c.clone());
+                  } else {
+                      log::error!("Failed to lock pairing code state");
                   }
 
                   let app_clone = app_handle.clone();
@@ -103,24 +115,33 @@ pub fn run() {
                           log::error!("Failed to start hub server: {}", e);
                       }
                   });
+              } else {
+                  log::warn!("Hub mode set but no pairing code found");
               }
           } else if mode_str == "spoke" {
               if let Some(c) = code {
                   if let Ok(mut g_mode) = state.mode.lock() {
                       *g_mode = "spoke".to_string();
+                  } else {
+                      log::error!("Failed to lock network mode state");
                   }
                   if let Ok(mut g_code) = state.pairing_code.lock() {
                       *g_code = Some(c.clone());
+                  } else {
+                      log::error!("Failed to lock pairing code state");
                   }
 
                   let app_clone = app_handle.clone();
                   tauri::async_runtime::spawn(async move {
                       spoke::start_spoke_client(app_clone, c, hub_addr).await;
                   });
+              } else {
+                  log::warn!("Spoke mode set but no pairing code found");
               }
           }
       }
 
+      log::info!("Application setup completed.");
       Ok(())
     })
     .run(tauri::generate_context!())

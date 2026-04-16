@@ -3,16 +3,39 @@ use std::fs;
 use tauri::Manager;
 
 pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let app_dir = app_handle.path().app_data_dir()?;
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| {
+        log::error!("Failed to get app data directory: {}", e);
+        e
+    })?;
+
     if !app_dir.exists() {
-        fs::create_dir_all(&app_dir)?;
+        log::info!("Creating app data directory: {:?}", app_dir);
+        fs::create_dir_all(&app_dir).map_err(|e| {
+            log::error!("Failed to create app data directory: {}", e);
+            e
+        })?;
     }
+
     let db_path = app_dir.join("dentist.db");
-    let mut conn = Connection::open(db_path)?;
-    conn.execute("PRAGMA busy_timeout = 5000", [])?;
+    log::info!("Opening database at: {:?}", db_path);
 
-    init_schema(&mut conn)?;
+    let mut conn = Connection::open(&db_path).map_err(|e| {
+        log::error!("Failed to open database: {}", e);
+        e
+    })?;
 
+    conn.execute("PRAGMA busy_timeout = 5000", []).map_err(|e| {
+        log::error!("Failed to set busy_timeout: {}", e);
+        e
+    })?;
+
+    log::info!("Initializing database schema...");
+    init_schema(&mut conn).map_err(|e| {
+        log::error!("Failed to initialize schema: {}", e);
+        e
+    })?;
+
+    log::info!("Database initialization complete.");
     Ok(())
 }
 

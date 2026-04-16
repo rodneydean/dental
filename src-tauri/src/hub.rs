@@ -121,17 +121,24 @@ async fn start_mdns_discovery(port: u16) -> Result<ServiceDaemon, Box<dyn std::e
         };
         let host_name = format!("{}.local.", instance_name);
 
-        let service_info = ServiceInfo::new(
+        match ServiceInfo::new(
             service_type,
             &instance_name,
             &host_name,
             ip_str.clone(),
             port,
             properties.clone(),
-        )?.enable_addr_auto();
-
-        mdns.register(service_info)?;
-        info!("Registered mDNS service for IP: {} as {}", ip_str, instance_name);
+        ) {
+            Ok(service_info) => {
+                let service_info = service_info.enable_addr_auto();
+                if let Err(e) = mdns.register(service_info) {
+                    error!("Failed to register mDNS service for IP {}: {}", ip_str, e);
+                } else {
+                    info!("Registered mDNS service for IP: {} as {}", ip_str, instance_name);
+                }
+            },
+            Err(e) => error!("Failed to create mDNS service info for IP {}: {}", ip_str, e),
+        }
     }
 
     Ok(mdns)
