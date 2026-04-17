@@ -28,7 +28,7 @@ import { calculateAge } from "@/lib/utils";
 
 interface TreatmentFormProps {
   treatment?: Treatment;
-  onSave: (treatment: Omit<Treatment, "id" | "created_at" | "updated_at">) => void;
+  onSave: (treatment: Omit<Treatment, "id" | "created_at" | "updated_at">) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -89,31 +89,31 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       return;
     }
 
-    onSave(formData);
+    try {
+      await onSave(formData);
 
-    // Create a pending payment if there's a cost
-    if (formData.cost > 0) {
-      try {
-        await dataManager.addPayment({
-          patient_id: formData.patient_id,
-          patient_name: formData.patient_name,
-          amount: formData.cost,
-          date: formData.date,
-          method: paymentMethod,
-          insurance_provider_id: paymentMethod === "insurance" ? selectedProviderId : undefined,
-          status: "pending",
-          notes: `Service Fee for Treatment: ${formData.diagnosis}`,
-        });
-      } catch (error) {
-        console.error("Failed to create pending payment", error);
+      // Create a pending payment if there's a cost
+      if (formData.cost > 0) {
+        try {
+          await dataManager.addPayment({
+            patient_id: formData.patient_id,
+            patient_name: formData.patient_name,
+            amount: formData.cost,
+            date: formData.date,
+            method: paymentMethod,
+            insurance_provider_id: paymentMethod === "insurance" ? selectedProviderId : undefined,
+            status: "pending",
+            notes: `Service Fee for Treatment: ${formData.diagnosis}`,
+          });
+        } catch (error) {
+          console.error("Failed to create pending payment", error);
+        }
       }
+    } catch (error) {
+      console.error("Form submission failed", error);
+      // Let the parent handle specific error messaging if needed,
+      // but we shouldn't show success here if it failed.
     }
-
-    toast.success(
-      treatment
-        ? "Treatment updated successfully"
-        : "Treatment recorded successfully"
-    );
   };
 
   const handlePatientChange = (patient_id: string) => {

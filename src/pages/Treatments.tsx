@@ -31,6 +31,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import TreatmentForm from "@/components/TreatmentForm";
 import { dataManager, Treatment } from "@/lib/dataManager";
@@ -172,7 +179,8 @@ const Treatments = () => {
             .map((treatment) => (
               <Card
                 key={treatment.id}
-                className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white overflow-hidden rounded-sm"
+                className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white overflow-hidden rounded-sm cursor-pointer"
+                onClick={() => setViewingTreatment(treatment)}
               >
                 <CardContent className="p-0">
                   <div className="flex flex-col lg:flex-row">
@@ -309,50 +317,69 @@ const Treatments = () => {
         </DialogContent>
       </Dialog>
 
-      {/* View Treatment Details Dialog */}
-      <Dialog
+      {/* View Treatment Details Sheet */}
+      <Sheet
         open={!!viewingTreatment}
         onOpenChange={() => setViewingTreatment(null)}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Treatment Details</DialogTitle>
-          </DialogHeader>
+        <SheetContent className="sm:max-w-xl overflow-y-auto">
+          <SheetHeader className="border-b border-gray-100 pb-4 mb-6">
+            <SheetTitle className="text-xl font-bold text-gray-900">Treatment Details</SheetTitle>
+            <SheetDescription>
+              Clinical record and medication details.
+            </SheetDescription>
+          </SheetHeader>
+
           {viewingTreatment && (
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-gray-500 uppercase">Patient</Label>
-                  <p className="font-bold text-lg">{viewingTreatment.patient_name}</p>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 rounded-sm border border-gray-100">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Patient</Label>
+                  <p className="font-bold text-gray-900">{viewingTreatment.patient_name}</p>
                 </div>
-                <div className="text-right">
-                  <Label className="text-xs text-gray-500 uppercase">Date</Label>
-                  <p className="font-bold text-lg">{viewingTreatment.date}</p>
+                <div className="space-y-1 text-right">
+                  <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Date</Label>
+                  <p className="font-bold text-gray-900">{viewingTreatment.date}</p>
                 </div>
               </div>
 
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <Label className="text-xs text-purple-600 uppercase font-bold">Diagnosis</Label>
-                <p className="text-purple-900 font-medium">{viewingTreatment.diagnosis}</p>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold text-purple-600 uppercase tracking-widest">Diagnosis</Label>
+                <div className="bg-purple-50 p-4 rounded-sm border border-purple-100">
+                  <p className="text-purple-900 font-semibold text-sm">{viewingTreatment.diagnosis}</p>
+                </div>
               </div>
 
-              <div>
-                <Label className="text-xs text-gray-500 uppercase font-bold">Treatment Performed</Label>
-                <p className="text-gray-700 mt-1 whitespace-pre-wrap">{viewingTreatment.treatment}</p>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Treatment Performed</Label>
+                <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-sm">
+                  <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{viewingTreatment.treatment}</p>
+                </div>
               </div>
 
               {viewingTreatment.medications.length > 0 && (
-                <div>
-                  <Label className="text-xs text-gray-500 uppercase font-bold block mb-2">Prescriptions</Label>
-                  <div className="space-y-2">
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Prescribed Medications</Label>
+                  <div className="space-y-3">
                     {viewingTreatment.medications.map((med, idx) => (
-                      <div key={idx} className="flex items-start bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <Pill className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-                        <div>
-                          <p className="font-bold text-blue-900">{med.name} - {med.dosage}</p>
-                          <p className="text-sm text-blue-700">{med.frequency} for {med.duration}</p>
+                      <div key={idx} className="flex items-start bg-blue-50/50 p-4 rounded-sm border border-blue-100 relative group">
+                        <div className="p-2 bg-blue-100 rounded-sm text-blue-600 mr-4">
+                          <Pill className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="font-bold text-blue-900 text-sm">{med.name}</p>
+                            <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] h-5">
+                              {med.dosage}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-blue-800 font-medium mb-1">
+                            {med.frequency} • {med.duration}
+                          </p>
                           {med.instructions && (
-                            <p className="text-xs text-blue-600 mt-1 italic">Note: {med.instructions}</p>
+                            <p className="text-[11px] text-blue-600 mt-2 bg-white/50 p-2 rounded italic border border-blue-50">
+                              Note: {med.instructions}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -362,35 +389,38 @@ const Treatments = () => {
               )}
 
               {viewingTreatment.notes && (
-                <div>
-                  <Label className="text-xs text-gray-500 uppercase font-bold">Notes</Label>
-                  <p className="text-sm text-gray-600 mt-1">{viewingTreatment.notes}</p>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Additional Notes</Label>
+                  <div className="bg-gray-50 p-4 rounded-sm border border-gray-100 italic text-sm text-gray-600">
+                    {viewingTreatment.notes}
+                  </div>
                 </div>
               )}
 
-              <div className="flex justify-between items-center pt-4 border-t">
-                <div className="text-xs text-gray-400">
-                  Recorded: {new Date(viewingTreatment.created_at).toLocaleString()}
-                </div>
-                <div className="flex items-center space-x-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => pdfGenerator.generatePrescription(viewingTreatment, viewingTreatment.medications)}
-                  >
-                    <Download className="h-3.5 w-3.5 mr-2" />
-                    Download Rx
-                  </Button>
-                  <div className="font-bold text-xl">
-                    Total: {formatCurrency(viewingTreatment.cost)}
+              <div className="pt-6 border-t border-gray-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Cost</p>
+                    <p className="text-2xl font-black text-gray-900">{formatCurrency(viewingTreatment.cost)}</p>
                   </div>
+                  <Button
+                    onClick={() => pdfGenerator.generatePrescription(viewingTreatment, viewingTreatment.medications)}
+                    className="bg-primary hover:bg-primary/90 text-white rounded-sm px-6"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Medication Sheet
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-gray-400 font-medium uppercase tracking-tighter">
+                  <span>Record ID: {viewingTreatment.id.split('-')[0]}</span>
+                  <span>Created: {new Date(viewingTreatment.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

@@ -232,23 +232,65 @@ export const pdfGenerator = {
 
   async generatePrescription(treatment: Treatment, medications: Medication[]) {
     const branding = await getBranding();
-    const doc = new jsPDF();
-    let y = addLetterhead(doc, branding);
+    // A5 is roughly 5.8 x 8.3 inches, but we'll use mm for standard A5 (148 x 210)
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a5"
+    });
 
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("PRESCRIPTION", 105, y, { align: "center" });
-    y += 15;
+    // Custom addLetterhead for A5
+    const addA5Letterhead = (doc: jsPDF, branding: ClinicBranding, yPos: number = 15): number => {
+      if (branding.logo) {
+        try {
+          doc.addImage(branding.logo, 'PNG', 10, yPos - 10, 20, 20);
+        } catch (e) {
+          console.error("Failed to add logo to PDF", e);
+        }
+      }
+
+      doc.setFontSize(14);
+      doc.setTextColor(0, 120, 212);
+      doc.setFont("helvetica", "bold");
+      doc.text(branding.name, 35, yPos);
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont("helvetica", "normal");
+      let currentY = yPos + 5;
+      if (branding.address) {
+        doc.text(branding.address, 35, currentY);
+        currentY += 4;
+      }
+      if (branding.phone || branding.website) {
+        doc.text(`${branding.phone}${branding.phone && branding.website ? ' | ' : ''}${branding.website}`, 35, currentY);
+        currentY += 4;
+      }
+
+      doc.setDrawColor(200, 200, 200);
+      doc.line(10, currentY + 2, 138, currentY + 2);
+
+      return currentY + 12;
+    };
+
+    let y = addA5Letterhead(doc, branding);
 
     doc.setFontSize(12);
-    doc.text(`Patient: ${treatment.patient_name}`, 20, y);
-    doc.text(`Date: ${treatment.date}`, 150, y);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(33, 33, 33);
+    doc.text("MEDICATION SHEET", 74, y, { align: "center" });
     y += 10;
 
-    doc.setFontSize(24);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Patient: ${treatment.patient_name}`, 10, y);
+    doc.text(`Date: ${treatment.date}`, 138, y, { align: "right" });
+    y += 8;
+
+    doc.setFontSize(18);
     doc.setTextColor(0, 120, 212);
-    doc.text("Rx", 20, y);
-    y += 10;
+    doc.text("Rx", 10, y);
+    y += 6;
     doc.setTextColor(33, 33, 33);
 
     const medRows = medications.map(m => [
@@ -261,19 +303,31 @@ export const pdfGenerator = {
 
     doc.autoTable({
       startY: y,
-      head: [['Medication', 'Dosage', 'Frequency', 'Duration', 'Instructions']],
+      head: [['Medication', 'Dosage', 'Freq', 'Dur', 'Instructions']],
       body: medRows,
       theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [0, 120, 212] },
+      margin: { left: 10, right: 10 }
     });
 
-    y = doc.lastAutoTable.finalY + 30;
-    doc.line(130, y, 180, y);
-    doc.setFontSize(10);
-    doc.text("Doctor's Signature", 135, y + 5);
+    y = doc.lastAutoTable.finalY + 15;
 
-    addFooter(doc, branding);
-    doc.save(`Prescription_${treatment.patient_name.replace(/\s+/g, '_')}.pdf`);
+    // Signature line
+    if (y > 180) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.line(90, y, 130, y);
+    doc.setFontSize(8);
+    doc.text("Doctor's Signature", 95, y + 4);
+
+    // Mini footer
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text(branding.footer || "Thank you for choosing our clinic.", 74, 205, { align: "center" });
+
+    doc.save(`Medication_Sheet_${treatment.patient_name.replace(/\s+/g, '_')}.pdf`);
   },
 
   async generateReceipt(payment: Payment) {

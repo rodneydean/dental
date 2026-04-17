@@ -105,7 +105,7 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             id TEXT PRIMARY KEY,
             patient_id TEXT NOT NULL,
             patient_name TEXT NOT NULL,
-            appointment_id TEXT NOT NULL,
+            appointment_id TEXT,
             date TEXT NOT NULL,
             diagnosis TEXT,
             treatment TEXT,
@@ -343,6 +343,71 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
 
         if !columns.contains(&"insurance_provider_id".to_string()) {
             let _ = conn.execute("ALTER TABLE payments ADD COLUMN insurance_provider_id TEXT", []);
+        }
+    }
+
+    // Migration for treatments appointment_id to be nullable
+    {
+        let table_info: Vec<(i64, String, String, i64, Option<String>, i64)> = {
+            let mut stmt = conn.prepare("PRAGMA table_info(treatments)")?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?))
+            })?;
+            let mut res = Vec::new();
+            for r in rows {
+                res.push(r?);
+            }
+            res
+        };
+
+        // Check if appointment_id is NOT NULL (notnull column is index 3, 1 means NOT NULL)
+        if let Some((_, _, _, notnull, _, _)) = table_info.iter().find(|(_, name, _, _, _, _)| name == "appointment_id") {
+            if *notnull == 1 {
+                log::info!("Migrating treatments table to make appointment_id nullable...");
+
+                let tx = conn.transaction()?;
+
+                // Check if sync_status exists in the current table
+                let current_columns: Vec<String> = {
+                    let mut stmt = tx.prepare("PRAGMA table_info(treatments)")?;
+                    let rows = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?;
+                    rows.filter_map(|r| r.ok()).collect()
+                };
+
+                let has_sync_status = current_columns.contains(&"sync_status".to_string());
+
+                tx.execute("CREATE TABLE treatments_new (
+                    id TEXT PRIMARY KEY,
+                    patient_id TEXT NOT NULL,
+                    patient_name TEXT NOT NULL,
+                    appointment_id TEXT,
+                    date TEXT NOT NULL,
+                    diagnosis TEXT,
+                    treatment TEXT,
+                    notes TEXT,
+                    follow_up_date TEXT,
+                    cost REAL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    sync_status TEXT DEFAULT 'synced',
+                    FOREIGN KEY (patient_id) REFERENCES patients (id),
+                    FOREIGN KEY (appointment_id) REFERENCES appointments (id)
+                )", [])?;
+
+                if has_sync_status {
+                    tx.execute("INSERT INTO treatments_new (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
+                               SELECT id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status FROM treatments", [])?;
+                } else {
+                    tx.execute("INSERT INTO treatments_new (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at)
+                               SELECT id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at FROM treatments", [])?;
+                }
+
+                tx.execute("DROP TABLE treatments", [])?;
+                tx.execute("ALTER TABLE treatments_new RENAME TO treatments", [])?;
+
+                tx.commit()?;
+                log::info!("Treatments table migration completed successfully.");
+            }
         }
     }
 
