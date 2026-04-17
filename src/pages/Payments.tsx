@@ -423,10 +423,16 @@ const Payments = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => pdfGenerator.generateInvoice(payment)}>
+                        <DropdownMenuItem className="cursor-pointer" onClick={async () => {
+                          await pdfGenerator.generateInvoice(payment);
+                          toast.success("Invoice downloaded");
+                        }}>
                           <FileText className="h-4 w-4 mr-2" /> Download Invoice
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => pdfGenerator.generateReceipt(payment)}>
+                        <DropdownMenuItem className="cursor-pointer" onClick={async () => {
+                          await pdfGenerator.generateReceipt(payment);
+                          toast.success("Receipt downloaded");
+                        }}>
                           <Download className="h-4 w-4 mr-2" /> Download Receipt
                         </DropdownMenuItem>
                       </DropdownMenuContent>

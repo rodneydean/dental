@@ -112,7 +112,7 @@ const PatientSheet = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id, navigate]);
+  }, [navigate]);
 
   useEffect(() => {
     if (id) {
@@ -460,7 +460,10 @@ const PatientSheet = () => {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-purple-600"
-                      onClick={() => pdfGenerator.generateSickSheet(sheet)}
+                      onClick={async () => {
+                        await pdfGenerator.generateSickSheet(sheet);
+                        toast.success("Sick sheet downloaded");
+                      }}
                     >
                       <Download className="h-4 w-4" />
                     </Button>
