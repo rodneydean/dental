@@ -14,8 +14,15 @@ import {
   XCircle,
   CreditCard,
   UserCheck,
+  ChevronDown,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const WaitingRoom = () => {
   const { user } = useAuth();
@@ -227,19 +234,30 @@ const WaitingRoom = () => {
                           </Button>
                         </div>
                         {insuranceProviders.filter(p => p.pays_reception_fee).length > 0 && (
-                          <div className="grid grid-cols-1 gap-1">
-                            {insuranceProviders.filter(p => p.pays_reception_fee).map(p => (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <Button
-                                key={p.id}
                                 size="sm"
                                 variant="outline"
-                                className="h-7 text-[10px] font-bold uppercase tracking-wider border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100"
-                                onClick={() => handlePayFee(appt, "insurance", p.id)}
+                                className="h-8 text-xs font-medium border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-sm"
                               >
-                                Use {p.name}
+                                <CreditCard className="h-3.5 w-3.5 mr-1.5" />
+                                Insurance
+                                <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
                               </Button>
-                            ))}
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              {insuranceProviders.filter(p => p.pays_reception_fee).map(p => (
+                                <DropdownMenuItem
+                                  key={p.id}
+                                  onClick={() => handlePayFee(appt, "insurance", p.id)}
+                                  className="text-xs font-medium"
+                                >
+                                  Use {p.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     ) : (

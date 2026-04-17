@@ -233,87 +233,56 @@ export const pdfGenerator = {
   async generatePrescription(treatment: Treatment, medications: Medication[]) {
     const branding = await getBranding();
     const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a5"
+      orientation: "landscape",
+      unit: "in",
+      format: [4, 6]
     });
 
-    // Custom addLetterhead for A5
-    const addA5Letterhead = (doc: jsPDF, branding: ClinicBranding, yPos: number = 15): number => {
-      if (branding.logo) {
-        try {
-          doc.addImage(branding.logo, 'PNG', 10, yPos - 10, 22, 22);
-        } catch (e) {
-          console.error("Failed to add logo to PDF", e);
-        }
-      }
-
-      doc.setFontSize(16);
-      doc.setTextColor(0, 120, 212);
-      doc.setFont("helvetica", "bold");
-      doc.text(branding.name, 35, yPos);
-
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont("helvetica", "normal");
-      let currentY = yPos + 5;
-      if (branding.address) {
-        doc.text(branding.address, 35, currentY);
-        currentY += 4;
-      }
-      if (branding.phone || branding.website) {
-        doc.text(`${branding.phone}${branding.phone && branding.website ? ' | ' : ''}${branding.website}`, 35, currentY);
-        currentY += 4;
-      }
-
-      doc.setDrawColor(0, 120, 212);
-      doc.setLineWidth(0.5);
-      doc.line(10, currentY + 2, 138, currentY + 2);
-
-      return currentY + 15;
-    };
-
-    let y = addA5Letterhead(doc, branding);
-
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(33, 33, 33);
-    doc.text("MEDICATION CARD", 74, y, { align: "center" });
-    y += 12;
-
-    // Patient and Info Header
+    // Branding Background
     doc.setFillColor(240, 247, 255);
-    doc.rect(10, y, 128, 15, 'F');
+    doc.rect(0, 0, 6, 4, 'F');
 
-    doc.setFontSize(9);
+    if (branding.logo) {
+      try {
+        doc.addImage(branding.logo, 'PNG', 0.3, 0.3, 0.8, 0.8);
+      } catch {
+        // Ignore logo errors in PDF
+      }
+    }
+
+    doc.setFontSize(16);
+    doc.setTextColor(0, 120, 212);
+    doc.setFont("helvetica", "bold");
+    doc.text(branding.name, 1.2, 0.6);
+
+    doc.setFontSize(18);
+    doc.setTextColor(33, 33, 33);
+    doc.text("MEDICATION CARD", 3, 1.3, { align: "center" });
+
+    doc.setDrawColor(0, 120, 212);
+    doc.setLineWidth(0.02);
+    doc.line(0.5, 1.5, 5.5, 1.5);
+
+    // Patient and Info
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 120, 212);
-    doc.text("PATIENT NAME:", 15, y + 6);
+    doc.text("PATIENT:", 0.5, 1.8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(33, 33, 33);
-    doc.text(treatment.patient_name, 45, y + 6);
+    doc.text(treatment.patient_name, 1.2, 1.8);
 
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 120, 212);
-    doc.text("DATE:", 15, y + 11);
+    doc.text("DATE:", 3.5, 1.8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(33, 33, 33);
-    doc.text(treatment.date, 45, y + 11);
+    doc.text(treatment.date, 4.0, 1.8);
 
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 120, 212);
-    doc.text("DOC NO:", 90, y + 11);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(33, 33, 33);
-    doc.text(treatment.id.split('-')[0].toUpperCase(), 110, y + 11);
-
-    y += 22;
-
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setTextColor(0, 120, 212);
     doc.setFont("times", "italic", "bold");
-    doc.text("Rx", 10, y);
-    y += 2;
+    doc.text("Rx", 0.5, 2.2);
     doc.setTextColor(33, 33, 33);
 
     const medRows = medications.map(m => [
@@ -321,45 +290,44 @@ export const pdfGenerator = {
         m.dosage,
         m.frequency,
         m.duration,
-        m.instructions
+        m.instructions || ""
     ]);
 
     doc.autoTable({
-      startY: y,
-      head: [['Medication', 'Dosage', 'Frequency', 'Duration', 'Instructions']],
+      startY: 2.3,
+      head: [['Medication', 'Dosage', 'Freq.', 'Dur.', 'Instructions']],
       body: medRows,
       theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 3, halign: 'left', valign: 'middle' },
+      styles: { fontSize: 8, cellPadding: 0.05 },
       headStyles: { fillColor: [0, 120, 212], textColor: [255, 255, 255], fontStyle: 'bold' },
       columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 30 },
+        0: { cellWidth: 1.2 },
+        1: { cellWidth: 0.7 },
+        2: { cellWidth: 0.7 },
+        3: { cellWidth: 0.7 },
         4: { cellWidth: 'auto' }
       },
-      margin: { left: 10, right: 10 }
+      margin: { left: 0.5, right: 0.5 }
     });
 
-    y = doc.lastAutoTable.finalY + 20;
+    let y = doc.lastAutoTable.finalY + 0.3;
 
     // Signature area
-    if (y > 175) {
-      doc.addPage();
-      y = 30;
-    }
-
     doc.setDrawColor(200, 200, 200);
-    doc.line(85, y, 138, y);
+    doc.line(3.5, y + 0.4, 5.5, y + 0.4);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(`Dr. ${treatment.doctor_name || "_________________"}`, 111.5, y + 5, { align: "center" });
+    doc.text(`Dr. ${treatment.doctor_name || "_________________"}`, 4.5, y + 0.55, { align: "center" });
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("Authorized Medical Practitioner", 111.5, y + 9, { align: "center" });
+    doc.text("Authorized Medical Practitioner", 4.5, y + 0.7, { align: "center" });
 
-    // Mini footer
-    doc.setFontSize(7);
+    // Footer
+    doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text(branding.footer || "Quality dental care you can trust.", 74, 205, { align: "center" });
+    doc.text(branding.address, 3, 3.6, { align: "center" });
+    doc.text(`Phone: ${branding.phone}`, 3, 3.75, { align: "center" });
 
     doc.save(`Medication_Card_${treatment.patient_name.replace(/\s+/g, '_')}.pdf`);
   },

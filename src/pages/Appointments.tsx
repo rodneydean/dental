@@ -294,7 +294,10 @@ const Appointments = () => {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
-                              onClick={() => pdfGenerator.generateAppointmentCard(apt)}
+                              onClick={async () => {
+                                await pdfGenerator.generateAppointmentCard(apt);
+                                toast.success("Appointment card downloaded");
+                              }}
                               className="cursor-pointer"
                             >
                               <Download className="h-4 w-4 mr-2" /> Download Card
