@@ -232,7 +232,6 @@ export const pdfGenerator = {
 
   async generatePrescription(treatment: Treatment, medications: Medication[]) {
     const branding = await getBranding();
-    // A5 is roughly 5.8 x 8.3 inches, but we'll use mm for standard A5 (148 x 210)
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -243,13 +242,13 @@ export const pdfGenerator = {
     const addA5Letterhead = (doc: jsPDF, branding: ClinicBranding, yPos: number = 15): number => {
       if (branding.logo) {
         try {
-          doc.addImage(branding.logo, 'PNG', 10, yPos - 10, 20, 20);
+          doc.addImage(branding.logo, 'PNG', 10, yPos - 10, 22, 22);
         } catch (e) {
           console.error("Failed to add logo to PDF", e);
         }
       }
 
-      doc.setFontSize(14);
+      doc.setFontSize(16);
       doc.setTextColor(0, 120, 212);
       doc.setFont("helvetica", "bold");
       doc.text(branding.name, 35, yPos);
@@ -267,30 +266,54 @@ export const pdfGenerator = {
         currentY += 4;
       }
 
-      doc.setDrawColor(200, 200, 200);
+      doc.setDrawColor(0, 120, 212);
+      doc.setLineWidth(0.5);
       doc.line(10, currentY + 2, 138, currentY + 2);
 
-      return currentY + 12;
+      return currentY + 15;
     };
 
     let y = addA5Letterhead(doc, branding);
 
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(33, 33, 33);
-    doc.text("MEDICATION SHEET", 74, y, { align: "center" });
-    y += 10;
+    doc.text("MEDICATION CARD", 74, y, { align: "center" });
+    y += 12;
+
+    // Patient and Info Header
+    doc.setFillColor(240, 247, 255);
+    doc.rect(10, y, 128, 15, 'F');
 
     doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Patient: ${treatment.patient_name}`, 10, y);
-    doc.text(`Date: ${treatment.date}`, 138, y, { align: "right" });
-    y += 8;
-
-    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 120, 212);
+    doc.text("PATIENT NAME:", 15, y + 6);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(33, 33, 33);
+    doc.text(treatment.patient_name, 45, y + 6);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 120, 212);
+    doc.text("DATE:", 15, y + 11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(33, 33, 33);
+    doc.text(treatment.date, 45, y + 11);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 120, 212);
+    doc.text("DOC NO:", 90, y + 11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(33, 33, 33);
+    doc.text(treatment.id.split('-')[0].toUpperCase(), 110, y + 11);
+
+    y += 22;
+
+    doc.setFontSize(22);
+    doc.setTextColor(0, 120, 212);
+    doc.setFont("times", "italic", "bold");
     doc.text("Rx", 10, y);
-    y += 6;
+    y += 2;
     doc.setTextColor(33, 33, 33);
 
     const medRows = medications.map(m => [
@@ -303,31 +326,163 @@ export const pdfGenerator = {
 
     doc.autoTable({
       startY: y,
-      head: [['Medication', 'Dosage', 'Freq', 'Dur', 'Instructions']],
+      head: [['Medication', 'Dosage', 'Frequency', 'Duration', 'Instructions']],
       body: medRows,
       theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [0, 120, 212] },
+      styles: { fontSize: 8, cellPadding: 3, halign: 'left', valign: 'middle' },
+      headStyles: { fillColor: [0, 120, 212], textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 30 },
+        4: { cellWidth: 'auto' }
+      },
       margin: { left: 10, right: 10 }
     });
 
-    y = doc.lastAutoTable.finalY + 15;
+    y = doc.lastAutoTable.finalY + 20;
 
-    // Signature line
-    if (y > 180) {
+    // Signature area
+    if (y > 175) {
       doc.addPage();
-      y = 20;
+      y = 30;
     }
-    doc.line(90, y, 130, y);
-    doc.setFontSize(8);
-    doc.text("Doctor's Signature", 95, y + 4);
+
+    doc.setDrawColor(200, 200, 200);
+    doc.line(85, y, 138, y);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Dr. ${treatment.doctor_name || "_________________"}`, 111.5, y + 5, { align: "center" });
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Authorized Medical Practitioner", 111.5, y + 9, { align: "center" });
 
     // Mini footer
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
-    doc.text(branding.footer || "Thank you for choosing our clinic.", 74, 205, { align: "center" });
+    doc.text(branding.footer || "Quality dental care you can trust.", 74, 205, { align: "center" });
 
-    doc.save(`Medication_Sheet_${treatment.patient_name.replace(/\s+/g, '_')}.pdf`);
+    doc.save(`Medication_Card_${treatment.patient_name.replace(/\s+/g, '_')}.pdf`);
+  },
+
+  async generateTreatmentRecord(treatment: Treatment) {
+    const branding = await getBranding();
+    const doc = new jsPDF();
+    let y = addLetterhead(doc, branding);
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(33, 33, 33);
+    doc.text("CLINICAL TREATMENT RECORD", 105, y, { align: "center" });
+    y += 15;
+
+    // Patient Info Header
+    doc.setFillColor(245, 247, 250);
+    doc.rect(20, y, 170, 25, 'F');
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 120, 212);
+    doc.text("PATIENT DETAILS", 25, y + 8);
+    doc.text("RECORD DETAILS", 110, y + 8);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(33, 33, 33);
+    doc.text(`Name: ${treatment.patient_name}`, 25, y + 14);
+    doc.text(`ID: ${treatment.patient_id.split('-')[0].toUpperCase()}`, 25, y + 19);
+
+    doc.text(`Date: ${treatment.date}`, 110, y + 14);
+    doc.text(`Doctor: Dr. ${treatment.doctor_name || "N/A"}`, 110, y + 19);
+    y += 35;
+
+    // Diagnosis Section
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 120, 212);
+    doc.text("DIAGNOSIS", 20, y);
+    y += 7;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(33, 33, 33);
+    const diagnosisLines = doc.splitTextToSize(treatment.diagnosis || "No diagnosis recorded.", 170);
+    doc.text(diagnosisLines, 20, y);
+    y += (diagnosisLines.length * 6) + 10;
+
+    // Treatment Section
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 120, 212);
+    doc.text("TREATMENT PERFORMED", 20, y);
+    y += 7;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(33, 33, 33);
+    const treatmentLines = doc.splitTextToSize(treatment.treatment || "No treatment details recorded.", 170);
+    doc.text(treatmentLines, 20, y);
+    y += (treatmentLines.length * 6) + 10;
+
+    // Medications Section
+    if (treatment.medications.length > 0) {
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 120, 212);
+      doc.text("PRESCRIBED MEDICATIONS", 20, y);
+      y += 5;
+
+      const medRows = treatment.medications.map(m => [
+        m.name,
+        m.dosage,
+        m.frequency,
+        m.duration,
+        m.instructions
+      ]);
+
+      doc.autoTable({
+        startY: y,
+        head: [['Medication', 'Dosage', 'Frequency', 'Duration', 'Instructions']],
+        body: medRows,
+        theme: 'striped',
+        headStyles: { fillColor: [0, 120, 212] },
+        styles: { fontSize: 9 },
+        margin: { left: 20, right: 20 }
+      });
+      y = doc.lastAutoTable.finalY + 15;
+    }
+
+    // Notes Section
+    if (treatment.notes) {
+      if (y > 250) { doc.addPage(); y = 30; }
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 120, 212);
+      doc.text("CLINICAL NOTES", 20, y);
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(33, 33, 33);
+      const notesLines = doc.splitTextToSize(treatment.notes, 170);
+      doc.text(notesLines, 20, y);
+      y += (notesLines.length * 6) + 10;
+    }
+
+    // Financial Summary
+    if (y > 240) { doc.addPage(); y = 30; }
+    doc.setDrawColor(230, 230, 230);
+    doc.line(20, y, 190, y);
+    y += 10;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL COST:", 140, y);
+    doc.text(`KSH ${treatment.cost.toLocaleString()}`, 190, y, { align: "right" });
+    y += 25;
+
+    // Signature Line
+    if (y > 260) { doc.addPage(); y = 30; }
+    doc.line(130, y, 190, y);
+    doc.setFontSize(10);
+    doc.text(`Dr. ${treatment.doctor_name || "_________________"}`, 160, y + 6, { align: "center" });
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Authorized Signature", 160, y + 10, { align: "center" });
+
+    addFooter(doc, branding);
+    doc.save(`Treatment_Record_${treatment.patient_name.replace(/\s+/g, '_')}.pdf`);
   },
 
   async generateReceipt(payment: Payment) {

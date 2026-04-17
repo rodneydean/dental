@@ -105,6 +105,8 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             id TEXT PRIMARY KEY,
             patient_id TEXT NOT NULL,
             patient_name TEXT NOT NULL,
+            doctor_id TEXT,
+            doctor_name TEXT,
             appointment_id TEXT,
             date TEXT NOT NULL,
             diagnosis TEXT,
@@ -116,7 +118,8 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             updated_at TEXT NOT NULL,
             sync_status TEXT DEFAULT 'synced',
             FOREIGN KEY (patient_id) REFERENCES patients (id),
-            FOREIGN KEY (appointment_id) REFERENCES appointments (id)
+            FOREIGN KEY (appointment_id) REFERENCES appointments (id),
+            FOREIGN KEY (doctor_id) REFERENCES users (id)
         )",
         [],
     )?;
@@ -380,6 +383,8 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
                     id TEXT PRIMARY KEY,
                     patient_id TEXT NOT NULL,
                     patient_name TEXT NOT NULL,
+                    doctor_id TEXT,
+                    doctor_name TEXT,
                     appointment_id TEXT,
                     date TEXT NOT NULL,
                     diagnosis TEXT,
@@ -391,7 +396,8 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
                     updated_at TEXT NOT NULL,
                     sync_status TEXT DEFAULT 'synced',
                     FOREIGN KEY (patient_id) REFERENCES patients (id),
-                    FOREIGN KEY (appointment_id) REFERENCES appointments (id)
+                    FOREIGN KEY (appointment_id) REFERENCES appointments (id),
+                    FOREIGN KEY (doctor_id) REFERENCES users (id)
                 )", [])?;
 
                 if has_sync_status {
@@ -408,6 +414,22 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
                 tx.commit()?;
                 log::info!("Treatments table migration completed successfully.");
             }
+        }
+    }
+
+    // Migration for treatments doctor_id and doctor_name
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(treatments)")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(row.get::<_, String>(1)?)
+        })?;
+        let columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+
+        if !columns.contains(&"doctor_id".to_string()) {
+            let _ = conn.execute("ALTER TABLE treatments ADD COLUMN doctor_id TEXT", []);
+        }
+        if !columns.contains(&"doctor_name".to_string()) {
+            let _ = conn.execute("ALTER TABLE treatments ADD COLUMN doctor_name TEXT", []);
         }
     }
 

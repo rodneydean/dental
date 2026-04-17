@@ -25,6 +25,7 @@ import { Plus, Trash2, Pill, DollarSign, Briefcase, CalendarIcon } from "lucide-
 import { toast } from "sonner";
 import { dataManager, Patient, Appointment, Treatment, Medication, Service, InsuranceProvider } from "@/lib/dataManager";
 import { calculateAge } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TreatmentFormProps {
   treatment?: Treatment;
@@ -46,6 +47,7 @@ const frequencies = [
 ];
 
 const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
+  const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -92,7 +94,9 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
     try {
       const submissionData = {
         ...formData,
-        appointment_id: formData.appointment_id || undefined
+        appointment_id: formData.appointment_id || undefined,
+        doctor_id: treatment?.doctor_id || user?.id,
+        doctor_name: treatment?.doctor_name || user?.full_name,
       };
 
       await onSave(submissionData);
