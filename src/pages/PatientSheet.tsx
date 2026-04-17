@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { format, parseISO, isValid } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -80,13 +80,7 @@ const PatientSheet = () => {
     reason: "",
   });
 
-  useEffect(() => {
-    if (id) {
-      loadData(id);
-    }
-  }, [id]);
-
-  const loadData = async (patientId: string) => {
+  const loadData = useCallback(async (patientId: string) => {
     setIsLoading(true);
     try {
       const [
@@ -118,7 +112,13 @@ const PatientSheet = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (id) {
+      loadData(id);
+    }
+  }, [id, loadData]);
 
   const handleAddNote = async () => {
     if (!patient || !newNote.trim()) return;
@@ -142,7 +142,7 @@ const PatientSheet = () => {
     }
   };
 
-  const handleAddAppointment = async (appointmentData: any) => {
+  const handleAddAppointment = async (appointmentData: Omit<Appointment, "id" | "created_at" | "updated_at">) => {
     try {
       await dataManager.addAppointment(appointmentData);
       setShowAddAppointment(false);
@@ -154,7 +154,7 @@ const PatientSheet = () => {
     }
   };
 
-  const handleAddTreatment = async (treatmentData: any) => {
+  const handleAddTreatment = async (treatmentData: Omit<Treatment, "id" | "created_at" | "updated_at">) => {
     try {
       await dataManager.addTreatment(treatmentData);
       setShowAddTreatment(false);
@@ -542,7 +542,7 @@ const PatientSheet = () => {
                 ...treatments.map(t => ({ ...t, timelineType: 'treatment' as const }))
               ]
                 .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                .map((item, idx) => (
+                .map((item) => (
                   <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     {/* Icon on timeline */}
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 group-[.is-active]:bg-primary text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
@@ -552,7 +552,7 @@ const PatientSheet = () => {
                     <div className="w-[calc(100%-4rem)] md:w-[45%] p-4 rounded-sm border border-gray-100 bg-white shadow-sm">
                       <div className="flex items-center justify-between space-x-2 mb-1">
                         <div className="font-bold text-gray-900 text-sm">
-                          {item.timelineType === 'note' ? (item as any).note_type : "Treatment: " + (item as any).treatment}
+                          {item.timelineType === 'note' ? (item as PatientNote).note_type : "Treatment: " + (item as Treatment).treatment}
                         </div>
                         <time className="font-mono text-xs font-medium text-primary bg-primary/5 px-2 py-0.5 rounded-sm">
                           {format(parseISO(item.created_at), "MMM d, yyyy")}
@@ -560,18 +560,18 @@ const PatientSheet = () => {
                       </div>
                       <div className="text-xs text-gray-500 mb-2 font-medium flex items-center">
                         <User className="h-3 w-3 mr-1" />
-                        {item.timelineType === 'note' ? `Dr. ${(item as any).doctor_name}` : "Clinical Staff"}
+                        {item.timelineType === 'note' ? `Dr. ${(item as PatientNote).doctor_name}` : "Clinical Staff"}
                       </div>
                       <div className="text-xs text-gray-600 leading-relaxed">
-                        {item.timelineType === 'note' ? (item as any).note : (
+                        {item.timelineType === 'note' ? (item as PatientNote).note : (
                           <div className="space-y-1">
-                            <p><span className="font-semibold text-gray-800">Diagnosis:</span> {(item as any).diagnosis}</p>
-                            {(item as any).notes && <p className="italic">{(item as any).notes}</p>}
-                            {(item as any).medications?.length > 0 && (
+                            <p><span className="font-semibold text-gray-800">Diagnosis:</span> {(item as Treatment).diagnosis}</p>
+                            {(item as Treatment).notes && <p className="italic">{(item as Treatment).notes}</p>}
+                            {(item as Treatment).medications?.length > 0 && (
                                 <div className="mt-2 pt-2 border-t border-gray-50">
                                     <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Prescriptions</p>
                                     <div className="flex flex-wrap gap-1">
-                                        {(item as any).medications.map((med: any) => (
+                                        {(item as Treatment).medications.map((med) => (
                                             <span key={med.id} className="bg-blue-50 text-primary px-2 py-0.5 rounded-sm text-[10px] font-semibold border border-blue-100">
                                                 {med.name} ({med.dosage})
                                             </span>

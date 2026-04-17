@@ -11,19 +11,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader as DialogHeaderComponent,
-  DialogTitle as DialogTitleComponent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
   Search,
@@ -32,30 +24,14 @@ import {
   Edit,
   Phone,
   Mail,
-  Calendar as CalendarIcon,
   AlertTriangle,
   Users,
   History,
   FileText,
-  Stethoscope,
-  Send,
-  Download,
 } from "lucide-react";
 import PatientForm from "@/components/PatientForm";
-import { dataManager, Patient, Appointment, Treatment, PatientNote, SickSheet } from "@/lib/dataManager";
-import { pdfGenerator } from "@/lib/pdfGenerator";
+import { dataManager, Patient } from "@/lib/dataManager";
 import { calculateAge } from "@/lib/utils";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { format, parseISO, isValid } from "date-fns";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -63,8 +39,6 @@ const Patients = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -106,14 +80,8 @@ const Patients = () => {
 
   const loadData = async () => {
     try {
-      const [loadedPatients, loadedAppointments, loadedTreatments] = await Promise.all([
-        dataManager.getPatients(),
-        dataManager.getAppointments(),
-        dataManager.getTreatments()
-      ]);
+      const loadedPatients = await dataManager.getPatients();
       setPatients(loadedPatients);
-      setAppointments(loadedAppointments);
-      setTreatments(loadedTreatments);
     } catch {
       toast.error("Failed to load data");
     }
@@ -156,10 +124,6 @@ const Patients = () => {
       .slice(0, 2);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
 
   return (
     <div className="space-y-8">
@@ -175,12 +139,10 @@ const Patients = () => {
         </div>
         {(user?.role === "RECEPTION" || user?.role === "DOCTOR" || user?.role === "ADMIN") && (
           <Sheet open={showAddSheet} onOpenChange={setShowAddSheet}>
-            <SheetTrigger asChild>
-              <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add New Patient
-              </Button>
-            </SheetTrigger>
+            <Button size="sm" onClick={() => setShowAddSheet(true)} className="bg-primary hover:bg-primary/90 text-white rounded-sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Patient
+            </Button>
             <SheetContent className="sm:max-w-2xl overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Add New Patient</SheetTitle>
