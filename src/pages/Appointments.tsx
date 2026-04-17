@@ -14,6 +14,7 @@ import {
   Download,
   User,
   Search,
+  Stethoscope,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -31,7 +32,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import AppointmentForm from "@/components/AppointmentForm";
-import { dataManager, Appointment } from "@/lib/dataManager";
+import TreatmentForm from "@/components/TreatmentForm";
+import { dataManager, Appointment, Treatment } from "@/lib/dataManager";
 import { pdfGenerator } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,6 +45,7 @@ const Appointments = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [recordingTreatmentFor, setRecordingTreatmentFor] = useState<Appointment | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -108,6 +111,26 @@ const Appointments = () => {
     }
   };
 
+  const handleRecordTreatment = async (
+    treatmentData: Omit<Treatment, "id" | "created_at" | "updated_at">
+  ) => {
+    try {
+      await dataManager.addTreatment(treatmentData);
+      // Update appointment status to completed when treatment is recorded
+      if (recordingTreatmentFor) {
+        await dataManager.updateAppointment(recordingTreatmentFor.id, {
+          status: "completed"
+        });
+      }
+      await loadAppointments();
+      setRecordingTreatmentFor(null);
+      toast.success("Treatment recorded and appointment completed");
+    } catch {
+      toast.error("Failed to record treatment");
+      throw new Error("Failed to record treatment");
+    }
+  };
+
   const handleDeleteAppointment = async (id: string) => {
     if (!confirm("Are you sure you want to cancel this appointment?")) return;
 
@@ -137,7 +160,7 @@ const Appointments = () => {
           <h1 className="text-xl font-semibold text-gray-900">Appointments</h1>
           <p className="text-xs text-gray-500 mt-0.5">Manage patient schedule and visits</p>
         </div>
-        {user?.role === "RECEPTION" && (
+        {(user?.role === "RECEPTION" || user?.role === "DOCTOR") && (
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-sm">
@@ -166,7 +189,7 @@ const Appointments = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
           <Input
-            placeholder="Search by patient or type..."
+            placeholder="Search by patient or procedure..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-9 text-sm rounded-sm border-gray-200"
@@ -262,8 +285,19 @@ const Appointments = () => {
                             >
                               <Edit className="h-4 w-4 mr-2" /> Edit Appointment
                             </DropdownMenuItem>
+                            {user?.role === "DOCTOR" && apt.status !== "completed" && apt.status !== "cancelled" && (
+                              <DropdownMenuItem
+                                onClick={() => setRecordingTreatmentFor(apt)}
+                                className="cursor-pointer"
+                              >
+                                <Stethoscope className="h-4 w-4 mr-2" /> Record Treatment
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
-                              onClick={() => pdfGenerator.generateAppointmentCard(apt)}
+                              onClick={async () => {
+                                await pdfGenerator.generateAppointmentCard(apt);
+                                toast.success("Appointment card downloaded");
+                              }}
                               className="cursor-pointer"
                             >
                               <Download className="h-4 w-4 mr-2" /> Download Card
@@ -318,6 +352,42 @@ const Appointments = () => {
               appointment={editingAppointment}
               onSave={handleEditAppointment}
               onCancel={() => setEditingAppointment(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Record Treatment Dialog */}
+      <Dialog
+        open={!!recordingTreatmentFor}
+        onOpenChange={() => setRecordingTreatmentFor(null)}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Record Treatment</DialogTitle>
+            <DialogDescription>
+              Record clinical findings for {recordingTreatmentFor?.patient_name}.
+            </DialogDescription>
+          </DialogHeader>
+          {recordingTreatmentFor && (
+            <TreatmentForm
+              treatment={{
+                id: "",
+                patient_id: recordingTreatmentFor.patient_id,
+                patient_name: recordingTreatmentFor.patient_name,
+                appointment_id: recordingTreatmentFor.id,
+                date: recordingTreatmentFor.date,
+                diagnosis: "",
+                treatment: recordingTreatmentFor.appointment_type,
+                medications: [],
+                notes: "",
+                follow_up_date: "",
+                cost: 0,
+                created_at: "",
+                updated_at: "",
+              }}
+              onSave={handleRecordTreatment}
+              onCancel={() => setRecordingTreatmentFor(null)}
             />
           )}
         </DialogContent>

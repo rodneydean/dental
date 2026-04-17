@@ -92,6 +92,8 @@ const Navigation = () => {
 
   const navItems = allNavItems.filter((item) => user && item.roles.includes(user.role));
 
+  if (user?.role === "RECEPTION") return null;
+
   const getInitials = (name: string) => {
     return name
       .split(" ")

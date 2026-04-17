@@ -6,10 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import Index from "./pages/Index";
 import Patients from "./pages/Patients";
+import PatientSheet from "./pages/PatientSheet";
 import Appointments from "./pages/Appointments";
 import Treatments from "./pages/Treatments";
 import Payments from "./pages/Payments";
 import WaitingRoom from "./pages/WaitingRoom";
+import Reception from "./pages/Reception";
 import Settings from "./pages/Settings";
 import DataManagement from "./components/DataManagement";
 import NotFound from "./pages/NotFound";
@@ -21,11 +23,14 @@ import { invoke } from "@tauri-apps/api/core";
 import UserManagement from "./pages/UserManagement";
 import UsageGuide from "./pages/UsageGuide";
 import { checkForUpdates } from "./lib/updater";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { user, isLoading: authLoading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -43,6 +48,12 @@ const AppContent = () => {
     checkSetup();
   }, []);
 
+  useEffect(() => {
+    if (user?.role === 'RECEPTION' && location.pathname !== '/reception') {
+      navigate('/reception');
+    }
+  }, [user, location.pathname, navigate]);
+
   if (authLoading || needsSetup === null) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -55,13 +66,26 @@ const AppContent = () => {
     return <Login />;
   }
 
+  if (user.role === 'RECEPTION') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Routes>
+          <Route path="/reception" element={<Reception />} />
+          <Route path="*" element={<Reception />} />
+        </Routes>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       <main className="container mx-auto px-4 py-8">
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/reception" element={<Reception />} />
           <Route path="/patients" element={<Patients />} />
+          <Route path="/patients/:id" element={<PatientSheet />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/treatments" element={<Treatments />} />
           <Route path="/payments" element={<Payments />} />

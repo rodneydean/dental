@@ -1,8 +1,16 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format, parseISO, isValid, startOfToday } from "date-fns";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -23,6 +31,7 @@ interface User {
 
 interface AppointmentFormProps {
   appointment?: Appointment;
+  patient?: Patient;
   onSave: (appointment: Omit<Appointment, "id" | "created_at" | "updated_at">) => void;
   onCancel: () => void;
 }
@@ -52,6 +61,7 @@ const timeSlots = [
 
 const AppointmentForm = ({
   appointment,
+  patient,
   onSave,
   onCancel,
 }: AppointmentFormProps) => {
@@ -59,8 +69,8 @@ const AppointmentForm = ({
   const [doctors, setDoctors] = useState<User[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [formData, setFormData] = useState({
-    patient_id: appointment?.patient_id || "",
-    patient_name: appointment?.patient_name || "",
+    patient_id: appointment?.patient_id || patient?.id || "",
+    patient_name: appointment?.patient_name || patient?.name || "",
     doctor_id: appointment?.doctor_id || "",
     doctor_name: appointment?.doctor_name || "",
     date: appointment?.date || "",
@@ -129,6 +139,12 @@ const AppointmentForm = ({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      setFormData((prev) => ({ ...prev, date: format(date, "yyyy-MM-dd") }));
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -168,15 +184,35 @@ const AppointmentForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="date" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Date *</Label>
-          <Input
-            id="date"
-            type="date"
-            value={formData.date}
-            onChange={(e) => handleChange("date", e.target.value)}
-            min={new Date().toISOString().split("T")[0]}
-            className="h-9 text-sm rounded-sm border-gray-200"
-            required
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal h-9 text-sm rounded-sm border-gray-200",
+                  !formData.date && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formData.date && isValid(parseISO(formData.date)) ? (
+                  format(parseISO(formData.date), "PPP")
+                ) : (
+                  <span>Pick a date</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={formData.date && isValid(parseISO(formData.date)) ? parseISO(formData.date) : undefined}
+                onSelect={handleDateChange}
+                disabled={(date) =>
+                  date < startOfToday()
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-1.5">
@@ -201,13 +237,13 @@ const AppointmentForm = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="appointment_type" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Type *</Label>
+          <Label htmlFor="appointment_type" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Procedure *</Label>
           <Select
             value={formData.appointment_type}
             onValueChange={(value) => handleChange("appointment_type", value)}
           >
             <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
-              <SelectValue placeholder="Select type" />
+              <SelectValue placeholder="Select procedure" />
             </SelectTrigger>
             <SelectContent>
               {services.map((service) => (

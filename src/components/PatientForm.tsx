@@ -1,9 +1,17 @@
 import { useState } from "react";
-import { calculateAge } from "@/lib/utils";
+import { calculateAge, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format, parseISO, isValid } from "date-fns";
 
 interface Patient {
   id: string;
@@ -44,6 +52,12 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
 
   const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      setFormData((prev) => ({ ...prev, date_of_birth: format(date, "yyyy-MM-dd") }));
+    }
   };
 
   return (
@@ -89,13 +103,35 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
           <Label htmlFor="date_of_birth" className="text-xs font-semibold uppercase tracking-wider text-gray-500">
             Date of Birth {formData.date_of_birth && `(Age: ${calculateAge(formData.date_of_birth)})`}
           </Label>
-          <Input
-            id="date_of_birth"
-            type="date"
-            value={formData.date_of_birth}
-            onChange={(e) => handleChange("date_of_birth", e.target.value)}
-            className="h-9 text-sm rounded-sm border-gray-200"
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal h-9 text-sm rounded-sm border-gray-200",
+                  !formData.date_of_birth && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formData.date_of_birth && isValid(parseISO(formData.date_of_birth)) ? (
+                  format(parseISO(formData.date_of_birth), "PPP")
+                ) : (
+                  <span>Pick a date</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={formData.date_of_birth && isValid(parseISO(formData.date_of_birth)) ? parseISO(formData.date_of_birth) : undefined}
+                onSelect={handleDateChange}
+                disabled={(date) =>
+                  date > new Date() || date < new Date("1900-01-01")
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 

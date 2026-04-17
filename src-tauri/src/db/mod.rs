@@ -3,16 +3,43 @@ use std::fs;
 use tauri::Manager;
 
 pub fn init_db(app_handle: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let app_dir = app_handle.path().app_data_dir()?;
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| {
+        let msg = format!("Failed to get app data directory: {}", e);
+        log::error!("{}", msg);
+        msg
+    })?;
+
     if !app_dir.exists() {
-        fs::create_dir_all(&app_dir)?;
+        log::info!("Creating app data directory: {:?}", app_dir);
+        fs::create_dir_all(&app_dir).map_err(|e| {
+            let msg = format!("Failed to create app data directory at {:?}: {}", app_dir, e);
+            log::error!("{}", msg);
+            msg
+        })?;
     }
+
     let db_path = app_dir.join("dentist.db");
-    let mut conn = Connection::open(db_path)?;
-    conn.execute("PRAGMA busy_timeout = 5000", [])?;
+    log::info!("Opening database at: {:?}", db_path);
 
-    init_schema(&mut conn)?;
+    let mut conn = Connection::open(&db_path).map_err(|e| {
+        let msg = format!("Failed to open database at {:?}: {}", db_path, e);
+        log::error!("{}", msg);
+        msg
+    })?;
 
+    conn.busy_timeout(std::time::Duration::from_millis(5000))
+        .map_err(|e| {
+            log::error!("Failed to set busy_timeout: {}", e);
+            e
+        })?;
+
+    log::info!("Initializing database schema...");
+    init_schema(&mut conn).map_err(|e| {
+        log::error!("Failed to initialize schema: {}", e);
+        e
+    })?;
+
+    log::info!("Database initialization complete.");
     Ok(())
 }
 
@@ -78,7 +105,9 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             id TEXT PRIMARY KEY,
             patient_id TEXT NOT NULL,
             patient_name TEXT NOT NULL,
-            appointment_id TEXT NOT NULL,
+            doctor_id TEXT,
+            doctor_name TEXT,
+            appointment_id TEXT,
             date TEXT NOT NULL,
             diagnosis TEXT,
             treatment TEXT,
@@ -89,7 +118,8 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             updated_at TEXT NOT NULL,
             sync_status TEXT DEFAULT 'synced',
             FOREIGN KEY (patient_id) REFERENCES patients (id),
-            FOREIGN KEY (appointment_id) REFERENCES appointments (id)
+            FOREIGN KEY (appointment_id) REFERENCES appointments (id),
+            FOREIGN KEY (doctor_id) REFERENCES users (id)
         )",
         [],
     )?;
@@ -232,6 +262,7 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             patient_id TEXT NOT NULL,
             doctor_id TEXT NOT NULL,
             doctor_name TEXT NOT NULL,
+            note_type TEXT NOT NULL DEFAULT 'General',
             note TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
@@ -273,6 +304,18 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS insurance_providers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            pays_reception_fee BOOLEAN DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            sync_status TEXT DEFAULT 'synced'
+        )",
+        [],
+    )?;
+
     // Add columns to existing tables if they don't have them
     {
         let mut stmt = conn.prepare("PRAGMA table_info(appointments)")?;
@@ -295,8 +338,117 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
         }
     }
 
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(payments)")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(row.get::<_, String>(1)?)
+        })?;
+        let columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+
+        if !columns.contains(&"insurance_provider_id".to_string()) {
+            let _ = conn.execute("ALTER TABLE payments ADD COLUMN insurance_provider_id TEXT", []);
+        }
+    }
+
+    // Migration for treatments appointment_id to be nullable
+    {
+        let table_info: Vec<(i64, String, String, i64, Option<String>, i64)> = {
+            let mut stmt = conn.prepare("PRAGMA table_info(treatments)")?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?))
+            })?;
+            let mut res = Vec::new();
+            for r in rows {
+                res.push(r?);
+            }
+            res
+        };
+
+        // Check if appointment_id is NOT NULL (notnull column is index 3, 1 means NOT NULL)
+        if let Some((_, _, _, notnull, _, _)) = table_info.iter().find(|(_, name, _, _, _, _)| name == "appointment_id") {
+            if *notnull == 1 {
+                log::info!("Migrating treatments table to make appointment_id nullable...");
+
+                let tx = conn.transaction()?;
+
+                // Check if sync_status exists in the current table
+                let current_columns: Vec<String> = {
+                    let mut stmt = tx.prepare("PRAGMA table_info(treatments)")?;
+                    let rows = stmt.query_map([], |row| Ok(row.get::<_, String>(1)?))?;
+                    rows.filter_map(|r| r.ok()).collect()
+                };
+
+                let has_sync_status = current_columns.contains(&"sync_status".to_string());
+
+                tx.execute("CREATE TABLE treatments_new (
+                    id TEXT PRIMARY KEY,
+                    patient_id TEXT NOT NULL,
+                    patient_name TEXT NOT NULL,
+                    doctor_id TEXT,
+                    doctor_name TEXT,
+                    appointment_id TEXT,
+                    date TEXT NOT NULL,
+                    diagnosis TEXT,
+                    treatment TEXT,
+                    notes TEXT,
+                    follow_up_date TEXT,
+                    cost REAL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    sync_status TEXT DEFAULT 'synced',
+                    FOREIGN KEY (patient_id) REFERENCES patients (id),
+                    FOREIGN KEY (appointment_id) REFERENCES appointments (id),
+                    FOREIGN KEY (doctor_id) REFERENCES users (id)
+                )", [])?;
+
+                if has_sync_status {
+                    tx.execute("INSERT INTO treatments_new (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
+                               SELECT id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status FROM treatments", [])?;
+                } else {
+                    tx.execute("INSERT INTO treatments_new (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at)
+                               SELECT id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at FROM treatments", [])?;
+                }
+
+                tx.execute("DROP TABLE treatments", [])?;
+                tx.execute("ALTER TABLE treatments_new RENAME TO treatments", [])?;
+
+                tx.commit()?;
+                log::info!("Treatments table migration completed successfully.");
+            }
+        }
+    }
+
+    // Migration for treatments doctor_id and doctor_name
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(treatments)")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(row.get::<_, String>(1)?)
+        })?;
+        let columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+
+        if !columns.contains(&"doctor_id".to_string()) {
+            let _ = conn.execute("ALTER TABLE treatments ADD COLUMN doctor_id TEXT", []);
+        }
+        if !columns.contains(&"doctor_name".to_string()) {
+            let _ = conn.execute("ALTER TABLE treatments ADD COLUMN doctor_name TEXT", []);
+        }
+    }
+
+    // Migration for patient_notes note_type
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(patient_notes)")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(row.get::<_, String>(1)?)
+        })?;
+        let columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+
+        if !columns.contains(&"note_type".to_string()) {
+            let _ = conn.execute("ALTER TABLE patient_notes ADD COLUMN note_type TEXT NOT NULL DEFAULT 'General'", []);
+        }
+    }
+
     // Add sync_status to existing tables if they don't have it (for existing DBs)
-    let tables = vec!["users", "patients", "appointments", "treatments", "payments", "waiver_requests", "doctor_status", "patient_notes", "sick_sheets", "services"];
+    let tables = vec!["users", "patients", "appointments", "treatments", "payments", "waiver_requests", "doctor_status", "patient_notes", "sick_sheets", "services", "insurance_providers"];
     for table in tables {
         // First check if column exists to avoid errors
         let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
@@ -315,6 +467,6 @@ pub fn get_db_conn(app_handle: &tauri::AppHandle) -> Result<Connection, Box<dyn 
     let app_dir = app_handle.path().app_data_dir()?;
     let db_path = app_dir.join("dentist.db");
     let conn = Connection::open(db_path)?;
-    conn.execute("PRAGMA busy_timeout = 5000", [])?;
+    conn.busy_timeout(std::time::Duration::from_millis(5000))?;
     Ok(conn)
 }

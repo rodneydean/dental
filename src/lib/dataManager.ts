@@ -15,6 +15,14 @@ export interface Patient {
   updated_at: string;
 }
 
+export interface InsuranceProvider {
+  id: string;
+  name: string;
+  pays_reception_fee: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Appointment {
   id: string;
   patient_id: string;
@@ -78,6 +86,7 @@ export interface PatientNote {
   patient_id: string;
   doctor_id: string;
   doctor_name: string;
+  note_type: string;
   note: string;
   created_at: string;
   updated_at: string;
@@ -100,7 +109,9 @@ export interface Treatment {
   id: string;
   patient_id: string;
   patient_name: string;
-  appointment_id: string;
+  doctor_id?: string;
+  doctor_name?: string;
+  appointment_id?: string;
   date: string;
   diagnosis: string;
   treatment: string;
@@ -119,9 +130,10 @@ export interface Payment {
   treatment_id?: string;
   amount: number;
   date: string;
-  method: "cash" | "card" | "transfer";
+  method: "cash" | "insurance";
   status: "pending" | "paid";
   notes: string;
+  insurance_provider_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -167,10 +179,24 @@ class DataManager {
     return await invoke<Patient[]>("list_patients");
   }
 
+  public async getPatient(id: string): Promise<Patient> {
+    return await invoke<Patient>("get_patient", { id });
+  }
+
   public async addPatient(
     patient: Omit<Patient, "id" | "created_at" | "updated_at">
   ): Promise<Patient> {
-    return await invoke<Patient>("create_patient", { ...patient });
+    return await invoke<Patient>("create_patient", {
+      name: patient.name,
+      phone: patient.phone,
+      email: patient.email,
+      dateOfBirth: patient.date_of_birth,
+      address: patient.address,
+      medicalHistory: patient.medical_history,
+      allergies: patient.allergies,
+      emergencyContact: patient.emergency_contact,
+      emergencyPhone: patient.emergency_phone
+    });
   }
 
   public async updatePatient(id: string, updates: Partial<Patient>): Promise<void> {
@@ -183,12 +209,12 @@ class DataManager {
       name: updates.name ?? current.name,
       phone: updates.phone ?? current.phone,
       email: updates.email ?? current.email,
-      date_of_birth: updates.date_of_birth ?? current.date_of_birth,
+      dateOfBirth: updates.date_of_birth ?? current.date_of_birth,
       address: updates.address ?? current.address,
-      medical_history: updates.medical_history ?? current.medical_history,
+      medicalHistory: updates.medical_history ?? current.medical_history,
       allergies: updates.allergies ?? current.allergies,
-      emergency_contact: updates.emergency_contact ?? current.emergency_contact,
-      emergency_phone: updates.emergency_phone ?? current.emergency_phone,
+      emergencyContact: updates.emergency_contact ?? current.emergency_contact,
+      emergencyPhone: updates.emergency_phone ?? current.emergency_phone,
     });
   }
 
@@ -201,6 +227,7 @@ class DataManager {
       patientId: note.patient_id,
       doctorId: note.doctor_id,
       doctorName: note.doctor_name,
+      noteType: note.note_type,
       note: note.note
     });
   }
@@ -229,7 +256,18 @@ class DataManager {
   public async addAppointment(
     appointment: Omit<Appointment, "id" | "created_at" | "updated_at">
   ): Promise<Appointment> {
-    return await invoke<Appointment>("create_appointment", { ...appointment });
+    return await invoke<Appointment>("create_appointment", {
+      patientId: appointment.patient_id,
+      patientName: appointment.patient_name,
+      doctorId: appointment.doctor_id,
+      doctorName: appointment.doctor_name,
+      date: appointment.date,
+      time: appointment.time,
+      status: appointment.status,
+      appointmentType: appointment.appointment_type,
+      notes: appointment.notes,
+      duration: appointment.duration
+    });
   }
 
   public async updateAppointment(
@@ -242,16 +280,16 @@ class DataManager {
 
     await invoke("update_appointment", {
       id,
-      doctor_id: updates.doctor_id ?? current.doctor_id,
-      doctor_name: updates.doctor_name ?? current.doctor_name,
+      doctorId: updates.doctor_id ?? current.doctor_id,
+      doctorName: updates.doctor_name ?? current.doctor_name,
       date: updates.date ?? current.date,
       time: updates.time ?? current.time,
       status: updates.status ?? current.status,
-      appointment_type: updates.appointment_type ?? current.appointment_type,
+      appointmentType: updates.appointment_type ?? current.appointment_type,
       notes: updates.notes ?? current.notes,
       duration: updates.duration ?? current.duration,
-      reception_fee_paid: updates.reception_fee_paid ?? current.reception_fee_paid,
-      reception_fee_waived: updates.reception_fee_waived ?? current.reception_fee_waived,
+      receptionFeePaid: updates.reception_fee_paid ?? current.reception_fee_paid,
+      receptionFeeWaived: updates.reception_fee_waived ?? current.reception_fee_waived,
     });
   }
 
@@ -268,9 +306,44 @@ class DataManager {
     treatment: Omit<Treatment, "id" | "created_at" | "updated_at">
   ): Promise<Treatment> {
     return await invoke<Treatment>("create_treatment", {
-        ...treatment,
-        treatment_desc: treatment.treatment
+      patientId: treatment.patient_id,
+      patientName: treatment.patient_name,
+      doctorId: treatment.doctor_id || undefined,
+      doctorName: treatment.doctor_name || undefined,
+      appointmentId: treatment.appointment_id || undefined,
+      date: treatment.date,
+      diagnosis: treatment.diagnosis,
+      treatmentDesc: treatment.treatment,
+      medications: treatment.medications,
+      notes: treatment.notes,
+      followUpDate: treatment.follow_up_date,
+      cost: treatment.cost
     });
+  }
+
+  public async updateTreatment(
+    id: string,
+    treatment: Omit<Treatment, "id" | "created_at" | "updated_at">
+  ): Promise<void> {
+    await invoke("update_treatment", {
+      id,
+      patientId: treatment.patient_id,
+      patientName: treatment.patient_name,
+      doctorId: treatment.doctor_id || undefined,
+      doctorName: treatment.doctor_name || undefined,
+      appointmentId: treatment.appointment_id || undefined,
+      date: treatment.date,
+      diagnosis: treatment.diagnosis,
+      treatmentDesc: treatment.treatment,
+      medications: treatment.medications,
+      notes: treatment.notes,
+      followUpDate: treatment.follow_up_date,
+      cost: treatment.cost
+    });
+  }
+
+  public async deleteTreatment(id: string): Promise<void> {
+    await invoke("delete_treatment", { id });
   }
 
   // Payment methods
@@ -281,7 +354,16 @@ class DataManager {
   public async addPayment(
     payment: Omit<Payment, "id" | "created_at" | "updated_at">
   ): Promise<Payment> {
-    return await invoke<Payment>("create_payment", { ...payment });
+    return await invoke<Payment>("create_payment", {
+      patientId: payment.patient_id,
+      patientName: payment.patient_name,
+      treatmentId: payment.treatment_id,
+      amount: payment.amount,
+      date: payment.date,
+      method: payment.method,
+      status: payment.status,
+      notes: payment.notes
+    });
   }
 
   // Settings methods
@@ -297,17 +379,76 @@ class DataManager {
     await invoke("set_setting", { key, value });
   }
 
+  // Clinical Note Types methods
+  public async getNoteTypes(): Promise<string[]> {
+    const types = await this.getSetting("clinical_note_types");
+    if (!types) {
+      const defaultTypes = [
+        "Chief complaints",
+        "History of complain",
+        "Medical history",
+        "Dental history",
+        "Social history",
+        "Extra-oral examination",
+        "Intra-oral examination",
+        "Diagnosis",
+        "Treatment plan",
+        "General"
+      ];
+      await this.setSetting("clinical_note_types", JSON.stringify(defaultTypes));
+      return defaultTypes;
+    }
+    try {
+      return JSON.parse(types);
+    } catch {
+      return ["General"];
+    }
+  }
+
+  public async addNoteType(type: string): Promise<void> {
+    const types = await this.getNoteTypes();
+    if (!types.includes(type)) {
+      types.push(type);
+      await this.setSetting("clinical_note_types", JSON.stringify(types));
+    }
+  }
+
+  public async deleteNoteType(type: string): Promise<void> {
+    let types = await this.getNoteTypes();
+    types = types.filter(t => t !== type);
+    await this.setSetting("clinical_note_types", JSON.stringify(types));
+  }
+
   // Service methods
   public async getServices(): Promise<Service[]> {
     return await invoke<Service[]>("list_services");
   }
 
   public async addService(service: { name: string; standard_fee: number }): Promise<Service> {
-    return await invoke<Service>("create_service", { ...service });
+    return await invoke<Service>("create_service", {
+      name: service.name,
+      standardFee: service.standard_fee
+    });
   }
 
   public async deleteService(id: string): Promise<void> {
     await invoke("delete_service", { id });
+  }
+
+  // Insurance provider methods
+  public async getInsuranceProviders(): Promise<InsuranceProvider[]> {
+    return await invoke<InsuranceProvider[]>("list_insurance_providers");
+  }
+
+  public async addInsuranceProvider(provider: { name: string; pays_reception_fee: boolean }): Promise<InsuranceProvider> {
+    return await invoke<InsuranceProvider>("create_insurance_provider", {
+      name: provider.name,
+      paysReceptionFee: provider.pays_reception_fee
+    });
+  }
+
+  public async deleteInsuranceProvider(id: string): Promise<void> {
+    await invoke("delete_insurance_provider", { id });
   }
 
   // Logo methods

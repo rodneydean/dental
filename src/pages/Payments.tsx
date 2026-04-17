@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { dataManager, Patient, Treatment, Payment } from "@/lib/dataManager";
+import { dataManager, Patient, Treatment, Payment, InsuranceProvider } from "@/lib/dataManager";
 import { pdfGenerator } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,6 +47,7 @@ const Payments = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMethod, setFilterMethod] = useState<string>("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -71,14 +72,16 @@ const Payments = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-        const [loadedPayments, loadedPatients, loadedTreatments] = await Promise.all([
+        const [loadedPayments, loadedPatients, loadedTreatments, loadedProviders] = await Promise.all([
             dataManager.getPayments(),
             dataManager.getPatients(),
-            dataManager.getTreatments()
+            dataManager.getTreatments(),
+            dataManager.getInsuranceProviders()
         ]);
         setPayments(loadedPayments);
         setPatients(loadedPatients);
         setTreatments(loadedTreatments);
+        setInsuranceProviders(loadedProviders);
     } catch {
         toast.error("Failed to load payments data");
     } finally {
@@ -229,8 +232,8 @@ const Payments = () => {
                     <Label>Payment Method</Label>
                     <Select
                       value={newPayment.method}
-                      onValueChange={(value: "cash" | "card" | "transfer") =>
-                        setNewPayment((prev) => ({ ...prev, method: value }))
+                      onValueChange={(value: "cash" | "insurance") =>
+                        setNewPayment((prev) => ({ ...prev, method: value, insurance_provider_id: value === "insurance" ? prev.insurance_provider_id : undefined }))
                       }
                     >
                       <SelectTrigger>
@@ -238,12 +241,34 @@ const Payments = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="card">Card</SelectItem>
-                        <SelectItem value="transfer">Transfer</SelectItem>
+                        <SelectItem value="insurance">Insurance</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+
+                {newPayment.method === "insurance" && (
+                  <div className="space-y-2">
+                    <Label>Insurance Provider</Label>
+                    <Select
+                      value={newPayment.insurance_provider_id}
+                      onValueChange={(value) =>
+                        setNewPayment((prev) => ({ ...prev, insurance_provider_id: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {insuranceProviders.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Date</Label>
@@ -330,7 +355,7 @@ const Payments = () => {
         <div className="flex items-center space-x-2">
           <Filter className="h-3.5 w-3.5 text-gray-400" />
           <div className="flex bg-gray-100 p-1 rounded-sm border border-gray-200">
-            {["all", "cash", "card", "transfer"].map((method) => (
+            {["all", "cash", "insurance"].map((method) => (
               <button
                 key={method}
                 onClick={() => setFilterMethod(method)}
@@ -371,7 +396,13 @@ const Payments = () => {
                         </span>
                         <span className="flex items-center capitalize">
                           <CreditCard className="h-3 w-3 mr-1 text-gray-400" />
-                          {payment.method}
+                          {payment.method === "insurance" ? (
+                            <>
+                              Insurance ({insuranceProviders.find(p => p.id === payment.insurance_provider_id)?.name || "Unknown Provider"})
+                            </>
+                          ) : (
+                            payment.method
+                          )}
                         </span>
                       </div>
                     </div>
@@ -392,10 +423,16 @@ const Payments = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => pdfGenerator.generateInvoice(payment)}>
+                        <DropdownMenuItem className="cursor-pointer" onClick={async () => {
+                          await pdfGenerator.generateInvoice(payment);
+                          toast.success("Invoice downloaded");
+                        }}>
                           <FileText className="h-4 w-4 mr-2" /> Download Invoice
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => pdfGenerator.generateReceipt(payment)}>
+                        <DropdownMenuItem className="cursor-pointer" onClick={async () => {
+                          await pdfGenerator.generateReceipt(payment);
+                          toast.success("Receipt downloaded");
+                        }}>
                           <Download className="h-4 w-4 mr-2" /> Download Receipt
                         </DropdownMenuItem>
                       </DropdownMenuContent>

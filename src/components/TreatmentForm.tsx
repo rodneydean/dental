@@ -3,6 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format, parseISO, isValid, startOfToday } from "date-fns";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -13,29 +21,17 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Pill, DollarSign, Briefcase } from "lucide-react";
+import { Plus, Trash2, Pill, DollarSign, Briefcase, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
-import { dataManager, Patient, Appointment, Treatment, Medication, Service } from "@/lib/dataManager";
+import { dataManager, Patient, Appointment, Treatment, Medication, Service, InsuranceProvider } from "@/lib/dataManager";
 import { calculateAge } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TreatmentFormProps {
   treatment?: Treatment;
-  onSave: (treatment: Omit<Treatment, "id" | "created_at" | "updated_at">) => void;
+  onSave: (treatment: Omit<Treatment, "id" | "created_at" | "updated_at">) => Promise<void>;
   onCancel: () => void;
 }
-
-const commonMedications = [
-  "Amoxicillin",
-  "Ibuprofen",
-  "Acetaminophen",
-  "Clindamycin",
-  "Penicillin",
-  "Hydrocodone",
-  "Lidocaine",
-  "Chlorhexidine",
-  "Metronidazole",
-  "Doxycycline",
-];
 
 const frequencies = [
   "Once daily",
@@ -51,9 +47,13 @@ const frequencies = [
 ];
 
 const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
+  const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "insurance">("cash");
+  const [selectedProviderId, setSelectedProviderId] = useState<string>("");
   const [formData, setFormData] = useState<Omit<Treatment, "id" | "created_at" | "updated_at">>({
     patient_id: treatment?.patient_id || "",
     patient_name: treatment?.patient_name || "",
@@ -69,14 +69,16 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
 
   useEffect(() => {
     const loadOptions = async () => {
-        const [pts, apts, svcs] = await Promise.all([
+        const [pts, apts, svcs, providers] = await Promise.all([
             dataManager.getPatients(),
             dataManager.getAppointments(),
-            dataManager.getServices()
+            dataManager.getServices(),
+            dataManager.getInsuranceProviders()
         ]);
         setPatients(pts);
         setAppointments(apts);
         setServices(svcs);
+        setInsuranceProviders(providers);
     };
     loadOptions();
   }, []);
@@ -89,30 +91,38 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       return;
     }
 
-    onSave(formData);
+    try {
+      const submissionData = {
+        ...formData,
+        appointment_id: formData.appointment_id || undefined,
+        doctor_id: treatment?.doctor_id || user?.id,
+        doctor_name: treatment?.doctor_name || user?.full_name,
+      };
 
-    // Create a pending payment if there's a cost
-    if (formData.cost > 0) {
-      try {
-        await dataManager.addPayment({
-          patient_id: formData.patient_id,
-          patient_name: formData.patient_name,
-          amount: formData.cost,
-          date: formData.date,
-          method: "cash",
-          status: "pending",
-          notes: `Service Fee for Treatment: ${formData.diagnosis}`,
-        });
-      } catch (error) {
-        console.error("Failed to create pending payment", error);
+      await onSave(submissionData);
+
+      // Create a pending payment if there's a cost
+      if (formData.cost > 0) {
+        try {
+          await dataManager.addPayment({
+            patient_id: formData.patient_id,
+            patient_name: formData.patient_name,
+            amount: formData.cost,
+            date: formData.date,
+            method: paymentMethod,
+            insurance_provider_id: paymentMethod === "insurance" ? selectedProviderId : undefined,
+            status: "pending",
+            notes: `Service Fee for Treatment: ${formData.diagnosis}`,
+          });
+        } catch (error) {
+          console.error("Failed to create pending payment", error);
+        }
       }
+    } catch (error) {
+      console.error("Form submission failed", error);
+      // Let the parent handle specific error messaging if needed,
+      // but we shouldn't show success here if it failed.
     }
-
-    toast.success(
-      treatment
-        ? "Treatment updated successfully"
-        : "Treatment recorded successfully"
-    );
   };
 
   const handlePatientChange = (patient_id: string) => {
@@ -188,6 +198,18 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
     (a) => a.patient_id === formData.patient_id
   );
 
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      setFormData((prev) => ({ ...prev, date: format(date, "yyyy-MM-dd") }));
+    }
+  };
+
+  const handleFollowUpDateChange = (date: Date | undefined) => {
+    if (date) {
+      setFormData((prev) => ({ ...prev, follow_up_date: format(date, "yyyy-MM-dd") }));
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Patient and Appointment Selection */}
@@ -255,16 +277,35 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
 
         <div className="space-y-1.5">
           <Label htmlFor="date" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Treatment Date *</Label>
-          <Input
-            id="date"
-            type="date"
-            value={formData.date}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, date: e.target.value }))
-            }
-            className="h-9 text-sm rounded-sm border-gray-200"
-            required
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal h-9 text-sm rounded-sm border-gray-200",
+                  !formData.date && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formData.date && isValid(parseISO(formData.date)) ? (
+                  format(parseISO(formData.date), "PPP")
+                ) : (
+                  <span>Pick a date</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={formData.date && isValid(parseISO(formData.date)) ? parseISO(formData.date) : undefined}
+                onSelect={handleDateChange}
+                disabled={(date) =>
+                  date > new Date()
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-1.5">
@@ -287,8 +328,46 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
             placeholder="0.00"
             className="h-9 text-sm rounded-sm border-gray-200"
           />
-          <p className="text-[9px] text-gray-400 italic">Added to patient's bill for checkout.</p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Payment Method</Label>
+          <Select
+            value={paymentMethod}
+            onValueChange={(value: "cash" | "insurance") => setPaymentMethod(value)}
+          >
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash">Cash</SelectItem>
+              <SelectItem value="insurance">Insurance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {paymentMethod === "insurance" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Insurance Provider</Label>
+            <Select
+              value={selectedProviderId}
+              onValueChange={setSelectedProviderId}
+            >
+              <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {insuranceProviders.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id}>
+                    {provider.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -364,23 +443,14 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-tight">Medication Name *</Label>
-                    <Select
+                    <Input
                       value={medication.name}
-                      onValueChange={(value) =>
-                        updateMedication(index, "name", value)
+                      onChange={(e) =>
+                        updateMedication(index, "name", e.target.value)
                       }
-                    >
-                      <SelectTrigger className="h-8 text-xs rounded-sm border-gray-200 bg-white">
-                        <SelectValue placeholder="Select medication" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {commonMedications.map((med) => (
-                          <SelectItem key={med} value={med}>
-                            {med}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="e.g., Amoxicillin"
+                      className="h-8 text-xs rounded-sm border-gray-200 bg-white"
+                    />
                   </div>
 
                   <div className="space-y-1">
@@ -453,19 +523,35 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="follow_up_date" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Follow-up Date</Label>
-          <Input
-            id="follow_up_date"
-            type="date"
-            value={formData.follow_up_date}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                follow_up_date: e.target.value,
-              }))
-            }
-            min={new Date().toISOString().split("T")[0]}
-            className="h-9 text-sm rounded-sm border-gray-200"
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal h-9 text-sm rounded-sm border-gray-200",
+                  !formData.follow_up_date && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formData.follow_up_date && isValid(parseISO(formData.follow_up_date)) ? (
+                  format(parseISO(formData.follow_up_date), "PPP")
+                ) : (
+                  <span>Pick a date</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={formData.follow_up_date && isValid(parseISO(formData.follow_up_date)) ? parseISO(formData.follow_up_date) : undefined}
+                onSelect={handleFollowUpDateChange}
+                disabled={(date) =>
+                  date < startOfToday()
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 

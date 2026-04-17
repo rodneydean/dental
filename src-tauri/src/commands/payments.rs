@@ -15,6 +15,7 @@ pub struct Payment {
     pub method: String,
     pub status: String,
     pub notes: Option<String>,
+    pub insurance_provider_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -22,7 +23,7 @@ pub struct Payment {
 #[command]
 pub fn list_payments(app_handle: AppHandle) -> Result<Vec<Payment>, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at FROM payments").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, insurance_provider_id FROM payments").map_err(|e| e.to_string())?;
 
     let payment_iter = stmt.query_map([], |row| {
         Ok(Payment {
@@ -37,6 +38,7 @@ pub fn list_payments(app_handle: AppHandle) -> Result<Vec<Payment>, String> {
             notes: row.get(8)?,
             created_at: row.get(9)?,
             updated_at: row.get(10)?,
+            insurance_provider_id: row.get(11)?,
         })
     }).map_err(|e| e.to_string())?;
 
@@ -58,13 +60,14 @@ pub fn create_payment(
     method: String,
     status: String,
     notes: Option<String>,
+    insurance_provider_id: Option<String>,
 ) -> Result<Payment, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO payments (id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'pending')",
+        "INSERT INTO payments (id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, insurance_provider_id, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'pending')",
         rusqlite::params![
             id,
             patient_id,
@@ -76,7 +79,8 @@ pub fn create_payment(
             status,
             notes,
             now,
-            now
+            now,
+            insurance_provider_id
         ],
     ).map_err(|e| e.to_string())?;
 
@@ -92,5 +96,6 @@ pub fn create_payment(
         notes,
         created_at: now.clone(),
         updated_at: now,
+        insurance_provider_id,
     })
 }

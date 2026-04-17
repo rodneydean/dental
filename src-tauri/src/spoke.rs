@@ -8,13 +8,15 @@ use crate::commands::treatments::Treatment;
 use crate::commands::payments::Payment;
 use crate::hub::SyncResponse;
 use reqwest::Client;
-use log::{info, warn, error};
+use log::{info, error};
 
 pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, manual_addr: Option<String>) {
-    let hub_address = Arc::new(Mutex::new(manual_addr));
+    // hub_addresses stores a list of potential addresses to try
+    let hub_addresses = Arc::new(Mutex::new(if let Some(addr) = manual_addr { vec![addr] } else { Vec::new() }));
+    let current_hub_index = Arc::new(Mutex::new(0));
     let pairing_token = Arc::new(Mutex::new(None));
 
-    let hub_addr_clone = hub_address.clone();
+    let hub_addrs_clone = hub_addresses.clone();
 
     // Background mDNS discovery
     tauri::async_runtime::spawn(async move {
@@ -37,13 +39,13 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
 
         while let Ok(event) = receiver.recv() {
             if let ServiceEvent::ServiceResolved(info) = event {
-                let addr = info.get_addresses().iter().next();
-                if let Some(addr) = addr {
-                    if let Ok(mut current_hub) = hub_addr_clone.lock() {
-                        if current_hub.is_none() {
-                            let addr_str = format!("{}:{}", addr, info.get_port());
-                            info!("Discovered Hub at: {}", addr_str);
-                            *current_hub = Some(addr_str);
+                let port = info.get_port();
+                for addr in info.get_addresses() {
+                    let addr_str = format!("{}:{}", addr, port);
+                    if let Ok(mut current_hub_list) = hub_addrs_clone.lock() {
+                        if !current_hub_list.contains(&addr_str) {
+                            info!("Discovered new Hub address: {}", addr_str);
+                            current_hub_list.push(addr_str);
                         }
                     }
                 }
@@ -52,17 +54,31 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
     });
 
     // Background Sync Loop
-    let hub_addr_sync = hub_address.clone();
+    let hub_addrs_sync = hub_addresses.clone();
+    let current_idx_sync = current_hub_index.clone();
     let pairing_token_sync = pairing_token.clone();
     let app_handle_sync = app_handle.clone();
     let pairing_code_clone = pairing_code.clone();
     tauri::async_runtime::spawn(async move {
-        let client = Client::new();
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap_or_else(|_| Client::new());
 
         loop {
-            let addr = {
-                let lock = hub_addr_sync.lock().ok();
-                lock.and_then(|l| l.clone())
+            let (addr, idx, total) = {
+                let addrs_lock = hub_addrs_sync.lock().ok();
+                let idx_lock = current_idx_sync.lock().ok();
+
+                let addrs = addrs_lock.map(|l| l.clone()).unwrap_or_default();
+                let idx = idx_lock.map(|l| *l).unwrap_or(0);
+
+                if addrs.is_empty() {
+                    (None, 0, 0)
+                } else {
+                    let safe_idx = if idx >= addrs.len() { 0 } else { idx };
+                    (Some(addrs[safe_idx].clone()), safe_idx, addrs.len())
+                }
             };
 
             if let Some(addr) = addr {
@@ -78,13 +94,20 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                         .send()
                         .await;
 
-                    if let Ok(response) = res {
-                        if response.status().is_success() {
+                    match res {
+                        Ok(response) if response.status().is_success() => {
                             if let Ok(pair_res) = response.json::<crate::hub::PairResponse>().await {
                                 if let Ok(mut lock) = pairing_token_sync.lock() {
                                     *lock = Some(pair_res.token.clone());
                                     info!("Paired successfully with Hub at {}", addr);
                                 }
+                            }
+                        },
+                        _ => {
+                            // If failed to pair, try next address next time
+                            if let Ok(mut idx_lock) = current_idx_sync.lock() {
+                                *idx_lock = (idx + 1) % total;
+                                info!("Connection failed to {}. Trying next address: {}", addr, (idx + 1) % total);
                             }
                         }
                     }
@@ -96,7 +119,13 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                 };
 
                 if let Some(token) = token_to_use {
-                    let _ = sync_with_hub(&client, &addr, &token, &app_handle_sync).await;
+                    if let Err(e) = sync_with_hub(&client, &addr, &token, &app_handle_sync).await {
+                        error!("Sync failed with {}: {}", addr, e);
+                        // If sync fails, maybe the address is stale
+                        if let Ok(mut idx_lock) = current_idx_sync.lock() {
+                            *idx_lock = (idx + 1) % total;
+                        }
+                    }
                 }
             }
             tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
@@ -104,15 +133,27 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
     });
 
     // WebSocket connection for real-time updates
-    let hub_addr_ws = hub_address.clone();
+    let hub_addrs_ws = hub_addresses.clone();
+    let current_idx_ws = current_hub_index.clone();
     let pairing_token_ws = pairing_token.clone();
     let app_handle_ws = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         loop {
             let (addr, token) = {
-                let addr_lock = hub_addr_ws.lock().ok();
+                let addrs_lock = hub_addrs_ws.lock().ok();
+                let idx_lock = current_idx_ws.lock().ok();
                 let token_lock = pairing_token_ws.lock().ok();
-                (addr_lock.and_then(|l| l.clone()), token_lock.and_then(|l| l.clone()))
+
+                let addrs = addrs_lock.map(|l| l.clone()).unwrap_or_default();
+                let idx = idx_lock.map(|l| *l).unwrap_or(0);
+                let token = token_lock.and_then(|l| l.clone());
+
+                if addrs.is_empty() {
+                    (None, token)
+                } else {
+                    let safe_idx = if idx >= addrs.len() { 0 } else { idx };
+                    (Some(addrs[safe_idx].clone()), token)
+                }
             };
 
             if let (Some(addr), Some(token)) = (addr, token) {
@@ -346,27 +387,29 @@ async fn push_appointments(client: &Client, hub_addr: &str, token: &str, app_han
 async fn push_treatments(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let treatments = {
         let conn = get_db_conn(app_handle)?;
-        let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at FROM treatments WHERE sync_status = 'pending'")?;
+        let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, doctor_id, doctor_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at FROM treatments WHERE sync_status = 'pending'")?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<String>>(4)?,
                 row.get::<_, Option<String>>(5)?,
-                row.get::<_, Option<String>>(6)?,
+                row.get::<_, String>(6)?,
                 row.get::<_, Option<String>>(7)?,
                 row.get::<_, Option<String>>(8)?,
-                row.get::<_, f64>(9)?,
-                row.get::<_, String>(10)?,
-                row.get::<_, String>(11)?,
+                row.get::<_, Option<String>>(9)?,
+                row.get::<_, Option<String>>(10)?,
+                row.get::<_, f64>(11)?,
+                row.get::<_, String>(12)?,
+                row.get::<_, String>(13)?,
             ))
         })?;
 
         let mut result = Vec::new();
         for r in rows {
-            if let Ok((id, p_id, p_name, a_id, date, diag, treat, notes, f_up, cost, c_at, u_at)) = r {
+            if let Ok((id, p_id, p_name, d_id, d_name, a_id, date, diag, treat, notes, f_up, cost, c_at, u_at)) = r {
                 let mut med_stmt = conn.prepare("SELECT id, name, dosage, frequency, duration, instructions FROM medications WHERE treatment_id = ?1")?;
                 let medications = med_stmt.query_map([&id], |med_row| {
                     Ok(crate::commands::treatments::Medication {
@@ -380,7 +423,7 @@ async fn push_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
                 })?.filter_map(|m| m.ok()).collect();
 
                 result.push(Treatment {
-                    id, patient_id: p_id, patient_name: p_name, appointment_id: a_id, date, diagnosis: diag, treatment: treat, medications, notes, follow_up_date: f_up, cost, created_at: c_at, updated_at: u_at,
+                    id, patient_id: p_id, patient_name: p_name, doctor_id: d_id, doctor_name: d_name, appointment_id: a_id, date, diagnosis: diag, treatment: treat, medications, notes, follow_up_date: f_up, cost, created_at: c_at, updated_at: u_at,
                 });
             }
         }
@@ -406,16 +449,17 @@ async fn push_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
 async fn push_patient_notes(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let notes: Vec<PatientNote> = {
         let conn = get_db_conn(app_handle)?;
-        let mut stmt = conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note, created_at, updated_at FROM patient_notes WHERE sync_status = 'pending'")?;
+        let mut stmt = conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at FROM patient_notes WHERE sync_status = 'pending'")?;
         let rows = stmt.query_map([], |row| {
             Ok(PatientNote {
                 id: row.get(0)?,
                 patient_id: row.get(1)?,
                 doctor_id: row.get(2)?,
                 doctor_name: row.get(3)?,
-                note: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
+                note_type: row.get(4)?,
+                note: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
             })
         })?;
         rows.filter_map(|r| r.ok()).collect()
@@ -475,7 +519,7 @@ async fn push_sick_sheets(client: &Client, hub_addr: &str, token: &str, app_hand
 async fn push_payments(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let payments: Vec<Payment> = {
         let conn = get_db_conn(app_handle)?;
-        let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at FROM payments WHERE sync_status = 'pending'")?;
+        let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, insurance_provider_id FROM payments WHERE sync_status = 'pending'")?;
         let rows = stmt.query_map([], |row| {
             Ok(Payment {
                 id: row.get(0)?,
@@ -489,6 +533,7 @@ async fn push_payments(client: &Client, hub_addr: &str, token: &str, app_handle:
                 notes: row.get(8)?,
                 created_at: row.get(9)?,
                 updated_at: row.get(10)?,
+                insurance_provider_id: row.get(11)?,
             })
         })?;
         rows.filter_map(|p| p.ok()).collect()
@@ -609,9 +654,12 @@ async fn pull_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
         let tx = conn.transaction()?;
         for t in sync_res.data {
             let rows_affected = tx.execute(
-                "INSERT INTO treatments (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
+                "INSERT INTO treatments (id, patient_id, patient_name, doctor_id, doctor_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
                  ON CONFLICT(id) DO UPDATE SET
+                    doctor_id = excluded.doctor_id,
+                    doctor_name = excluded.doctor_name,
+                    appointment_id = excluded.appointment_id,
                     diagnosis = excluded.diagnosis,
                     treatment = excluded.treatment,
                     notes = excluded.notes,
@@ -621,7 +669,7 @@ async fn pull_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
                     sync_status = 'synced'
                  WHERE excluded.updated_at > treatments.updated_at",
                 rusqlite::params![
-                    t.id, t.patient_id, t.patient_name, t.appointment_id, t.date,
+                    t.id, t.patient_id, t.patient_name, t.doctor_id, t.doctor_name, t.appointment_id, t.date,
                     t.diagnosis, t.treatment, t.notes, t.follow_up_date, t.cost,
                     t.created_at, t.updated_at
                 ],
@@ -726,15 +774,16 @@ async fn pull_patient_notes(client: &Client, hub_addr: &str, token: &str, app_ha
         let sync_res: SyncResponse<PatientNote> = res.json().await?;
         for n in sync_res.data {
             let _ = conn.execute(
-                "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note, created_at, updated_at, sync_status)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')
+                "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'synced')
                  ON CONFLICT(id) DO UPDATE SET
+                    note_type = excluded.note_type,
                     note = excluded.note,
                     updated_at = excluded.updated_at,
                     sync_status = 'synced'
                  WHERE excluded.updated_at > patient_notes.updated_at",
                 rusqlite::params![
-                    n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note,
+                    n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note_type, n.note,
                     n.created_at, n.updated_at
                 ],
             );
@@ -840,18 +889,20 @@ async fn pull_payments(client: &Client, hub_addr: &str, token: &str, app_handle:
         let sync_res: SyncResponse<Payment> = res.json().await?;
         for p in sync_res.data {
             let _ = conn.execute(
-                "INSERT INTO payments (id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, sync_status)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'synced')
+                "INSERT INTO payments (id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, insurance_provider_id, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
                  ON CONFLICT(id) DO UPDATE SET
                     amount = excluded.amount,
                     status = excluded.status,
                     notes = excluded.notes,
                     updated_at = excluded.updated_at,
+                    insurance_provider_id = excluded.insurance_provider_id,
                     sync_status = 'synced'
                  WHERE excluded.updated_at > payments.updated_at",
                 rusqlite::params![
                     p.id, p.patient_id, p.patient_name, p.treatment_id, p.amount,
-                    p.date, p.method, p.status, p.notes, p.created_at, p.updated_at
+                    p.date, p.method, p.status, p.notes, p.created_at, p.updated_at,
+                    p.insurance_provider_id
                 ],
             );
         }

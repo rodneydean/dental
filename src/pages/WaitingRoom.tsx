@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { dataManager, Appointment, WaiverRequest, DoctorStatus } from "@/lib/dataManager";
+import { dataManager, Appointment, WaiverRequest, DoctorStatus, InsuranceProvider } from "@/lib/dataManager";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Users,
@@ -14,8 +14,15 @@ import {
   XCircle,
   CreditCard,
   UserCheck,
+  ChevronDown,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const WaitingRoom = () => {
   const { user } = useAuth();
@@ -24,6 +31,7 @@ const WaitingRoom = () => {
   const [doctorStatuses, setDoctorStatuses] = useState<DoctorStatus[]>([]);
   const [receptionFee, setReceptionFee] = useState<number>(0);
   const [requirePaymentBeforeAdmit, setRequirePaymentBeforeAdmit] = useState<boolean>(true);
+  const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
 
   useEffect(() => {
     loadData();
@@ -53,18 +61,20 @@ const WaitingRoom = () => {
 
   const loadData = async () => {
     try {
-      const [appts, reqs, statuses, fee, reqPay] = await Promise.all([
+      const [appts, reqs, statuses, fee, reqPay, providers] = await Promise.all([
         dataManager.getAppointments(),
         dataManager.getWaiverRequests(),
         dataManager.getDoctorStatuses(),
         dataManager.getSetting("reception_fee"),
-        dataManager.getSetting("require_payment_before_admit")
+        dataManager.getSetting("require_payment_before_admit"),
+        dataManager.getInsuranceProviders()
       ]);
       setAppointments(appts.filter(a => a.status !== 'completed' && a.status !== 'cancelled'));
       setWaivers(reqs);
       setDoctorStatuses(statuses);
       setReceptionFee(Number(fee || 0));
       setRequirePaymentBeforeAdmit(reqPay === "true");
+      setInsuranceProviders(providers);
     } catch {
       toast.error("Failed to load waiting room data");
     }
@@ -84,7 +94,7 @@ const WaitingRoom = () => {
     }
   };
 
-  const handlePayFee = async (appt: Appointment) => {
+  const handlePayFee = async (appt: Appointment, method: "cash" | "insurance" = "cash", providerId?: string) => {
     try {
       await dataManager.updateAppointment(appt.id, { reception_fee_paid: true });
       // Create a payment record
@@ -93,7 +103,8 @@ const WaitingRoom = () => {
         patient_name: appt.patient_name,
         amount: receptionFee,
         date: new Date().toISOString(),
-        method: "cash",
+        method: method,
+        insurance_provider_id: providerId,
         status: "paid",
         notes: "Reception/Consultation Fee",
       });
@@ -213,13 +224,41 @@ const WaitingRoom = () => {
 
                   <div className="flex flex-col gap-2 pt-2">
                     {!appt.reception_fee_paid && !appt.reception_fee_waived ? (
-                      <div className="flex gap-2">
-                        <Button size="sm" className="flex-1 h-8 text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-sm" onClick={() => handlePayFee(appt)}>
-                          <CreditCard className="h-3.5 w-3.5 mr-1.5 text-green-600" /> Pay KSH {receptionFee.toLocaleString()}
-                        </Button>
-                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs font-medium border-gray-200 text-gray-700 hover:bg-gray-50 rounded-sm" onClick={() => handleRequestWaiver(appt)}>
-                          Waiver
-                        </Button>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Button size="sm" className="flex-1 h-8 text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-sm" onClick={() => handlePayFee(appt)}>
+                            <CreditCard className="h-3.5 w-3.5 mr-1.5 text-green-600" /> Pay Cash
+                          </Button>
+                          <Button size="sm" variant="outline" className="flex-1 h-8 text-xs font-medium border-gray-200 text-gray-700 hover:bg-gray-50 rounded-sm" onClick={() => handleRequestWaiver(appt)}>
+                            Waiver
+                          </Button>
+                        </div>
+                        {insuranceProviders.filter(p => p.pays_reception_fee).length > 0 && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-medium border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-sm"
+                              >
+                                <CreditCard className="h-3.5 w-3.5 mr-1.5" />
+                                Insurance
+                                <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              {insuranceProviders.filter(p => p.pays_reception_fee).map(p => (
+                                <DropdownMenuItem
+                                  key={p.id}
+                                  onClick={() => handlePayFee(appt, "insurance", p.id)}
+                                  className="text-xs font-medium"
+                                >
+                                  Use {p.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     ) : (
                       <Badge variant="outline" className="w-fit text-[10px] font-bold px-2 py-0 h-5 rounded-sm border-green-200 bg-green-50 text-green-700 uppercase">

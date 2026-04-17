@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import TreatmentForm from "@/components/TreatmentForm";
 import { dataManager, Treatment } from "@/lib/dataManager";
@@ -39,11 +45,13 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Treatments = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [viewingTreatment, setViewingTreatment] = useState<Treatment | null>(null);
+  const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -72,6 +80,33 @@ const Treatments = () => {
       toast.success("Treatment recorded successfully");
     } catch {
       toast.error("Failed to record treatment");
+      throw new Error("Failed to record treatment");
+    }
+  };
+
+  const handleEditTreatment = async (
+    treatmentData: Omit<Treatment, "id" | "created_at" | "updated_at">
+  ) => {
+    if (!editingTreatment) return;
+    try {
+      await dataManager.updateTreatment(editingTreatment.id, treatmentData);
+      setEditingTreatment(null);
+      toast.success("Treatment updated successfully");
+      loadTreatments();
+    } catch {
+      toast.error("Failed to update treatment");
+      throw new Error("Failed to update treatment");
+    }
+  };
+
+  const handleDeleteTreatment = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this treatment record?")) return;
+    try {
+      await dataManager.deleteTreatment(id);
+      await loadTreatments();
+      toast.success("Treatment record deleted");
+    } catch {
+      toast.error("Failed to delete treatment");
     }
   };
 
@@ -144,7 +179,8 @@ const Treatments = () => {
             .map((treatment) => (
               <Card
                 key={treatment.id}
-                className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white overflow-hidden rounded-sm"
+                className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white overflow-hidden rounded-sm cursor-pointer"
+                onClick={() => setViewingTreatment(treatment)}
               >
                 <CardContent className="p-0">
                   <div className="flex flex-col lg:flex-row">
@@ -166,8 +202,8 @@ const Treatments = () => {
                           <div className="p-2 bg-purple-50 rounded-sm text-purple-600">
                             <User className="h-4 w-4" />
                           </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900">
+                          <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/patients/${treatment.patient_id}`); }}>
+                            <h3 className="text-sm font-semibold text-gray-900 hover:text-primary transition-colors">
                               {treatment.patient_name}
                             </h3>
                             <p className="text-[11px] font-medium text-purple-600 uppercase tracking-tight">
@@ -186,11 +222,28 @@ const Treatments = () => {
                             <DropdownMenuItem onClick={() => setViewingTreatment(treatment)}>
                               <FileText className="h-4 w-4 mr-2" /> View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => pdfGenerator.generatePrescription(treatment, treatment.medications)}>
-                              <Download className="h-4 w-4 mr-2" /> Download Rx
+                            {user?.role === "DOCTOR" && (
+                              <DropdownMenuItem onClick={() => setEditingTreatment(treatment)}>
+                                <Plus className="h-4 w-4 mr-2" /> Edit Record
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={async () => {
+                              await pdfGenerator.generatePrescription(treatment, treatment.medications);
+                              toast.success("Prescription card downloaded");
+                            }}>
+                              <Download className="h-4 w-4 mr-2" /> Download Prescription Card
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={async () => {
+                              await pdfGenerator.generateTreatmentRecord(treatment);
+                              toast.success("Treatment record downloaded");
+                            }}>
+                              <FileText className="h-4 w-4 mr-2" /> Download Full Record (A4)
                             </DropdownMenuItem>
                             {user?.role === "DOCTOR" && (
-                              <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteTreatment(treatment.id)}
+                                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                              >
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete Record
                               </DropdownMenuItem>
                             )}
@@ -251,88 +304,190 @@ const Treatments = () => {
         )}
       </div>
 
-      {/* View Treatment Details Dialog */}
+      {/* Edit Treatment Dialog */}
       <Dialog
+        open={!!editingTreatment}
+        onOpenChange={() => setEditingTreatment(null)}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Treatment</DialogTitle>
+            <DialogDescription>
+              Update diagnosis and treatment details.
+            </DialogDescription>
+          </DialogHeader>
+          {editingTreatment && (
+            <TreatmentForm
+              treatment={editingTreatment}
+              onSave={handleEditTreatment}
+              onCancel={() => setEditingTreatment(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Treatment Details Sheet */}
+      <Sheet
         open={!!viewingTreatment}
         onOpenChange={() => setViewingTreatment(null)}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Treatment Details</DialogTitle>
-          </DialogHeader>
+        <SheetContent className="sm:max-w-xl overflow-y-auto p-0">
           {viewingTreatment && (
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-gray-500 uppercase">Patient</Label>
-                  <p className="font-bold text-lg">{viewingTreatment.patient_name}</p>
+            <div className="flex flex-col h-full">
+              {/* Premium Header */}
+              <div className="relative h-32 bg-gradient-to-r from-primary/20 via-blue-50/50 to-primary/10 flex items-end px-6 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1.5 bg-primary text-white rounded-sm">
+                      <Stethoscope className="h-4 w-4" />
+                    </div>
+                    <SheetTitle className="text-xl font-bold text-gray-900">Treatment Record</SheetTitle>
+                  </div>
+                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                    ID: {viewingTreatment.id.split('-')[0].toUpperCase()} • Recorded {new Date(viewingTreatment.created_at).toLocaleDateString()}
+                  </p>
                 </div>
-                <div className="text-right">
-                  <Label className="text-xs text-gray-500 uppercase">Date</Label>
-                  <p className="font-bold text-lg">{viewingTreatment.date}</p>
-                </div>
               </div>
 
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <Label className="text-xs text-purple-600 uppercase font-bold">Diagnosis</Label>
-                <p className="text-purple-900 font-medium">{viewingTreatment.diagnosis}</p>
-              </div>
-
-              <div>
-                <Label className="text-xs text-gray-500 uppercase font-bold">Treatment Performed</Label>
-                <p className="text-gray-700 mt-1 whitespace-pre-wrap">{viewingTreatment.treatment}</p>
-              </div>
-
-              {viewingTreatment.medications.length > 0 && (
-                <div>
-                  <Label className="text-xs text-gray-500 uppercase font-bold block mb-2">Prescriptions</Label>
-                  <div className="space-y-2">
-                    {viewingTreatment.medications.map((med, idx) => (
-                      <div key={idx} className="flex items-start bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <Pill className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-                        <div>
-                          <p className="font-bold text-blue-900">{med.name} - {med.dosage}</p>
-                          <p className="text-sm text-blue-700">{med.frequency} for {med.duration}</p>
-                          {med.instructions && (
-                            <p className="text-xs text-blue-600 mt-1 italic">Note: {med.instructions}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+              <div className="px-6 py-6 space-y-8">
+                {/* Patient & Date Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1 p-3 bg-gray-50 rounded-sm border border-gray-100">
+                    <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Patient Name</Label>
+                    <p className="font-bold text-gray-900 flex items-center">
+                      <User className="h-3.5 w-3.5 mr-1.5 text-primary/60" />
+                      {viewingTreatment.patient_name}
+                    </p>
+                  </div>
+                  <div className="space-y-1 p-3 bg-gray-50 rounded-sm border border-gray-100">
+                    <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Treatment Date</Label>
+                    <p className="font-bold text-gray-900 flex items-center">
+                      <Calendar className="h-3.5 w-3.5 mr-1.5 text-primary/60" />
+                      {viewingTreatment.date}
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {viewingTreatment.notes && (
-                <div>
-                  <Label className="text-xs text-gray-500 uppercase font-bold">Notes</Label>
-                  <p className="text-sm text-gray-600 mt-1">{viewingTreatment.notes}</p>
+                {/* Diagnosis Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold text-purple-600 uppercase tracking-widest flex items-center">
+                      <span className="w-1.5 h-1.5 bg-purple-600 rounded-full mr-2" />
+                      Clinical Diagnosis
+                    </Label>
+                  </div>
+                  <div className="bg-purple-50/50 p-4 rounded-sm border border-purple-100 shadow-sm">
+                    <p className="text-purple-900 font-semibold text-sm leading-relaxed">{viewingTreatment.diagnosis}</p>
+                  </div>
                 </div>
-              )}
 
-              <div className="flex justify-between items-center pt-4 border-t">
-                <div className="text-xs text-gray-400">
-                  Recorded: {new Date(viewingTreatment.created_at).toLocaleString()}
+                {/* Treatment Details */}
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-bold text-primary uppercase tracking-widest flex items-center">
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2" />
+                    Treatment Performed
+                  </Label>
+                  <div className="bg-white p-5 rounded-sm border border-gray-200 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-primary/20" />
+                    <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{viewingTreatment.treatment}</p>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => pdfGenerator.generatePrescription(viewingTreatment, viewingTreatment.medications)}
-                  >
-                    <Download className="h-3.5 w-3.5 mr-2" />
-                    Download Rx
-                  </Button>
-                  <div className="font-bold text-xl">
-                    Total: {formatCurrency(viewingTreatment.cost)}
+
+                {/* Medications Section */}
+                {viewingTreatment.medications.length > 0 && (
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest flex items-center">
+                      <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mr-2" />
+                      Prescribed Medications
+                    </Label>
+                    <div className="grid gap-3">
+                      {viewingTreatment.medications.map((med, idx) => (
+                        <div key={idx} className="flex items-start bg-blue-50/30 p-4 rounded-sm border border-blue-100/50 hover:bg-blue-50/50 transition-colors">
+                          <div className="p-2 bg-blue-100 text-blue-600 rounded-sm mr-4 shrink-0">
+                            <Pill className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1 gap-2">
+                              <p className="font-bold text-blue-900 text-sm truncate">{med.name}</p>
+                              <Badge variant="outline" className="bg-blue-100/50 text-blue-700 border-blue-200 text-[9px] font-bold h-5 px-1.5 uppercase shrink-0">
+                                {med.dosage}
+                              </Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-blue-800 font-medium">
+                              <span className="flex items-center"><Clock className="h-3 w-3 mr-1 opacity-70" /> {med.frequency}</span>
+                              <span className="flex items-center"><Calendar className="h-3 w-3 mr-1 opacity-70" /> {med.duration}</span>
+                            </div>
+                            {med.instructions && (
+                              <div className="mt-2 text-[11px] text-blue-600 bg-white/60 p-2 rounded border border-blue-50 italic">
+                                Note: {med.instructions}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Notes */}
+                {viewingTreatment.notes && (
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Clinical Notes</Label>
+                    <div className="bg-gray-50/80 p-4 rounded-sm border border-gray-100 italic text-sm text-gray-600 leading-relaxed">
+                      {viewingTreatment.notes}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Footer */}
+              <div className="mt-auto border-t border-gray-100 p-6 bg-gray-50/50">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Billable Amount</p>
+                      <p className="text-2xl font-black text-gray-900">{formatCurrency(viewingTreatment.cost)}</p>
+                    </div>
+                    {viewingTreatment.follow_up_date && (
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1">Follow-up Date</p>
+                        <p className="text-sm font-bold text-orange-600 flex items-center justify-end">
+                          <Clock className="h-3.5 w-3.5 mr-1.5" />
+                          {viewingTreatment.follow_up_date}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      onClick={async () => {
+                        await pdfGenerator.generatePrescription(viewingTreatment, viewingTreatment.medications);
+                        toast.success("Prescription card downloaded");
+                      }}
+                      className="bg-primary hover:bg-primary/90 text-white rounded-sm h-11 font-semibold text-xs shadow-sm"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Prescription Card
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        await pdfGenerator.generateTreatmentRecord(viewingTreatment);
+                        toast.success("Treatment record downloaded");
+                      }}
+                      variant="outline"
+                      className="border-gray-200 bg-white text-gray-700 hover:bg-gray-50 rounded-sm h-11 font-semibold text-xs shadow-sm"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Full Record (A4)
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

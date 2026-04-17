@@ -51,7 +51,7 @@ const UserManagement = () => {
     if (!currentUser) return;
     setIsLoading(true);
     try {
-      const result = await invoke<UserWithMetadata[]>("list_users", { adminId: currentUser.id });
+      const result = await invoke<UserWithMetadata[]>("list_users");
       setUsers(result);
     } catch (error) {
       toast.error("Failed to fetch users: " + error);

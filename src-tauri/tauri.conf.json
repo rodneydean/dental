@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Skryme Dental",
-  "version": "0.1.16",
+  "version": "0.1.33",
   "identifier": "com.dentist-management.app",
   "build": {
     "frontendDist": "../dist",
@@ -12,11 +12,13 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Skryme Dental",
         "width": 800,
         "height": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "maximized": true
       }
     ],
     "security": {
@@ -36,7 +38,7 @@
   },
   "plugins": {
     "updater": {
-      "active": true,
+      "active": false,
       "endpoints": [
         "https://github.com/rodneydean/dental/releases/latest/download/latest.json"
       ],

@@ -121,17 +121,24 @@ async fn start_mdns_discovery(port: u16) -> Result<ServiceDaemon, Box<dyn std::e
         };
         let host_name = format!("{}.local.", instance_name);
 
-        let service_info = ServiceInfo::new(
+        match ServiceInfo::new(
             service_type,
             &instance_name,
             &host_name,
             ip_str.clone(),
             port,
             properties.clone(),
-        )?.enable_addr_auto();
-
-        mdns.register(service_info)?;
-        info!("Registered mDNS service for IP: {} as {}", ip_str, instance_name);
+        ) {
+            Ok(service_info) => {
+                let service_info = service_info.enable_addr_auto();
+                if let Err(e) = mdns.register(service_info) {
+                    error!("Failed to register mDNS service for IP {}: {}", ip_str, e);
+                } else {
+                    info!("Registered mDNS service for IP: {} as {}", ip_str, instance_name);
+                }
+            },
+            Err(e) => error!("Failed to create mDNS service info for IP {}: {}", ip_str, e),
+        }
     }
 
     Ok(mdns)
@@ -286,9 +293,12 @@ async fn post_treatments_handler(
 
     for t in treatments {
         let res = tx.execute(
-            "INSERT INTO treatments (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
+            "INSERT INTO treatments (id, patient_id, patient_name, doctor_id, doctor_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
              ON CONFLICT(id) DO UPDATE SET
+                doctor_id = excluded.doctor_id,
+                doctor_name = excluded.doctor_name,
+                appointment_id = excluded.appointment_id,
                 diagnosis = excluded.diagnosis,
                 treatment = excluded.treatment,
                 notes = excluded.notes,
@@ -297,7 +307,7 @@ async fn post_treatments_handler(
                 updated_at = excluded.updated_at
              WHERE excluded.updated_at > treatments.updated_at",
             rusqlite::params![
-                t.id, t.patient_id, t.patient_name, t.appointment_id, t.date,
+                t.id, t.patient_id, t.patient_name, t.doctor_id, t.doctor_name, t.appointment_id, t.date,
                 t.diagnosis, t.treatment, t.notes, t.follow_up_date, t.cost,
                 t.created_at, t.updated_at
             ],
@@ -492,7 +502,7 @@ async fn get_patient_notes_handler(State(state): State<HubState>) -> impl IntoRe
         Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
 
-    let mut stmt = match conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note, created_at, updated_at FROM patient_notes") {
+    let mut stmt = match conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at FROM patient_notes") {
         Ok(s) => s,
         Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
@@ -503,9 +513,10 @@ async fn get_patient_notes_handler(State(state): State<HubState>) -> impl IntoRe
             patient_id: row.get(1)?,
             doctor_id: row.get(2)?,
             doctor_name: row.get(3)?,
-            note: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
+            note_type: row.get(4)?,
+            note: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
         })
     });
 
@@ -532,14 +543,15 @@ async fn post_patient_notes_handler(
 
     for n in notes {
         let _ = conn.execute(
-            "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note, created_at, updated_at, sync_status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')
+            "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'synced')
              ON CONFLICT(id) DO UPDATE SET
+                note_type = excluded.note_type,
                 note = excluded.note,
                 updated_at = excluded.updated_at
              WHERE excluded.updated_at > patient_notes.updated_at",
             rusqlite::params![
-                n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note,
+                n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note_type, n.note,
                 n.created_at, n.updated_at
             ],
         );
