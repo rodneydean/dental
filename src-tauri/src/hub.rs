@@ -293,9 +293,11 @@ async fn post_treatments_handler(
 
     for t in treatments {
         let res = tx.execute(
-            "INSERT INTO treatments (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
+            "INSERT INTO treatments (id, patient_id, patient_name, doctor_id, doctor_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
              ON CONFLICT(id) DO UPDATE SET
+                doctor_id = excluded.doctor_id,
+                doctor_name = excluded.doctor_name,
                 appointment_id = excluded.appointment_id,
                 diagnosis = excluded.diagnosis,
                 treatment = excluded.treatment,
@@ -305,7 +307,7 @@ async fn post_treatments_handler(
                 updated_at = excluded.updated_at
              WHERE excluded.updated_at > treatments.updated_at",
             rusqlite::params![
-                t.id, t.patient_id, t.patient_name, t.appointment_id, t.date,
+                t.id, t.patient_id, t.patient_name, t.doctor_id, t.doctor_name, t.appointment_id, t.date,
                 t.diagnosis, t.treatment, t.notes, t.follow_up_date, t.cost,
                 t.created_at, t.updated_at
             ],
