@@ -232,6 +232,14 @@ class DataManager {
     });
   }
 
+  public async updatePatientNote(id: string, note_type: string, note: string): Promise<void> {
+    await invoke("update_patient_note", { id, noteType: note_type, note });
+  }
+
+  public async deletePatientNote(id: string): Promise<void> {
+    await invoke("delete_patient_note", { id });
+  }
+
   public async getSickSheets(patient_id: string): Promise<SickSheet[]> {
     return await invoke<SickSheet[]>("list_sick_sheets", { patientId: patient_id });
   }
@@ -431,6 +439,14 @@ class DataManager {
     });
   }
 
+  public async updateService(id: string, service: { name: string; standard_fee: number }): Promise<void> {
+    await invoke("update_service", {
+      id,
+      name: service.name,
+      standardFee: service.standard_fee
+    });
+  }
+
   public async deleteService(id: string): Promise<void> {
     await invoke("delete_service", { id });
   }
@@ -442,6 +458,14 @@ class DataManager {
 
   public async addInsuranceProvider(provider: { name: string; pays_reception_fee: boolean }): Promise<InsuranceProvider> {
     return await invoke<InsuranceProvider>("create_insurance_provider", {
+      name: provider.name,
+      paysReceptionFee: provider.pays_reception_fee
+    });
+  }
+
+  public async updateInsuranceProvider(id: string, provider: { name: string; pays_reception_fee: boolean }): Promise<void> {
+    await invoke("update_insurance_provider", {
+      id,
       name: provider.name,
       paysReceptionFee: provider.pays_reception_fee
     });

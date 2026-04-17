@@ -14,6 +14,24 @@ pub struct Service {
 }
 
 #[command]
+pub fn update_service(
+    app_handle: AppHandle,
+    id: String,
+    name: String,
+    standard_fee: f64,
+) -> Result<(), String> {
+    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    let now = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "UPDATE services SET name = ?1, standard_fee = ?2, updated_at = ?3, sync_status = 'pending' WHERE id = ?4",
+        rusqlite::params![name, standard_fee, now, id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[command]
 pub fn list_services(app_handle: AppHandle) -> Result<Vec<Service>, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare("SELECT id, name, standard_fee, created_at, updated_at FROM services").map_err(|e| e.to_string())?;

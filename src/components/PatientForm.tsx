@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Patient {
   id: string;
@@ -33,6 +34,9 @@ interface PatientFormProps {
 }
 
 const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
+  const { user } = useAuth();
+  const isReceptionist = user?.role === "RECEPTION";
+
   const [formData, setFormData] = useState<Omit<Patient, "id">>({
     name: patient?.name || "",
     phone: patient?.phone || "",
@@ -171,29 +175,33 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="medical_history" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Medical History</Label>
-        <Textarea
-          id="medical_history"
-          value={formData.medical_history}
-          onChange={(e) => handleChange("medical_history", e.target.value)}
-          placeholder="Previous medical conditions, surgeries, medications..."
-          rows={2}
-          className="text-sm rounded-sm border-gray-200"
-        />
-      </div>
+      {!isReceptionist && (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="medical_history" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Medical History</Label>
+            <Textarea
+              id="medical_history"
+              value={formData.medical_history}
+              onChange={(e) => handleChange("medical_history", e.target.value)}
+              placeholder="Previous medical conditions, surgeries, medications..."
+              rows={2}
+              className="text-sm rounded-sm border-gray-200"
+            />
+          </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="allergies" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Allergies & Medications</Label>
-        <Textarea
-          id="allergies"
-          value={formData.allergies}
-          onChange={(e) => handleChange("allergies", e.target.value)}
-          placeholder="Known allergies, current medications..."
-          rows={2}
-          className="text-sm rounded-sm border-gray-200"
-        />
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="allergies" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Allergies & Medications</Label>
+            <Textarea
+              id="allergies"
+              value={formData.allergies}
+              onChange={(e) => handleChange("allergies", e.target.value)}
+              placeholder="Known allergies, current medications..."
+              rows={2}
+              className="text-sm rounded-sm border-gray-200"
+            />
+          </div>
+        </>
+      )}
 
       <div className="flex space-x-3 pt-2">
         <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-sm h-9 text-sm font-semibold">

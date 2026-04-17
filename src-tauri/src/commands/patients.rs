@@ -265,6 +265,31 @@ pub fn create_patient_note(
     })
 }
 
+#[command]
+pub fn update_patient_note(
+    app_handle: AppHandle,
+    id: String,
+    note_type: String,
+    note: String,
+) -> Result<(), String> {
+    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    let now = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "UPDATE patient_notes SET note_type = ?1, note = ?2, updated_at = ?3, sync_status = 'pending' WHERE id = ?4",
+        [note_type, note, now, id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[command]
+pub fn delete_patient_note(app_handle: AppHandle, id: String) -> Result<(), String> {
+    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM patient_notes WHERE id = ?1", [id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SickSheet {
     pub id: String,

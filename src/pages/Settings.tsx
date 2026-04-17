@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { dataManager, Service, InsuranceProvider } from "@/lib/dataManager";
-import { Save, Settings as SettingsIcon, Server, Laptop, RefreshCw, Copy, Check, Plus, Trash2, Stethoscope, Upload, Image as ImageIcon, ShieldCheck, FileText } from "lucide-react";
+import { Save, Settings as SettingsIcon, Server, Laptop, RefreshCw, Copy, Check, Plus, Trash2, Stethoscope, Upload, Image as ImageIcon, ShieldCheck, FileText, Edit } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkForUpdates } from "@/lib/updater";
 import { invoke } from "@tauri-apps/api/core";
@@ -35,13 +35,15 @@ const Settings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [isCopied, setIsCopied] = useState(false);
-  const [services, setServices] = useState<Service[]>([]);
-  const [newServiceName, setNewServiceName] = useState("");
-  const [newServiceFee, setNewServiceFee] = useState("");
-
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
   const [newProviderName, setNewProviderName] = useState("");
   const [providerPaysReception, setProviderPaysReception] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<InsuranceProvider | null>(null);
+
+  const [services, setServices] = useState<Service[]>([]);
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceFee, setNewServiceFee] = useState("");
+  const [editingService, setEditingService] = useState<Service | null>(null);
 
   const [noteTypes, setNoteTypes] = useState<string[]>([]);
   const [newNoteType, setNewNoteType] = useState("");
@@ -50,7 +52,7 @@ const Settings = () => {
   useEffect(() => {
     loadSettings();
     loadNetworkInfo();
-    if (userRole === 'ADMIN') {
+    if (userRole === 'ADMIN' || userRole === 'DOCTOR') {
       loadServices();
       loadInsuranceProviders();
       loadNoteTypes();
@@ -196,7 +198,7 @@ const Settings = () => {
         }
       }
 
-      if (user?.role === 'ADMIN') {
+      if (user?.role === 'ADMIN' || user?.role === 'DOCTOR') {
         promises.push(dataManager.setSetting("reception_fee", receptionFee));
         promises.push(dataManager.setSetting("require_payment_before_admit", requirePaymentBeforeAdmit.toString()));
       }
@@ -228,12 +230,28 @@ const Settings = () => {
   };
 
   const handleDeleteService = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this service?")) return;
     try {
       await dataManager.deleteService(id);
       loadServices();
       toast.success("Service deleted");
     } catch {
       toast.error("Failed to delete service");
+    }
+  };
+
+  const handleUpdateService = async () => {
+    if (!editingService) return;
+    try {
+      await dataManager.updateService(editingService.id, {
+        name: editingService.name,
+        standard_fee: editingService.standard_fee
+      });
+      setEditingService(null);
+      loadServices();
+      toast.success("Service updated");
+    } catch {
+      toast.error("Failed to update service");
     }
   };
 
@@ -257,12 +275,28 @@ const Settings = () => {
   };
 
   const handleDeleteProvider = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this insurance provider?")) return;
     try {
       await dataManager.deleteInsuranceProvider(id);
       loadInsuranceProviders();
       toast.success("Insurance provider deleted");
     } catch {
       toast.error("Failed to delete insurance provider");
+    }
+  };
+
+  const handleUpdateProvider = async () => {
+    if (!editingProvider) return;
+    try {
+      await dataManager.updateInsuranceProvider(editingProvider.id, {
+        name: editingProvider.name,
+        pays_reception_fee: editingProvider.pays_reception_fee
+      });
+      setEditingProvider(null);
+      loadInsuranceProviders();
+      toast.success("Insurance provider updated");
+    } catch {
+      toast.error("Failed to update insurance provider");
     }
   };
 
@@ -377,7 +411,7 @@ const Settings = () => {
         </Card>
       )}
 
-      {user?.role === 'ADMIN' && (
+      {(user?.role === 'ADMIN' || user?.role === 'DOCTOR') && (
         <>
           <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
             <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
@@ -455,14 +489,24 @@ const Settings = () => {
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeleteProvider(provider.id)}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-primary hover:bg-blue-50"
+                        onClick={() => setEditingProvider(provider)}
+                      >
+                        <Edit size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteProvider(provider.id)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {insuranceProviders.length === 0 && (
@@ -566,14 +610,24 @@ const Settings = () => {
                         <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">KSH {service.standard_fee.toLocaleString()}</p>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeleteService(service.id)}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-primary hover:bg-blue-50"
+                        onClick={() => setEditingService(service)}
+                      >
+                        <Edit size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteService(service.id)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {services.length === 0 && (
@@ -700,6 +754,78 @@ const Settings = () => {
           Save Settings
         </Button>
       </div>
+
+      {/* Edit Provider Dialog */}
+      {editingProvider && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md bg-white">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-wider">Edit Insurance Provider</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="editProviderName" className="text-[10px] font-bold uppercase text-gray-500">Provider Name</Label>
+                <Input
+                  id="editProviderName"
+                  value={editingProvider.name}
+                  onChange={(e) => setEditingProvider({ ...editingProvider, name: e.target.value })}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="editPaysReception"
+                  checked={editingProvider.pays_reception_fee}
+                  onChange={(e) => setEditingProvider({ ...editingProvider, pays_reception_fee: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                />
+                <Label htmlFor="editPaysReception" className="text-sm">Covers Reception Fee</Label>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setEditingProvider(null)}>Cancel</Button>
+                <Button size="sm" onClick={handleUpdateProvider}>Save Changes</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Service Dialog */}
+      {editingService && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md bg-white">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase tracking-wider">Edit Service</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="editServiceName" className="text-[10px] font-bold uppercase text-gray-500">Service Name</Label>
+                <Input
+                  id="editServiceName"
+                  value={editingService.name}
+                  onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="editServiceFee" className="text-[10px] font-bold uppercase text-gray-500">Standard Fee (KSH)</Label>
+                <Input
+                  id="editServiceFee"
+                  type="number"
+                  value={editingService.standard_fee}
+                  onChange={(e) => setEditingService({ ...editingService, standard_fee: parseFloat(e.target.value) })}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setEditingService(null)}>Cancel</Button>
+                <Button size="sm" onClick={handleUpdateService}>Save Changes</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
