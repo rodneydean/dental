@@ -119,6 +119,31 @@ pub fn create_patient(
 }
 
 #[command]
+pub fn get_patient(app_handle: AppHandle, id: String) -> Result<Patient, String> {
+    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at FROM patients WHERE id = ?1").map_err(|e| e.to_string())?;
+
+    let patient = stmt.query_row([id], |row| {
+        Ok(Patient {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            phone: row.get(2)?,
+            email: row.get(3)?,
+            date_of_birth: row.get(4)?,
+            address: row.get(5)?,
+            medical_history: row.get(6)?,
+            allergies: row.get(7)?,
+            emergency_contact: row.get(8)?,
+            emergency_phone: row.get(9)?,
+            created_at: row.get(10)?,
+            updated_at: row.get(11)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    Ok(patient)
+}
+
+#[command]
 pub fn update_patient(
     app_handle: AppHandle,
     id: String,
@@ -170,6 +195,7 @@ pub struct PatientNote {
     pub patient_id: String,
     pub doctor_id: String,
     pub doctor_name: String,
+    pub note_type: String,
     pub note: String,
     pub created_at: String,
     pub updated_at: String,
@@ -178,7 +204,7 @@ pub struct PatientNote {
 #[command]
 pub fn list_patient_notes(app_handle: AppHandle, patient_id: String) -> Result<Vec<PatientNote>, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note, created_at, updated_at FROM patient_notes WHERE patient_id = ?1 ORDER BY created_at DESC").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at FROM patient_notes WHERE patient_id = ?1 ORDER BY created_at DESC").map_err(|e| e.to_string())?;
 
     let note_iter = stmt.query_map([patient_id], |row| {
         Ok(PatientNote {
@@ -186,9 +212,10 @@ pub fn list_patient_notes(app_handle: AppHandle, patient_id: String) -> Result<V
             patient_id: row.get(1)?,
             doctor_id: row.get(2)?,
             doctor_name: row.get(3)?,
-            note: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
+            note_type: row.get(4)?,
+            note: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
         })
     }).map_err(|e| e.to_string())?;
 
@@ -205,6 +232,7 @@ pub fn create_patient_note(
     patient_id: String,
     doctor_id: String,
     doctor_name: String,
+    note_type: String,
     note: String,
 ) -> Result<PatientNote, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
@@ -212,12 +240,13 @@ pub fn create_patient_note(
     let now = Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note, created_at, updated_at, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending')",
+        "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending')",
         [
             Some(id.clone()),
             Some(patient_id.clone()),
             Some(doctor_id.clone()),
             Some(doctor_name.clone()),
+            Some(note_type.clone()),
             Some(note.clone()),
             Some(now.clone()),
             Some(now.clone()),
@@ -229,6 +258,7 @@ pub fn create_patient_note(
         patient_id,
         doctor_id,
         doctor_name,
+        note_type,
         note,
         created_at: now.clone(),
         updated_at: now,

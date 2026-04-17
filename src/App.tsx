@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import Index from "./pages/Index";
 import Patients from "./pages/Patients";
+import PatientSheet from "./pages/PatientSheet";
 import Appointments from "./pages/Appointments";
 import Treatments from "./pages/Treatments";
 import Payments from "./pages/Payments";
@@ -84,6 +85,7 @@ const AppContent = () => {
           <Route path="/" element={<Index />} />
           <Route path="/reception" element={<Reception />} />
           <Route path="/patients" element={<Patients />} />
+          <Route path="/patients/:id" element={<PatientSheet />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/treatments" element={<Treatments />} />
           <Route path="/payments" element={<Payments />} />

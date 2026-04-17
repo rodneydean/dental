@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Treatments = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -202,8 +204,8 @@ const Treatments = () => {
                           <div className="p-2 bg-purple-50 rounded-sm text-purple-600">
                             <User className="h-4 w-4" />
                           </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900">
+                          <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/patients/${treatment.patient_id}`); }}>
+                            <h3 className="text-sm font-semibold text-gray-900 hover:text-primary transition-colors">
                               {treatment.patient_name}
                             </h3>
                             <p className="text-[11px] font-medium text-purple-600 uppercase tracking-tight">

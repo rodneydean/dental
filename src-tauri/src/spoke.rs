@@ -449,16 +449,17 @@ async fn push_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
 async fn push_patient_notes(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let notes: Vec<PatientNote> = {
         let conn = get_db_conn(app_handle)?;
-        let mut stmt = conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note, created_at, updated_at FROM patient_notes WHERE sync_status = 'pending'")?;
+        let mut stmt = conn.prepare("SELECT id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at FROM patient_notes WHERE sync_status = 'pending'")?;
         let rows = stmt.query_map([], |row| {
             Ok(PatientNote {
                 id: row.get(0)?,
                 patient_id: row.get(1)?,
                 doctor_id: row.get(2)?,
                 doctor_name: row.get(3)?,
-                note: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
+                note_type: row.get(4)?,
+                note: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
             })
         })?;
         rows.filter_map(|r| r.ok()).collect()
@@ -773,15 +774,16 @@ async fn pull_patient_notes(client: &Client, hub_addr: &str, token: &str, app_ha
         let sync_res: SyncResponse<PatientNote> = res.json().await?;
         for n in sync_res.data {
             let _ = conn.execute(
-                "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note, created_at, updated_at, sync_status)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')
+                "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'synced')
                  ON CONFLICT(id) DO UPDATE SET
+                    note_type = excluded.note_type,
                     note = excluded.note,
                     updated_at = excluded.updated_at,
                     sync_status = 'synced'
                  WHERE excluded.updated_at > patient_notes.updated_at",
                 rusqlite::params![
-                    n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note,
+                    n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note_type, n.note,
                     n.created_at, n.updated_at
                 ],
             );

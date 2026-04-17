@@ -262,6 +262,7 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             patient_id TEXT NOT NULL,
             doctor_id TEXT NOT NULL,
             doctor_name TEXT NOT NULL,
+            note_type TEXT NOT NULL DEFAULT 'General',
             note TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
@@ -430,6 +431,19 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
         }
         if !columns.contains(&"doctor_name".to_string()) {
             let _ = conn.execute("ALTER TABLE treatments ADD COLUMN doctor_name TEXT", []);
+        }
+    }
+
+    // Migration for patient_notes note_type
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(patient_notes)")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(row.get::<_, String>(1)?)
+        })?;
+        let columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+
+        if !columns.contains(&"note_type".to_string()) {
+            let _ = conn.execute("ALTER TABLE patient_notes ADD COLUMN note_type TEXT NOT NULL DEFAULT 'General'", []);
         }
     }
 

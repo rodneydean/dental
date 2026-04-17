@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { dataManager, Service, InsuranceProvider } from "@/lib/dataManager";
-import { Save, Settings as SettingsIcon, Server, Laptop, RefreshCw, Copy, Check, Plus, Trash2, Stethoscope, Upload, Image as ImageIcon, ShieldCheck } from "lucide-react";
+import { Save, Settings as SettingsIcon, Server, Laptop, RefreshCw, Copy, Check, Plus, Trash2, Stethoscope, Upload, Image as ImageIcon, ShieldCheck, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkForUpdates } from "@/lib/updater";
 import { invoke } from "@tauri-apps/api/core";
@@ -43,6 +43,9 @@ const Settings = () => {
   const [newProviderName, setNewProviderName] = useState("");
   const [providerPaysReception, setProviderPaysReception] = useState(false);
 
+  const [noteTypes, setNoteTypes] = useState<string[]>([]);
+  const [newNoteType, setNewNoteType] = useState("");
+
   const userRole = user?.role;
   useEffect(() => {
     loadSettings();
@@ -50,6 +53,7 @@ const Settings = () => {
     if (userRole === 'ADMIN') {
       loadServices();
       loadInsuranceProviders();
+      loadNoteTypes();
     }
 
     let unlisten: (() => void) | undefined;
@@ -82,6 +86,15 @@ const Settings = () => {
       setInsuranceProviders(loadedProviders);
     } catch {
       toast.error("Failed to load insurance providers");
+    }
+  };
+
+  const loadNoteTypes = async () => {
+    try {
+      const loadedTypes = await dataManager.getNoteTypes();
+      setNoteTypes(loadedTypes);
+    } catch {
+      toast.error("Failed to load clinical note types");
     }
   };
 
@@ -250,6 +263,31 @@ const Settings = () => {
       toast.success("Insurance provider deleted");
     } catch {
       toast.error("Failed to delete insurance provider");
+    }
+  };
+
+  const handleAddNoteType = async () => {
+    if (!newNoteType) {
+      toast.error("Please enter a note type");
+      return;
+    }
+    try {
+      await dataManager.addNoteType(newNoteType);
+      setNewNoteType("");
+      loadNoteTypes();
+      toast.success("Clinical note type added");
+    } catch {
+      toast.error("Failed to add note type");
+    }
+  };
+
+  const handleDeleteNoteType = async (type: string) => {
+    try {
+      await dataManager.deleteNoteType(type);
+      loadNoteTypes();
+      toast.success("Clinical note type deleted");
+    } catch {
+      toast.error("Failed to delete note type");
     }
   };
 
@@ -432,6 +470,53 @@ const Settings = () => {
                     <p className="text-sm text-gray-400 italic">No insurance providers configured yet</p>
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
+            <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-900">Clinical Note Types</CardTitle>
+              <CardDescription className="text-[10px] text-gray-400 font-medium uppercase tracking-tight">Setup clinical note types for doctors to use during consultation</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-gray-50 p-4 rounded-sm border border-gray-100">
+                <div className="space-y-1.5 flex-1">
+                  <Label htmlFor="noteType" className="text-[10px] font-bold uppercase text-gray-500">Note Type Name</Label>
+                  <Input
+                    id="noteType"
+                    value={newNoteType}
+                    onChange={(e) => setNewNoteType(e.target.value)}
+                    placeholder="e.g., Surgery Details"
+                    className="h-9 text-sm rounded-sm"
+                  />
+                </div>
+                <Button onClick={handleAddNoteType} className="h-9 bg-primary hover:bg-primary/90 text-white font-semibold rounded-sm">
+                  <Plus className="h-4 w-4 mr-2" /> Add Note Type
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {noteTypes.map((type) => (
+                  <div key={type} className="flex items-center justify-between p-3 border border-gray-100 rounded-sm hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-blue-50 text-primary rounded-sm">
+                        <FileText size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{type}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteNoteType(type)}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

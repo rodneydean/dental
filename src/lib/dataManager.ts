@@ -86,6 +86,7 @@ export interface PatientNote {
   patient_id: string;
   doctor_id: string;
   doctor_name: string;
+  note_type: string;
   note: string;
   created_at: string;
   updated_at: string;
@@ -178,6 +179,10 @@ class DataManager {
     return await invoke<Patient[]>("list_patients");
   }
 
+  public async getPatient(id: string): Promise<Patient> {
+    return await invoke<Patient>("get_patient", { id });
+  }
+
   public async addPatient(
     patient: Omit<Patient, "id" | "created_at" | "updated_at">
   ): Promise<Patient> {
@@ -222,6 +227,7 @@ class DataManager {
       patientId: note.patient_id,
       doctorId: note.doctor_id,
       doctorName: note.doctor_name,
+      noteType: note.note_type,
       note: note.note
     });
   }
@@ -371,6 +377,46 @@ class DataManager {
 
   public async setSetting(key: string, value: string): Promise<void> {
     await invoke("set_setting", { key, value });
+  }
+
+  // Clinical Note Types methods
+  public async getNoteTypes(): Promise<string[]> {
+    const types = await this.getSetting("clinical_note_types");
+    if (!types) {
+      const defaultTypes = [
+        "Chief complaints",
+        "History of complain",
+        "Medical history",
+        "Dental history",
+        "Social history",
+        "Extra-oral examination",
+        "Intra-oral examination",
+        "Diagnosis",
+        "Treatment plan",
+        "General"
+      ];
+      await this.setSetting("clinical_note_types", JSON.stringify(defaultTypes));
+      return defaultTypes;
+    }
+    try {
+      return JSON.parse(types);
+    } catch {
+      return ["General"];
+    }
+  }
+
+  public async addNoteType(type: string): Promise<void> {
+    const types = await this.getNoteTypes();
+    if (!types.includes(type)) {
+      types.push(type);
+      await this.setSetting("clinical_note_types", JSON.stringify(types));
+    }
+  }
+
+  public async deleteNoteType(type: string): Promise<void> {
+    let types = await this.getNoteTypes();
+    types = types.filter(t => t !== type);
+    await this.setSetting("clinical_note_types", JSON.stringify(types));
   }
 
   // Service methods
