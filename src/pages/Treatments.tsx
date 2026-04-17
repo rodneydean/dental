@@ -230,7 +230,10 @@ const Treatments = () => {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => pdfGenerator.generatePrescription(treatment, treatment.medications)}>
-                              <Download className="h-4 w-4 mr-2" /> Download Rx
+                              <Download className="h-4 w-4 mr-2" /> Download Med Card (A5)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => pdfGenerator.generateTreatmentRecord(treatment)}>
+                              <FileText className="h-4 w-4 mr-2" /> Download Full Record (A4)
                             </DropdownMenuItem>
                             {user?.role === "DOCTOR" && (
                               <DropdownMenuItem
@@ -400,18 +403,28 @@ const Treatments = () => {
               )}
 
               <div className="pt-6 border-t border-gray-100 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Cost</p>
                     <p className="text-2xl font-black text-gray-900">{formatCurrency(viewingTreatment.cost)}</p>
                   </div>
-                  <Button
-                    onClick={() => pdfGenerator.generatePrescription(viewingTreatment, viewingTreatment.medications)}
-                    className="bg-primary hover:bg-primary/90 text-white rounded-sm px-6"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Medication Sheet
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      onClick={() => pdfGenerator.generatePrescription(viewingTreatment, viewingTreatment.medications)}
+                      className="bg-primary hover:bg-primary/90 text-white rounded-sm px-6 h-9 text-xs"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Medication Card (A5)
+                    </Button>
+                    <Button
+                      onClick={() => pdfGenerator.generateTreatmentRecord(viewingTreatment)}
+                      variant="outline"
+                      className="border-primary text-primary hover:bg-primary/5 rounded-sm px-6 h-9 text-xs"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Full Record (A4)
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] text-gray-400 font-medium uppercase tracking-tighter">

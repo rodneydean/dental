@@ -19,6 +19,8 @@ pub struct Treatment {
     pub id: String,
     pub patient_id: String,
     pub patient_name: String,
+    pub doctor_id: Option<String>,
+    pub doctor_name: Option<String>,
     pub appointment_id: Option<String>,
     pub date: String,
     pub diagnosis: Option<String>,
@@ -34,7 +36,7 @@ pub struct Treatment {
 #[command]
 pub fn list_treatments(app_handle: AppHandle) -> Result<Vec<Treatment>, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at FROM treatments").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, doctor_id, doctor_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at FROM treatments").map_err(|e| e.to_string())?;
 
     let treatment_rows = stmt.query_map([], |row| {
         Ok((
@@ -42,20 +44,22 @@ pub fn list_treatments(app_handle: AppHandle) -> Result<Vec<Treatment>, String> 
             row.get::<_, String>(1)?,
             row.get::<_, String>(2)?,
             row.get::<_, Option<String>>(3)?,
-            row.get::<_, String>(4)?,
+            row.get::<_, Option<String>>(4)?,
             row.get::<_, Option<String>>(5)?,
-            row.get::<_, Option<String>>(6)?,
+            row.get::<_, String>(6)?,
             row.get::<_, Option<String>>(7)?,
             row.get::<_, Option<String>>(8)?,
-            row.get::<_, f64>(9)?,
-            row.get::<_, String>(10)?,
-            row.get::<_, String>(11)?,
+            row.get::<_, Option<String>>(9)?,
+            row.get::<_, Option<String>>(10)?,
+            row.get::<_, f64>(11)?,
+            row.get::<_, String>(12)?,
+            row.get::<_, String>(13)?,
         ))
     }).map_err(|e| e.to_string())?;
 
     let mut treatments = Vec::new();
     for row_result in treatment_rows {
-        let (id, p_id, p_name, a_id, date, diag, treat, notes, f_up, cost, c_at, u_at) = row_result.map_err(|e| e.to_string())?;
+        let (id, p_id, p_name, d_id, d_name, a_id, date, diag, treat, notes, f_up, cost, c_at, u_at) = row_result.map_err(|e| e.to_string())?;
 
         let mut med_stmt = conn.prepare("SELECT id, name, dosage, frequency, duration, instructions FROM medications WHERE treatment_id = ?1").map_err(|e| e.to_string())?;
         let medications = med_stmt.query_map([&id], |med_row| {
@@ -75,6 +79,8 @@ pub fn list_treatments(app_handle: AppHandle) -> Result<Vec<Treatment>, String> 
             id,
             patient_id: p_id,
             patient_name: p_name,
+            doctor_id: d_id,
+            doctor_name: d_name,
             appointment_id: a_id,
             date,
             diagnosis: diag,
@@ -95,6 +101,8 @@ pub fn create_treatment(
     app_handle: AppHandle,
     patient_id: String,
     patient_name: String,
+    doctor_id: Option<String>,
+    doctor_name: Option<String>,
     appointment_id: Option<String>,
     date: String,
     diagnosis: Option<String>,
@@ -111,11 +119,13 @@ pub fn create_treatment(
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     tx.execute(
-        "INSERT INTO treatments (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'pending')",
+        "INSERT INTO treatments (id, patient_id, patient_name, doctor_id, doctor_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'pending')",
         rusqlite::params![
             id,
             patient_id,
             patient_name,
+            doctor_id,
+            doctor_name,
             appointment_id,
             date,
             diagnosis,
@@ -149,6 +159,8 @@ pub fn create_treatment(
         id,
         patient_id,
         patient_name,
+        doctor_id,
+        doctor_name,
         appointment_id,
         date,
         diagnosis,
@@ -168,6 +180,8 @@ pub fn update_treatment(
     id: String,
     patient_id: String,
     patient_name: String,
+    doctor_id: Option<String>,
+    doctor_name: Option<String>,
     appointment_id: Option<String>,
     date: String,
     diagnosis: Option<String>,
@@ -183,10 +197,12 @@ pub fn update_treatment(
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     tx.execute(
-        "UPDATE treatments SET patient_id = ?1, patient_name = ?2, appointment_id = ?3, date = ?4, diagnosis = ?5, treatment = ?6, notes = ?7, follow_up_date = ?8, cost = ?9, updated_at = ?10, sync_status = 'pending' WHERE id = ?11",
+        "UPDATE treatments SET patient_id = ?1, patient_name = ?2, doctor_id = ?3, doctor_name = ?4, appointment_id = ?5, date = ?6, diagnosis = ?7, treatment = ?8, notes = ?9, follow_up_date = ?10, cost = ?11, updated_at = ?12, sync_status = 'pending' WHERE id = ?13",
         rusqlite::params![
             patient_id,
             patient_name,
+            doctor_id,
+            doctor_name,
             appointment_id,
             date,
             diagnosis,

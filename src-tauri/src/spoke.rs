@@ -387,27 +387,29 @@ async fn push_appointments(client: &Client, hub_addr: &str, token: &str, app_han
 async fn push_treatments(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let treatments = {
         let conn = get_db_conn(app_handle)?;
-        let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at FROM treatments WHERE sync_status = 'pending'")?;
+        let mut stmt = conn.prepare("SELECT id, patient_id, patient_name, doctor_id, doctor_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at FROM treatments WHERE sync_status = 'pending'")?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, Option<String>>(3)?,
-                row.get::<_, String>(4)?,
+                row.get::<_, Option<String>>(4)?,
                 row.get::<_, Option<String>>(5)?,
-                row.get::<_, Option<String>>(6)?,
+                row.get::<_, String>(6)?,
                 row.get::<_, Option<String>>(7)?,
                 row.get::<_, Option<String>>(8)?,
-                row.get::<_, f64>(9)?,
-                row.get::<_, String>(10)?,
-                row.get::<_, String>(11)?,
+                row.get::<_, Option<String>>(9)?,
+                row.get::<_, Option<String>>(10)?,
+                row.get::<_, f64>(11)?,
+                row.get::<_, String>(12)?,
+                row.get::<_, String>(13)?,
             ))
         })?;
 
         let mut result = Vec::new();
         for r in rows {
-            if let Ok((id, p_id, p_name, a_id, date, diag, treat, notes, f_up, cost, c_at, u_at)) = r {
+            if let Ok((id, p_id, p_name, d_id, d_name, a_id, date, diag, treat, notes, f_up, cost, c_at, u_at)) = r {
                 let mut med_stmt = conn.prepare("SELECT id, name, dosage, frequency, duration, instructions FROM medications WHERE treatment_id = ?1")?;
                 let medications = med_stmt.query_map([&id], |med_row| {
                     Ok(crate::commands::treatments::Medication {
@@ -421,7 +423,7 @@ async fn push_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
                 })?.filter_map(|m| m.ok()).collect();
 
                 result.push(Treatment {
-                    id, patient_id: p_id, patient_name: p_name, appointment_id: a_id, date, diagnosis: diag, treatment: treat, medications, notes, follow_up_date: f_up, cost, created_at: c_at, updated_at: u_at,
+                    id, patient_id: p_id, patient_name: p_name, doctor_id: d_id, doctor_name: d_name, appointment_id: a_id, date, diagnosis: diag, treatment: treat, medications, notes, follow_up_date: f_up, cost, created_at: c_at, updated_at: u_at,
                 });
             }
         }
@@ -652,9 +654,11 @@ async fn pull_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
         let tx = conn.transaction()?;
         for t in sync_res.data {
             let rows_affected = tx.execute(
-                "INSERT INTO treatments (id, patient_id, patient_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
+                "INSERT INTO treatments (id, patient_id, patient_name, doctor_id, doctor_name, appointment_id, date, diagnosis, treatment, notes, follow_up_date, cost, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
                  ON CONFLICT(id) DO UPDATE SET
+                    doctor_id = excluded.doctor_id,
+                    doctor_name = excluded.doctor_name,
                     appointment_id = excluded.appointment_id,
                     diagnosis = excluded.diagnosis,
                     treatment = excluded.treatment,
@@ -665,7 +669,7 @@ async fn pull_treatments(client: &Client, hub_addr: &str, token: &str, app_handl
                     sync_status = 'synced'
                  WHERE excluded.updated_at > treatments.updated_at",
                 rusqlite::params![
-                    t.id, t.patient_id, t.patient_name, t.appointment_id, t.date,
+                    t.id, t.patient_id, t.patient_name, t.doctor_id, t.doctor_name, t.appointment_id, t.date,
                     t.diagnosis, t.treatment, t.notes, t.follow_up_date, t.cost,
                     t.created_at, t.updated_at
                 ],
