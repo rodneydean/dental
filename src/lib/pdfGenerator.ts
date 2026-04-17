@@ -310,7 +310,7 @@ export const pdfGenerator = {
       margin: { left: 0.5, right: 0.5 }
     });
 
-    let y = doc.lastAutoTable.finalY + 0.3;
+    const y = doc.lastAutoTable.finalY + 0.3;
 
     // Signature area
     doc.setDrawColor(200, 200, 200);

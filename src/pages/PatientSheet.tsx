@@ -112,7 +112,7 @@ const PatientSheet = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id, navigate]);
+  }, [navigate]);
 
   useEffect(() => {
     if (id) {
