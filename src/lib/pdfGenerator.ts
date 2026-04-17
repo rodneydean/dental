@@ -284,7 +284,7 @@ export const pdfGenerator = {
     });
 
     // Extract exactly how far down the page the table went
-    const tableFinalY = (dummyDoc as any).lastAutoTable.finalY;
+    const tableFinalY = dummyDoc.lastAutoTable.finalY;
 
     // Minimum height is 101.6mm. If the table is long, add 45mm for the signature and footer.
     const docHeight = Math.max(101.6, tableFinalY + 45);
@@ -368,7 +368,7 @@ export const pdfGenerator = {
       margin: { left: 12.7, right: 12.7 },
     });
 
-    const y = (doc as any).lastAutoTable.finalY + 8;
+    const y = doc.lastAutoTable.finalY + 8;
 
     // Signature area
     doc.setDrawColor(200, 200, 200);
