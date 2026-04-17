@@ -135,7 +135,7 @@ export const pdfGenerator = {
     y += 0.3;
     doc.text(`Time: ${appointment.time}`, 1, y);
     y += 0.3;
-    doc.text(`Type: ${appointment.appointment_type}`, 1, y);
+    doc.text(`Procedure: ${appointment.appointment_type}`, 1, y);
 
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
@@ -234,17 +234,17 @@ export const pdfGenerator = {
     const branding = await getBranding();
     const doc = new jsPDF({
       orientation: "landscape",
-      unit: "in",
-      format: [4, 6]
+      unit: "mm",
+      format: [101.6, 152.4]
     });
 
     // Branding Background
     doc.setFillColor(240, 247, 255);
-    doc.rect(0, 0, 6, 4, 'F');
+    doc.rect(0, 0, 152.4, 101.6, 'F');
 
     if (branding.logo) {
       try {
-        doc.addImage(branding.logo, 'PNG', 0.3, 0.3, 0.8, 0.8);
+        doc.addImage(branding.logo, 'PNG', 7.6, 7.6, 20, 20);
       } catch {
         // Ignore logo errors in PDF
       }
@@ -253,36 +253,36 @@ export const pdfGenerator = {
     doc.setFontSize(16);
     doc.setTextColor(0, 120, 212);
     doc.setFont("helvetica", "bold");
-    doc.text(branding.name, 1.2, 0.6);
+    doc.text(branding.name, 30.5, 15.2);
 
     doc.setFontSize(18);
     doc.setTextColor(33, 33, 33);
-    doc.text("MEDICATION CARD", 3, 1.3, { align: "center" });
+    doc.text("PRESCRIPTION CARD", 76.2, 33, { align: "center" });
 
     doc.setDrawColor(0, 120, 212);
-    doc.setLineWidth(0.02);
-    doc.line(0.5, 1.5, 5.5, 1.5);
+    doc.setLineWidth(0.5);
+    doc.line(12.7, 38.1, 139.7, 38.1);
 
     // Patient and Info
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 120, 212);
-    doc.text("PATIENT:", 0.5, 1.8);
+    doc.text("PATIENT:", 12.7, 45.7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(33, 33, 33);
-    doc.text(treatment.patient_name, 1.2, 1.8);
+    doc.text(treatment.patient_name, 30.5, 45.7);
 
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 120, 212);
-    doc.text("DATE:", 3.5, 1.8);
+    doc.text("DATE:", 88.9, 45.7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(33, 33, 33);
-    doc.text(treatment.date, 4.0, 1.8);
+    doc.text(treatment.date, 101.6, 45.7);
 
     doc.setFontSize(20);
     doc.setTextColor(0, 120, 212);
-    doc.setFont("times", "italic", "bold");
-    doc.text("Rx", 0.5, 2.2);
+    doc.setFont("times", "bolditalic");
+    doc.text("Rx", 12.7, 55.9);
     doc.setTextColor(33, 33, 33);
 
     const medRows = medications.map(m => [
@@ -294,42 +294,42 @@ export const pdfGenerator = {
     ]);
 
     doc.autoTable({
-      startY: 2.3,
+      startY: 58.4,
       head: [['Medication', 'Dosage', 'Freq.', 'Dur.', 'Instructions']],
       body: medRows,
       theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 0.05 },
+      styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [0, 120, 212], textColor: [255, 255, 255], fontStyle: 'bold' },
       columnStyles: {
-        0: { cellWidth: 1.2 },
-        1: { cellWidth: 0.7 },
-        2: { cellWidth: 0.7 },
-        3: { cellWidth: 0.7 },
+        0: { cellWidth: 30 },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 18 },
+        3: { cellWidth: 18 },
         4: { cellWidth: 'auto' }
       },
-      margin: { left: 0.5, right: 0.5 }
+      margin: { left: 12.7, right: 12.7 }
     });
 
-    const y = doc.lastAutoTable.finalY + 0.3;
+    const y = doc.lastAutoTable.finalY + 8;
 
     // Signature area
     doc.setDrawColor(200, 200, 200);
-    doc.line(3.5, y + 0.4, 5.5, y + 0.4);
+    doc.line(88.9, y + 10, 139.7, y + 10);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(`Dr. ${treatment.doctor_name || "_________________"}`, 4.5, y + 0.55, { align: "center" });
+    doc.text(`Dr. ${treatment.doctor_name || "_________________"}`, 114.3, y + 14, { align: "center" });
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("Authorized Medical Practitioner", 4.5, y + 0.7, { align: "center" });
+    doc.text("Authorized Medical Practitioner", 114.3, y + 18, { align: "center" });
 
     // Footer
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text(branding.address, 3, 3.6, { align: "center" });
-    doc.text(`Phone: ${branding.phone}`, 3, 3.75, { align: "center" });
+    doc.text(branding.address, 76.2, 91.4, { align: "center" });
+    doc.text(`Phone: ${branding.phone}`, 76.2, 95.3, { align: "center" });
 
-    doc.save(`Medication_Card_${treatment.patient_name.replace(/\s+/g, '_')}.pdf`);
+    doc.save(`Prescription_Card_${treatment.patient_name.replace(/\s+/g, '_')}.pdf`);
   },
 
   async generateTreatmentRecord(treatment: Treatment) {
@@ -666,7 +666,7 @@ export const pdfGenerator = {
 
       doc.autoTable({
         startY: y,
-        head: [['Date', 'Time', 'Patient', 'Type', 'Status']],
+        head: [['Date', 'Time', 'Patient', 'Procedure', 'Status']],
         body: apptRows,
         theme: 'striped',
         headStyles: { fillColor: [0, 120, 212] },

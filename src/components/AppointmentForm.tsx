@@ -237,13 +237,13 @@ const AppointmentForm = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="appointment_type" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Type *</Label>
+          <Label htmlFor="appointment_type" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Procedure *</Label>
           <Select
             value={formData.appointment_type}
             onValueChange={(value) => handleChange("appointment_type", value)}
           >
             <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
-              <SelectValue placeholder="Select type" />
+              <SelectValue placeholder="Select procedure" />
             </SelectTrigger>
             <SelectContent>
               {services.map((service) => (

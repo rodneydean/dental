@@ -229,9 +229,9 @@ const Treatments = () => {
                             )}
                             <DropdownMenuItem onClick={async () => {
                               await pdfGenerator.generatePrescription(treatment, treatment.medications);
-                              toast.success("Medication card downloaded");
+                              toast.success("Prescription card downloaded");
                             }}>
-                              <Download className="h-4 w-4 mr-2" /> Download Med Card
+                              <Download className="h-4 w-4 mr-2" /> Download Prescription Card
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={async () => {
                               await pdfGenerator.generateTreatmentRecord(treatment);
@@ -463,12 +463,12 @@ const Treatments = () => {
                     <Button
                       onClick={async () => {
                         await pdfGenerator.generatePrescription(viewingTreatment, viewingTreatment.medications);
-                        toast.success("Medication card downloaded");
+                        toast.success("Prescription card downloaded");
                       }}
                       className="bg-primary hover:bg-primary/90 text-white rounded-sm h-11 font-semibold text-xs shadow-sm"
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      Medication Card
+                      Prescription Card
                     </Button>
                     <Button
                       onClick={async () => {
