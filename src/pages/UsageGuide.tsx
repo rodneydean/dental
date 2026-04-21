@@ -10,6 +10,7 @@ import {
   Database,
   Cloud,
   Shield,
+  History as HistoryIcon,
   Wifi,
   Network,
   AlertCircle,
@@ -263,7 +264,7 @@ const UsageGuide = () => {
 
           <section className="space-y-4">
             <h2 className="text-lg font-bold text-gray-900 flex items-center">
-              <History className="h-5 w-5 mr-2 text-primary" />
+              <HistoryIcon className="h-5 w-5 mr-2 text-primary" />
               Patient Sheet & Clinical History
             </h2>
             <p className="text-sm text-gray-600 leading-relaxed">
