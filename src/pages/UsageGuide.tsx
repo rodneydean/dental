@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import {
   BookOpen,
   Users,
@@ -9,278 +10,353 @@ import {
   Database,
   Cloud,
   Shield,
-  HelpCircle,
-  ArrowRight,
+  Wifi,
+  Network,
+  AlertCircle,
+  CheckCircle2,
+  FileBarChart,
+  Zap,
+  Printer,
 } from "lucide-react";
 
 /**
- * UsageGuide component provides a comprehensive guide for users.
- * Note: When adding new role-specific instructions, ensure they align with RBAC permissions.
+ * UsageGuide component provides a comprehensive manual for Skryme Dental.
  */
 const UsageGuide = () => {
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+    <div className="max-w-5xl mx-auto space-y-8 pb-20">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200 pb-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 flex items-center">
-            <BookOpen className="h-5 w-5 mr-3 text-primary" />
-            System Usage Guide
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+            <BookOpen className="h-6 w-6 mr-3 text-primary" />
+            System Operations Manual
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">Learn how to use Skryme Dental to manage your clinic efficiently.</p>
+          <p className="text-sm text-gray-500 mt-1">Complete guide for clinic administrators, doctors, and receptionists.</p>
         </div>
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-9 p-1 bg-gray-100 border border-gray-200 rounded-sm">
-          <TabsTrigger value="general" className="text-xs font-semibold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">General</TabsTrigger>
-          <TabsTrigger value="reception" className="text-xs font-semibold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Reception</TabsTrigger>
-          <TabsTrigger value="doctor" className="text-xs font-semibold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Doctor</TabsTrigger>
-          <TabsTrigger value="admin" className="text-xs font-semibold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Admin</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-11 p-1 bg-gray-100 border border-gray-200 rounded-sm">
+          <TabsTrigger value="general" className="text-xs font-bold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Networking & General</TabsTrigger>
+          <TabsTrigger value="reception" className="text-xs font-bold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Reception Workflow</TabsTrigger>
+          <TabsTrigger value="doctor" className="text-xs font-bold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Clinical (Doctor)</TabsTrigger>
+          <TabsTrigger value="admin" className="text-xs font-bold uppercase tracking-wider rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Admin & Reports</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="mt-6 space-y-4">
-          <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
-            <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
-              <CardTitle className="flex items-center text-xs font-bold uppercase tracking-widest text-gray-900">
-                <Cloud className="h-4 w-4 mr-2 text-primary" />
-                Hub-and-Spoke Architecture
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <p className="text-sm text-gray-600">
-                Skryme Dental uses a unique architecture designed for reliability and speed in local networks:
-              </p>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50/50 rounded-sm border border-gray-100">
-                  <h4 className="text-xs font-bold text-primary uppercase tracking-wider mb-2">The Hub</h4>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    The central server that stores the master database. Only one instance in your clinic should be the Hub.
+        {/* --- GENERAL / NETWORKING TAB --- */}
+        <TabsContent value="general" className="mt-8 space-y-8">
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <Network className="h-5 w-5 mr-2 text-primary" />
+              Hub-and-Spoke Architecture
+            </h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Skryme Dental operates as a distributed system designed for maximum uptime. Unlike cloud-based systems, it lives entirely within your clinic's local network.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-4">
+              <Card className="border border-blue-100 bg-blue-50/20 shadow-sm rounded-sm">
+                <CardHeader className="py-3 px-4 border-b border-blue-100 bg-blue-50/50">
+                  <CardTitle className="text-xs font-bold uppercase tracking-widest text-primary flex items-center">
+                    <Database className="h-4 w-4 mr-2" />
+                    The Hub (Master)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    The central server of your clinic. It holds the <strong>Master Database</strong> and handles all data synchronization.
                   </p>
-                </div>
-                <div className="p-4 bg-gray-50/50 rounded-sm border border-gray-100">
-                  <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">The Spoke</h4>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Client instances that connect to the Hub. They maintain a local cache, allowing you to work even if the connection is temporarily lost.
+                  <ul className="text-[11px] text-gray-500 space-y-1 list-disc pl-4">
+                    <li>Must be powered on for Spokes to sync.</li>
+                    <li>Only one Hub is allowed per clinic.</li>
+                    <li>All backups should be performed on this machine.</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="border border-indigo-100 bg-indigo-50/20 shadow-sm rounded-sm">
+                <CardHeader className="py-3 px-4 border-b border-indigo-100 bg-indigo-50/50">
+                  <CardTitle className="text-xs font-bold uppercase tracking-widest text-indigo-700 flex items-center">
+                    <Cloud className="h-4 w-4 mr-2" />
+                    The Spoke (Client)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Workstation instances used by Doctors or Receptionists. They connect to the Hub via WiFi or Ethernet.
                   </p>
+                  <ul className="text-[11px] text-gray-500 space-y-1 list-disc pl-4">
+                    <li>Maintains a local cache for speed.</li>
+                    <li>Syncs changes to the Hub in real-time.</li>
+                    <li>Can view data even if the network is temporarily disconnected.</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <Wifi className="h-5 w-5 mr-2 text-primary" />
+              Connecting Spokes to the Hub
+            </h2>
+
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold shrink-0">1</div>
+                <div className="space-y-1">
+                  <p className="font-bold text-sm text-gray-800">Identify Hub Connection Info</p>
+                  <p className="text-xs text-gray-600">On the <strong>Hub machine</strong>, go to <strong>Settings &gt; Network</strong>. Note down the 6-character <strong>Pairing Code</strong> and the <strong>Hub IP Address</strong> (e.g., 192.168.1.15).</p>
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-gray-100 pt-6">
-                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-4">Pairing & Setup</h4>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">1</div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-700">Get the Code from the Hub</p>
-                      <p className="text-xs text-gray-500 mt-1">Go to <strong>Settings</strong> on your Hub instance. Look for the "Pairing Code" in the Network section.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">2</div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-700">Enter Code on Spoke</p>
-                      <p className="text-xs text-gray-500 mt-1">When setting up a Spoke, enter the 6-character code. The Spoke will try to find the Hub automatically using mDNS.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">3</div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-700">Manual Connection (Fallback)</p>
-                      <p className="text-xs text-gray-500 mt-1">If automatic discovery fails, enter the Hub's IP address (displayed in the Hub's Settings page) in the "Hub Address" field on the Spoke.</p>
-                    </div>
-                  </div>
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold shrink-0">2</div>
+                <div className="space-y-1">
+                  <p className="font-bold text-sm text-gray-800">Standard Setup (WiFi/Ethernet)</p>
+                  <p className="text-xs text-gray-600">Open Skryme Dental on the <strong>Spoke machine</strong>. During initial setup, select "Spoke Mode" and enter the <strong>Pairing Code</strong>. The system will attempt automatic discovery via mDNS.</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-4 bg-blue-50/50 rounded-sm border border-blue-100">
-                <Shield className="h-4 w-4 text-primary mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold text-primary uppercase tracking-tight">Automatic Sync</h4>
-                  <p className="text-xs text-primary/70 mt-1">
-                    Changes made on Spokes are automatically synced to the Hub. If a conflict occurs, the newest change (based on timestamp) wins.
-                  </p>
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold shrink-0">3</div>
+                <div className="space-y-1">
+                  <p className="font-bold text-sm text-gray-800">Manual IP Fallback</p>
+                  <p className="text-xs text-gray-600">If automatic discovery fails (common on restricted Ethernet networks), click <strong>"Advanced Connection"</strong> and enter the <strong>Hub IP Address</strong> directly.</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card className="border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden">
-            <CardHeader className="bg-gray-50/50 border-b border-gray-200 py-3 px-4">
-              <CardTitle className="flex items-center text-xs font-bold uppercase tracking-widest text-gray-900">
-                <HelpCircle className="h-4 w-4 mr-2 text-gray-500" />
-                Basic Navigation
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <div className="p-1 bg-blue-100 rounded text-blue-600 mt-1">
-                    <ArrowRight className="h-3 w-3" />
-                  </div>
-                  <span><strong>Dashboard:</strong> Quick overview of today's stats and recent activity.</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="p-1 bg-blue-100 rounded text-blue-600 mt-1">
-                    <ArrowRight className="h-3 w-3" />
-                  </div>
-                  <span><strong>Connection Status:</strong> Check the cloud icon in the top navigation bar to see if you're connected to the Hub.</span>
-                </li>
+            {/* TROUBLESHOOTING BOX */}
+            <div className="p-5 bg-amber-50 border border-amber-200 rounded-sm space-y-3">
+              <div className="flex items-center gap-2 text-amber-800">
+                <AlertCircle className="h-5 w-5" />
+                <h4 className="text-sm font-bold uppercase tracking-tight">Troubleshooting: Connection Failures</h4>
+              </div>
+              <ul className="text-xs text-amber-700 space-y-2 list-disc pl-5">
+                <li><strong>Same Subnet:</strong> Ensure both Hub and Spoke are on the same network. If Hub is on Ethernet and Spoke on WiFi, ensure the router allows cross-communication.</li>
+                <li><strong>Windows Firewall:</strong> Ensure "Skryme Dental" is allowed through the Windows Firewall on the Hub machine. It needs to listen on the local network port.</li>
+                <li><strong>Antivirus:</strong> Some third-party antivirus software blocks mDNS (discovery). Use the <strong>Manual IP Address</strong> if this occurs.</li>
+                <li><strong>Ethernet vs WiFi:</strong> Ethernet is significantly more stable. If using WiFi, ensure the signal is strong.</li>
               </ul>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* PRO TIP BOX */}
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-sm flex items-start gap-3">
+              <Zap className="h-5 w-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-tight">Pro-Tip: Static IPs</p>
+                <p className="text-xs text-emerald-700 mt-1">Assign a <strong>Static IP</strong> to your Hub machine in your router settings. This prevents the connection from breaking if the Hub's IP address changes after a router restart.</p>
+              </div>
+            </div>
+          </section>
         </TabsContent>
 
-        <TabsContent value="reception" className="mt-6 space-y-6">
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-emerald-50/50">
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-emerald-600" />
-                Patient & Appointment Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-6">
+        {/* --- RECEPTION TAB --- */}
+        <TabsContent value="reception" className="mt-8 space-y-8">
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <Users className="h-5 w-5 mr-2 text-primary" />
+              Reception Command Center
+            </h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              The Reception Hub is the "Air Traffic Control" for your clinic. It manages the entire patient flow from arrival to admission.
+            </p>
+
+            <div className="space-y-6 mt-6 border-l-2 border-gray-100 ml-4 pl-8 relative">
+              <div className="relative">
+                <div className="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-primary border-4 border-white shadow-sm" />
+                <h4 className="font-bold text-sm text-gray-800">1. Verification & Search</h4>
+                <p className="text-xs text-gray-500 mt-1">Use the search bar to find existing patients by Name or Phone. For new patients, use the <strong>"New Walk-in"</strong> button to quickly register them.</p>
+              </div>
+
+              <div className="relative">
+                <div className="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-primary border-4 border-white shadow-sm" />
+                <h4 className="font-bold text-sm text-gray-800">2. Fee Collection (Cash or Insurance)</h4>
+                <p className="text-xs text-gray-500 mt-1">If the clinic requires a Reception Fee, it must be recorded before admission.
+                  <br /><span className="text-blue-600 font-medium italic">— Insurance:</span> If a patient's insurance provider is configured to "Pay Reception Fee", you can select them from the list to waive the cash payment.
+                </p>
+              </div>
+
+              <div className="relative">
+                <div className="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-primary border-4 border-white shadow-sm" />
+                <h4 className="font-bold text-sm text-gray-800">3. Admission to Waiting Room</h4>
+                <p className="text-xs text-gray-500 mt-1">Click <strong>"Admit"</strong>. This moves the patient into the Waiting Room queue and sends an instant notification to all Doctors on the network.</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-sm flex items-start gap-3 mt-6">
+              <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-primary uppercase tracking-tight">Queue Monitoring</p>
+                <p className="text-xs text-primary/80 mt-1">The right panel of the Reception Hub shows the <strong>Live Queue</strong>. You can see who is currently in consultation and who is still waiting, including their wait time.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <CreditCard className="h-5 w-5 mr-2 text-primary" />
+              Payments & Billing
+            </h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Once a doctor completes a treatment, it appears in the <strong>Payments</strong> page.
+            </p>
+            <ul className="text-xs text-gray-600 space-y-2 list-disc pl-5">
+              <li><strong>Pending Payments:</strong> All treatments that haven't been paid for.</li>
+              <li><strong>Invoices:</strong> Automatically generated based on the service fees set by the Admin.</li>
+              <li><strong>Waivers:</strong> If a patient cannot pay the full amount, use "Request Waiver". This requires real-time approval from an Admin or Doctor account.</li>
+            </ul>
+          </section>
+        </TabsContent>
+
+        {/* --- DOCTOR TAB --- */}
+        <TabsContent value="doctor" className="mt-8 space-y-8">
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <Stethoscope className="h-5 w-5 mr-2 text-primary" />
+              Clinical Workflow
+            </h2>
+
+            <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h4 className="font-bold flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">1</span>
-                  Registering a Patient
-                </h4>
-                <p className="text-sm text-gray-600 ml-8">
-                  Go to the <strong>Patients</strong> page and click "New Patient". Fill in the details. Patients can be searched by name or ID.
+                <p className="text-sm font-bold text-gray-800">Starting a Consultation</p>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Go to the <strong>Waiting Room</strong>. Admitted patients appear here in order of arrival. Click <strong>"Start Consultation"</strong> to move them to your private list.
                 </p>
 
-                <h4 className="font-bold flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">2</span>
-                  Booking Appointments
-                </h4>
-                <p className="text-sm text-gray-600 ml-8">
-                  Use the <strong>Appointments</strong> page to schedule visits. You can select an existing patient and choose a time slot.
+                <p className="text-sm font-bold text-gray-800">Recording Treatment</p>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Use the <strong>Treatment Form</strong> to record:
                 </p>
+                <ul className="text-[11px] text-gray-500 space-y-1 list-disc pl-4">
+                  <li><strong>Diagnosis:</strong> Clinical findings.</li>
+                  <li><strong>Services:</strong> Select from the clinic's fee schedule. Fees are auto-applied but can be manually overridden.</li>
+                  <li><strong>Medications:</strong> Prescribe drugs with specific dosages and frequencies.</li>
+                </ul>
+              </div>
 
-                <h4 className="font-bold flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">3</span>
-                  Admission Process
+              <Card className="border-none shadow-sm bg-gray-50 p-4 rounded-sm">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center">
+                  <Printer className="h-4 w-4 mr-2" />
+                  Professional Documents
                 </h4>
-                <div className="ml-8 p-4 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <p className="text-sm text-emerald-800">
-                    When a patient arrives, go to the <strong>Waiting Room</strong> and "Admit" them. This notifies the doctors that a patient is ready.
-                  </p>
+                <p className="text-[11px] text-gray-600 mb-4 italic">Generate branded PDFs with your digital signature line:</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-white rounded-sm border border-gray-100">
+                    <span className="text-[11px] font-bold">Sick Sheets</span>
+                    <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-none text-[9px] rounded-sm">A5 FORMAT</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white rounded-sm border border-gray-100">
+                    <span className="text-[11px] font-bold">Medication Cards</span>
+                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none text-[9px] rounded-sm">PHARMACY READY</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white rounded-sm border border-gray-100">
+                    <span className="text-[11px] font-bold">Clinical Records</span>
+                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none text-[9px] rounded-sm">A4 FORMAT</Badge>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </Card>
+            </div>
+          </section>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-gray-50/50">
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-gray-600" />
-                Payments & Billing
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-4">
-              <p className="text-sm">
-                Once a treatment is completed, the payment record is generated. Go to <strong>Payments</strong> to process the transaction.
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <History className="h-5 w-5 mr-2 text-primary" />
+              Patient Sheet & Clinical History
+            </h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              The <strong>Patient Sheet</strong> is the central hub for a patient's medical life. It provides a <strong>Unified Timeline</strong> of every note, treatment, and prescription ever recorded.
+            </p>
+
+            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-sm">
+              <h4 className="text-xs font-bold text-indigo-800 uppercase tracking-tight">Clinical Note Categories</h4>
+              <p className="text-[11px] text-indigo-700 mt-1">
+                Admins can configure Note Categories (e.g., Chief Complaints, Dental History, Observations). Using these ensures consistent record-keeping across all doctors.
               </p>
-              <div className="p-4 bg-amber-50 rounded-lg border border-amber-100">
-                <h4 className="font-bold text-amber-800 text-sm mb-1">Fee Waivers</h4>
-                <p className="text-xs text-amber-700">
-                  If a patient requests a discount or waiver, you can "Request Waiver" in the payment screen. An Admin or Doctor must approve it in real-time before it's applied.
-                </p>
+            </div>
+
+            {/* PRO TIP BOX */}
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-sm flex items-start gap-3">
+              <Zap className="h-5 w-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-tight">Pro-Tip: Auto-Attribution</p>
+                <p className="text-xs text-emerald-700 mt-1">Every treatment and note is automatically tagged with your Name and ID. Ensure you are logged into your own account before recording clinical data.</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </TabsContent>
 
-        <TabsContent value="doctor" className="mt-6 space-y-6">
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-purple-50/50">
-              <CardTitle className="flex items-center gap-2">
-                <Stethoscope className="h-5 w-5 text-purple-600" />
-                Clinical Workflow
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-              <div className="space-y-4">
-                <h4 className="font-bold flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs">1</span>
-                  Serving Patients
+        {/* --- ADMIN TAB --- */}
+        <TabsContent value="admin" className="mt-8 space-y-8">
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <Shield className="h-5 w-5 mr-2 text-primary" />
+              System Administration & Security
+            </h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="p-4 border border-gray-100 rounded-sm bg-white">
+                <h4 className="font-bold text-sm flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  User Roles (RBAC)
                 </h4>
-                <p className="text-sm text-gray-600 ml-8">
-                  Check the <strong>Waiting Room</strong>. Admitted patients appear here. Click "Start Consultation" to begin.
-                </p>
-
-                <h4 className="font-bold flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs">2</span>
-                  Recording Treatments
+                <ul className="text-xs text-gray-600 space-y-2">
+                  <li><strong>ADMIN:</strong> Full access to settings, users, and all clinical data.</li>
+                  <li><strong>DOCTOR:</strong> Access to clinical workflows, patient history, and reports.</li>
+                  <li><strong>RECEPTION:</strong> Restricted to the Command Center, registration, and payments. Cannot see clinical notes.</li>
+                </ul>
+              </div>
+              <div className="p-4 border border-gray-100 rounded-sm bg-white">
+                <h4 className="font-bold text-sm flex items-center gap-2 mb-2">
+                  <Settings className="h-4 w-4 text-primary" />
+                  Services & Fees
                 </h4>
-                <p className="text-sm text-gray-600 ml-8">
-                  During consultation, record diagnoses, treatments, and prescribed medications. This information becomes part of the patient's permanent clinical record.
-                </p>
-
-                <h4 className="font-bold flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs">3</span>
-                  Authorizing Waivers
-                </h4>
-                <p className="text-sm text-gray-600 ml-8">
-                  Doctors have the authority to approve fee waiver requests from the Reception. You'll receive a notification when a request is pending.
+                <p className="text-xs text-gray-600">
+                  Configure the list of treatments your clinic provides. Set standard fees in Kenyan Shillings (KSH). These populate the dropdowns in treatment forms.
                 </p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </section>
 
-        <TabsContent value="admin" className="mt-6 space-y-6">
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-indigo-50/50">
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-indigo-600" />
-                System Administration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="p-4 border border-gray-100 rounded-lg">
-                  <h4 className="font-bold flex items-center gap-2 mb-2">
-                    <Users className="h-4 w-4 text-indigo-600" />
-                    User Management
-                  </h4>
-                  <p className="text-xs text-gray-600">
-                    Create and manage staff accounts. Assign roles (Admin, Reception, Doctor) carefully as they control access to sensitive medical data.
-                  </p>
-                </div>
-                <div className="p-4 border border-gray-100 rounded-lg">
-                  <h4 className="font-bold flex items-center gap-2 mb-2">
-                    <Settings className="h-4 w-4 text-indigo-600" />
-                    System Settings
-                  </h4>
-                  <p className="text-xs text-gray-600">
-                    Configure clinic-wide settings like the standard Reception Fee and application preferences.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <FileBarChart className="h-5 w-5 mr-2 text-primary" />
+              Clinic Reports & Analytics
+            </h2>
+            <p className="text-sm text-gray-600">The <strong>Reports</strong> page provides high-level financial and operational insights.</p>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-gray-50/50">
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-gray-600" />
-                Data & Backups
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <p className="text-sm mb-4">
-                The <strong>Data Management</strong> page allows you to safeguard your clinic's data.
-              </p>
-              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                <p className="text-sm text-indigo-800">
-                  <strong>Recommendation:</strong> Perform regular backups from the Hub instance. Backups include all patients, clinical records, and financial history.
-                </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-3 bg-gray-50 border border-gray-100 rounded-sm">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Billed</p>
+                <p className="text-xs font-bold text-gray-700 mt-1">Cost of all treatments recorded.</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="p-3 bg-gray-50 border border-gray-100 rounded-sm">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Collected</p>
+                <p className="text-xs font-bold text-green-700 mt-1">Actual cash/insurance payments received.</p>
+              </div>
+              <div className="p-3 bg-gray-50 border border-gray-100 rounded-sm">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Collection Rate</p>
+                <p className="text-xs font-bold text-blue-700 mt-1">The percentage of billed revenue actually collected.</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-sm flex items-start gap-3">
+              <Database className="h-5 w-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-tight">Data Safety & Backups</p>
+                <p className="text-xs text-emerald-700 mt-1">Regularly export your database from the <strong>Data Management</strong> page. Store these exports on an external drive or cloud storage to ensure you never lose patient history.</p>
+              </div>
+            </div>
+          </section>
         </TabsContent>
       </Tabs>
+
+      {/* Footer Support */}
+      <div className="border-t border-gray-200 pt-8 text-center">
+        <p className="text-sm text-gray-500">Need more help? Contact your system administrator or refer to the technical documentation.</p>
+        <p className="text-[10px] text-gray-400 mt-2 font-mono uppercase tracking-widest">Skryme Dental v2.0.0 • Local Network First Architecture</p>
+      </div>
     </div>
   );
 };
