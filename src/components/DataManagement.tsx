@@ -66,9 +66,13 @@ const DataManagement = () => {
     }
   };
 
-  const loadBackupHistory = () => {
-    const history = dataManager.getBackupHistory();
-    setBackupHistory(history);
+  const loadBackupHistory = async () => {
+    try {
+      const history = await dataManager.getBackupHistory();
+      setBackupHistory(history);
+    } catch {
+      toast.error("Failed to load backup history");
+    }
   };
 
   const validateData = async () => {
@@ -89,8 +93,8 @@ const DataManagement = () => {
 
   const handleExportJSON = async () => {
     try {
-      await dataManager.createBackup();
-      toast.success("Backup created successfully in application data folder");
+      const path = await dataManager.createBackup();
+      toast.success(`Backup created at: ${path}`);
       loadStats();
       loadBackupHistory();
     } catch (error) {
@@ -99,12 +103,12 @@ const DataManagement = () => {
     }
   };
 
-  const handleExportCSV = (
+  const handleExportCSV = async (
     dataType: "patients" | "appointments" | "treatments"
   ) => {
     try {
-      dataManager.exportToCSV(dataType);
-      toast.success(`${dataType} data exported to CSV`);
+      const path = await dataManager.exportToCSV(dataType);
+      toast.success(`Exported to: ${path}`);
     } catch (error) {
       console.log(error)
       toast.error(`Failed to export ${dataType} data`);
@@ -118,6 +122,9 @@ const DataManagement = () => {
     if (!file) return;
 
     try {
+      // Create backup before import
+      await dataManager.createBackup();
+
       const result = await dataManager.importFromFile(file);
       if (result.success) {
         toast.success(result.message);
@@ -137,14 +144,18 @@ const DataManagement = () => {
     event.target.value = "";
   };
 
-  const handleRestoreBackup = (backupId: string) => {
-    const result = dataManager.restoreFromBackup(backupId);
-    if (result.success) {
-      toast.success(result.message);
-      loadStats();
-      validateData();
-    } else {
-      toast.error(result.message);
+  const handleRestoreBackup = async (backupId: string) => {
+    try {
+      const result = await dataManager.restoreFromBackup(backupId);
+      if (result.success) {
+        toast.success(result.message);
+        loadStats();
+        validateData();
+      } else {
+        toast.error(result.message);
+      }
+    } catch {
+      toast.error("Failed to restore backup");
     }
   };
 
@@ -393,9 +404,9 @@ const DataManagement = () => {
                             {formatDate(backup.date)}
                           </div>
                           <div className="text-sm text-gray-600">
-                            {backup.patientCount} patients,{" "}
-                            {backup.appointmentCount} appointments,{" "}
-                            {backup.treatmentCount} treatments
+                            {backup.patient_count} patients,{" "}
+                            {backup.appointment_count} appointments,{" "}
+                            {backup.treatment_count} treatments
                           </div>
                           <Badge variant="secondary" className="text-xs mt-1">
                             {backup.type}

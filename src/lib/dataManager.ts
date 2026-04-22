@@ -142,10 +142,10 @@ export interface BackupEntry {
     id: string;
     type: string;
     date: string;
-    patientCount: number;
-    appointmentCount: number;
-    treatmentCount: number;
-    paymentCount: number;
+    patient_count: number;
+    appointment_count: number;
+    treatment_count: number;
+    payment_count: number;
 }
 
 export interface DbStats {
@@ -370,7 +370,38 @@ class DataManager {
       date: payment.date,
       method: payment.method,
       status: payment.status,
-      notes: payment.notes
+      notes: payment.notes,
+      insuranceProviderId: payment.insurance_provider_id
+    });
+  }
+
+  // Backup and Restore methods
+  public async getBackupHistory(): Promise<BackupEntry[]> {
+    return await invoke<BackupEntry[]>("get_backup_history");
+  }
+
+  public async restoreFromBackup(id: string): Promise<{ success: boolean; message: string }> {
+    return await invoke<{ success: boolean; message: string }>("restore_db", { backupId: id });
+  }
+
+  public async exportToCSV(dataType: string): Promise<string> {
+    return await invoke("export_to_csv", { dataType });
+  }
+
+  public async importFromFile(file: File): Promise<{ success: boolean; message: string }> {
+    const reader = new FileReader();
+    return new Promise((resolve, reject) => {
+      reader.onload = async () => {
+        try {
+          const content = (reader.result as string).split(',')[1] || reader.result as string;
+          const result = await invoke<{ success: boolean; message: string }>("import_db", { content });
+          resolve(result);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsText(file);
     });
   }
 
@@ -523,16 +554,6 @@ class DataManager {
     return await invoke<string>("backup_db");
   }
 
-  // Mocked for DataManagement component to avoid errors for now
-  public getBackupHistory(): BackupEntry[] { return []; }
-  public exportToFile(): void {
-    this.createBackup().then(() => {
-      // In a real app we might trigger a save dialog, but here we just create a backup file in the app data dir
-    });
-  }
-  public exportToCSV(_dataType?: string): void {}
-  public async importFromFile(_file?: File) { return { success: true, message: "Imported" }; }
-  public restoreFromBackup(_id?: string) { return { success: true, message: "Restored" }; }
   public clearAllData(): void {}
 }
 

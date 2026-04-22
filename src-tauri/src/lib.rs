@@ -73,6 +73,10 @@ pub fn run() {
       commands::data::validate_db_data,
       commands::data::cleanup_db_data,
       commands::data::backup_db,
+      commands::data::export_to_csv,
+      commands::data::get_backup_history,
+      commands::data::restore_db,
+      commands::data::import_db,
     ])
     .setup(|app| {
       log::info!("Starting application setup...");

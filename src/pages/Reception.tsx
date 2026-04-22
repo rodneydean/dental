@@ -163,7 +163,7 @@ const Reception = () => {
         patient_id: appt.patient_id,
         patient_name: appt.patient_name,
         amount: receptionFee,
-        date: new Date().toISOString(),
+        date: new Date().toISOString().split("T")[0],
         method: method,
         insurance_provider_id: providerId,
         status: "paid",

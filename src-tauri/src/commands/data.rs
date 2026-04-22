@@ -2,7 +2,9 @@ use crate::db::get_db_conn;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, command, Manager};
 use std::fs;
+use std::io::Write;
 use chrono::Utc;
+use base64::{Engine as _, engine::general_purpose};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DbStats {
@@ -106,7 +108,6 @@ pub fn cleanup_db_data(app_handle: AppHandle) -> Result<i64, String> {
 #[command]
 pub fn backup_db(app_handle: AppHandle) -> Result<String, String> {
     let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
-    let db_path = app_dir.join("dentist.db");
 
     let backup_dir = app_dir.join("backups");
     if !backup_dir.exists() {
@@ -116,9 +117,9 @@ pub fn backup_db(app_handle: AppHandle) -> Result<String, String> {
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S").to_string();
     let backup_path = backup_dir.join(format!("dentist_backup_{}.db", timestamp));
 
-    fs::copy(db_path, &backup_path).map_err(|e| e.to_string())?;
-
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    conn.execute(&format!("VACUUM INTO '{}'", backup_path.to_string_lossy()), []).map_err(|e| e.to_string())?;
+
     let now = Utc::now().to_rfc3339();
     conn.execute(
         "INSERT INTO settings (key, value) VALUES ('last_backup_at', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -126,4 +127,166 @@ pub fn backup_db(app_handle: AppHandle) -> Result<String, String> {
     ).map_err(|e| e.to_string())?;
 
     Ok(backup_path.to_string_lossy().to_string())
+}
+
+fn escape_csv(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
+}
+
+#[command]
+pub fn export_to_csv(app_handle: AppHandle, data_type: String) -> Result<String, String> {
+    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let export_dir = app_dir.join("exports");
+    if !export_dir.exists() {
+        fs::create_dir_all(&export_dir).map_err(|e| e.to_string())?;
+    }
+
+    let timestamp = Utc::now().format("%Y%m%d_%H%M%S").to_string();
+    let file_path = export_dir.join(format!("{}_{}.csv", data_type, timestamp));
+    let mut file = fs::File::create(&file_path).map_err(|e| e.to_string())?;
+
+    match data_type.as_str() {
+        "patients" => {
+            let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth FROM patients").map_err(|e| e.to_string())?;
+            let rows = stmt.query_map([], |row| {
+                Ok(format!("{},{},{},{},{}",
+                    escape_csv(&row.get::<_, String>(0)?),
+                    escape_csv(&row.get::<_, String>(1)?),
+                    escape_csv(&row.get::<_, Option<String>>(2).unwrap_or_default().unwrap_or_default()),
+                    escape_csv(&row.get::<_, Option<String>>(3).unwrap_or_default().unwrap_or_default()),
+                    escape_csv(&row.get::<_, Option<String>>(4).unwrap_or_default().unwrap_or_default())
+                ))
+            }).map_err(|e| e.to_string())?;
+
+            writeln!(file, "ID,Name,Phone,Email,DOB").map_err(|e| e.to_string())?;
+            for row in rows {
+                writeln!(file, "{}", row.map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+            }
+        },
+        "appointments" => {
+            let mut stmt = conn.prepare("SELECT id, patient_name, date, time, status, type FROM appointments").map_err(|e| e.to_string())?;
+            let rows = stmt.query_map([], |row| {
+                Ok(format!("{},{},{},{},{},{}",
+                    escape_csv(&row.get::<_, String>(0)?),
+                    escape_csv(&row.get::<_, String>(1)?),
+                    escape_csv(&row.get::<_, String>(2)?),
+                    escape_csv(&row.get::<_, String>(3)?),
+                    escape_csv(&row.get::<_, String>(4)?),
+                    escape_csv(&row.get::<_, Option<String>>(5).unwrap_or_default().unwrap_or_default())
+                ))
+            }).map_err(|e| e.to_string())?;
+
+            writeln!(file, "ID,Patient,Date,Time,Status,Type").map_err(|e| e.to_string())?;
+            for row in rows {
+                writeln!(file, "{}", row.map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+            }
+        },
+        "treatments" => {
+            let mut stmt = conn.prepare("SELECT id, patient_name, date, diagnosis, cost FROM treatments").map_err(|e| e.to_string())?;
+            let rows = stmt.query_map([], |row| {
+                Ok(format!("{},{},{},{},{}",
+                    escape_csv(&row.get::<_, String>(0)?),
+                    escape_csv(&row.get::<_, String>(1)?),
+                    escape_csv(&row.get::<_, String>(2)?),
+                    escape_csv(&row.get::<_, Option<String>>(3).unwrap_or_default().unwrap_or_default()),
+                    row.get::<_, f64>(4)?
+                ))
+            }).map_err(|e| e.to_string())?;
+
+            writeln!(file, "ID,Patient,Date,Diagnosis,Cost").map_err(|e| e.to_string())?;
+            for row in rows {
+                writeln!(file, "{}", row.map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+            }
+        },
+        _ => return Err("Invalid data type".to_string()),
+    }
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BackupEntry {
+    pub id: String,
+    pub r#type: String,
+    pub date: String,
+    pub patient_count: i64,
+    pub appointment_count: i64,
+    pub treatment_count: i64,
+    pub payment_count: i64,
+}
+
+#[command]
+pub fn get_backup_history(app_handle: AppHandle) -> Result<Vec<BackupEntry>, String> {
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let backup_dir = app_dir.join("backups");
+
+    if !backup_dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut entries = Vec::new();
+    let dir_entries = fs::read_dir(backup_dir).map_err(|e| e.to_string())?;
+
+    for entry in dir_entries {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        if path.is_file() {
+            let filename = path.file_name().unwrap().to_string_lossy().to_string();
+            if filename.starts_with("dentist_backup_") && filename.ends_with(".db") {
+                let metadata = entry.metadata().map_err(|e| e.to_string())?;
+                let modified = metadata.modified().unwrap_or_else(|_| std::time::SystemTime::now());
+                let datetime: chrono::DateTime<chrono::Utc> = modified.into();
+
+                entries.push(BackupEntry {
+                    id: filename,
+                    r#type: "System Backup".to_string(),
+                    date: datetime.to_rfc3339(),
+                    patient_count: 0,
+                    appointment_count: 0,
+                    treatment_count: 0,
+                    payment_count: 0,
+                });
+            }
+        }
+    }
+
+    entries.sort_by(|a, b| b.date.cmp(&a.date));
+    Ok(entries)
+}
+
+#[command]
+pub fn restore_db(app_handle: AppHandle, backup_id: String) -> Result<serde_json::Value, String> {
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let db_path = app_dir.join("dentist.db");
+    let backup_path = app_dir.join("backups").join(backup_id);
+
+    if !backup_path.exists() {
+        return Err("Backup file not found".to_string());
+    }
+
+    fs::copy(backup_path, db_path).map_err(|e| e.to_string())?;
+
+    Ok(serde_json::json!({
+        "success": true,
+        "message": "Database restored successfully. Please restart the application for changes to take full effect."
+    }))
+}
+
+#[command]
+pub fn import_db(app_handle: AppHandle, content: String) -> Result<serde_json::Value, String> {
+    let decoded = general_purpose::STANDARD.decode(content).map_err(|e| e.to_string())?;
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let db_path = app_dir.join("dentist.db");
+
+    fs::write(db_path, decoded).map_err(|e| e.to_string())?;
+
+    Ok(serde_json::json!({
+        "success": true,
+        "message": "Database imported successfully. Please restart the application for changes to take effect."
+    }))
 }
