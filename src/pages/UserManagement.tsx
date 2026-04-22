@@ -29,7 +29,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { UserPlus, Trash2, Users } from "lucide-react";
+import { UserPlus, Trash2, Users, Edit } from "lucide-react";
 
 interface UserWithMetadata extends User {
     created_at: string;
@@ -40,6 +40,8 @@ const UserManagement = () => {
   const [users, setUsers] = useState<UserWithMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserWithMetadata | null>(null);
 
   // New user form state
   const [username, setUsername] = useState("");
@@ -104,6 +106,42 @@ const UserManagement = () => {
       fetchUsers();
     } catch (error) {
       toast.error("Failed to delete user: " + error);
+    }
+  };
+
+  const handleEditUser = (user: UserWithMetadata) => {
+    setSelectedUser(user);
+    setFullName(user.full_name);
+    setUsername(user.username);
+    setRole(user.role);
+    setPassword(""); // Keep password empty unless changing
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !selectedUser) return;
+
+    try {
+      await invoke("update_user", {
+        requesterId: currentUser.id,
+        userId: selectedUser.id,
+        fullName,
+        username,
+        role,
+        password: password || undefined,
+      });
+      toast.success("User updated successfully");
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      // Reset form
+      setUsername("");
+      setPassword("");
+      setFullName("");
+      setRole("RECEPTION");
+      fetchUsers();
+    } catch (error) {
+      toast.error("Failed to update user: " + error);
     }
   };
 
@@ -222,15 +260,25 @@ const UserManagement = () => {
                     </TableCell>
                     <TableCell className="px-4 py-3 text-xs text-gray-500">{new Date(u.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteUser(u.id)}
-                        disabled={u.id === currentUser?.id}
-                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditUser(u)}
+                          className="h-8 w-8 text-primary hover:text-primary hover:bg-blue-50 rounded-sm"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteUser(u.id)}
+                          disabled={u.id === currentUser?.id}
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -239,6 +287,71 @@ const UserManagement = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open);
+        if (!open) {
+          setSelectedUser(null);
+          setUsername("");
+          setPassword("");
+          setFullName("");
+          setRole("RECEPTION");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Staff Account</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateUser} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-fullname">Full Name</Label>
+              <Input
+                id="edit-fullname"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Dr. Jane Smith"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-username">Username</Label>
+              <Input
+                id="edit-username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="janesmith"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-password">Password (Leave blank to keep current)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="New Password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-role">Role</Label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="DOCTOR">Doctor</SelectItem>
+                  <SelectItem value="RECEPTION">Receptionist</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+              Update Account
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

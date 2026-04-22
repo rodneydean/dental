@@ -11,6 +11,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import {
   Calendar,
   Users,
   Stethoscope,
@@ -35,10 +44,14 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const Navigation = () => {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, setUser } = useAuth();
   const [todayAppointments, setTodayAppointments] = useState(0);
   const [notifications] = useState(3); // Mock notifications
   const [connStatus, setConnStatus] = useState<string>("Checking...");
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState(user?.full_name || "");
 
   useEffect(() => {
     const checkStatus = async () => {
@@ -101,6 +114,36 @@ const Navigation = () => {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    if (newPassword && newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    try {
+      await invoke("update_user", {
+        requesterId: user.id,
+        userId: user.id,
+        fullName: fullName,
+        password: newPassword || undefined,
+      });
+
+      toast.success("Profile updated successfully");
+      setIsProfileOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+
+      // Update local state
+      const updatedUser = { ...user, full_name: fullName };
+      setUser(updatedUser);
+    } catch (error) {
+      toast.error("Failed to update profile: " + error);
+    }
   };
 
   return (
@@ -207,7 +250,10 @@ const Navigation = () => {
                     <span>Usage Guide</span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">
+                <DropdownMenuItem className="cursor-pointer" onClick={() => {
+                  setFullName(user?.full_name || "");
+                  setIsProfileOpen(true);
+                }}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
@@ -267,6 +313,52 @@ const Navigation = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Profile</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProfile} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name">Full Name</Label>
+              <Input
+                id="profile-name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Your full name"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-password">New Password (Leave blank to keep current)</Label>
+              <Input
+                id="profile-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New Password"
+              />
+            </div>
+            {newPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm New Password"
+                  required
+                />
+              </div>
+            )}
+            <Button type="submit" className="w-full bg-[#0078d4] hover:bg-[#005a9e]">
+              Save Changes
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </nav>
   );
 };

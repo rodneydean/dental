@@ -236,7 +236,10 @@ pub fn get_backup_history(app_handle: AppHandle) -> Result<Vec<BackupEntry>, Str
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
         if path.is_file() {
-            let filename = path.file_name().unwrap().to_string_lossy().to_string();
+            let filename = path.file_name()
+                .map(|f| f.to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown_backup".to_string());
+
             if filename.starts_with("dentist_backup_") && filename.ends_with(".db") {
                 let metadata = entry.metadata().map_err(|e| e.to_string())?;
                 let modified = metadata.modified().unwrap_or_else(|_| std::time::SystemTime::now());

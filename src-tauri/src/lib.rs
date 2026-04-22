@@ -25,6 +25,7 @@ pub fn run() {
       commands::users::create_user,
       commands::users::list_users,
       commands::users::delete_user,
+      commands::users::update_user,
       commands::patients::list_patients,
       commands::patients::get_patient,
       commands::patients::create_patient,

@@ -81,3 +81,59 @@ pub fn delete_user(app_handle: AppHandle, admin_id: String, user_id: String) -> 
     conn.execute("DELETE FROM users WHERE id = ?1", [&user_id]).map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[command]
+pub fn update_user(
+    app_handle: AppHandle,
+    requester_id: String,
+    user_id: String,
+    username: Option<String>,
+    password: Option<String>,
+    role: Option<String>,
+    full_name: Option<String>,
+) -> Result<(), String> {
+    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+
+    // Get requester info
+    let mut stmt = conn.prepare("SELECT role FROM users WHERE id = ?1").map_err(|e| e.to_string())?;
+    let requester_role: String = stmt.query_row([&requester_id], |row| row.get(0)).map_err(|_| "Requester not found".to_string())?;
+
+    // Authorization: Must be admin or updating yourself
+    if requester_id != user_id && requester_role != "ADMIN" {
+        return Err("Unauthorized".to_string());
+    }
+
+    // If changing role, check for last admin
+    if let Some(new_role) = &role {
+        if requester_role != "ADMIN" {
+            return Err("Only admins can change roles".to_string());
+        }
+
+        // Get current role of the user being updated
+        let current_role: String = conn.query_row("SELECT role FROM users WHERE id = ?1", [&user_id], |row| row.get(0)).map_err(|e| e.to_string())?;
+
+        if current_role == "ADMIN" && new_role != "ADMIN" {
+            let admin_count: i64 = conn.query_row("SELECT COUNT(*) FROM users WHERE role = 'ADMIN'", [], |row| row.get(0)).map_err(|e| e.to_string())?;
+            if admin_count <= 1 {
+                return Err("Cannot demote the last administrator".to_string());
+            }
+        }
+    }
+
+    // Update fields
+    if let Some(uname) = username {
+        conn.execute("UPDATE users SET username = ?1, sync_status = 'pending' WHERE id = ?2", [&uname, &user_id]).map_err(|e| e.to_string())?;
+    }
+    if let Some(pass) = password {
+        let password_hash = hash(pass, DEFAULT_COST).map_err(|e| e.to_string())?;
+        conn.execute("UPDATE users SET password_hash = ?1, sync_status = 'pending' WHERE id = ?2", [&password_hash, &user_id]).map_err(|e| e.to_string())?;
+    }
+    if let Some(r) = role {
+        conn.execute("UPDATE users SET role = ?1, sync_status = 'pending' WHERE id = ?2", [&r, &user_id]).map_err(|e| e.to_string())?;
+    }
+    if let Some(name) = full_name {
+        conn.execute("UPDATE users SET full_name = ?1, sync_status = 'pending' WHERE id = ?2", [&name, &user_id]).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
