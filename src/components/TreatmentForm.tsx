@@ -680,7 +680,7 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Button
           type="button"
-          onClick={(e) => handleSubmit(e as any, false)}
+          onClick={(e) => handleSubmit(e, false)}
           variant="outline"
           className="flex-1 border-primary text-primary hover:bg-primary/5 rounded-sm h-9 text-sm font-semibold"
         >
@@ -690,7 +690,7 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
         {formData.appointment_id && (
           <Button
             type="button"
-            onClick={(e) => handleSubmit(e as any, true)}
+            onClick={(e) => handleSubmit(e, true)}
             className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-sm h-9 text-sm font-semibold"
           >
             Complete & Await Checkout

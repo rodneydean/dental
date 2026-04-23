@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,13 +30,7 @@ export const CheckoutDialog = ({ open, onOpenChange, appointment, onComplete }: 
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (open && appointment) {
-      loadCheckoutData();
-    }
-  }, [open, appointment]);
-
-  const loadCheckoutData = async () => {
+  const loadCheckoutData = useCallback(async () => {
     if (!appointment) return;
     setIsLoading(true);
     try {
@@ -53,7 +47,13 @@ export const CheckoutDialog = ({ open, onOpenChange, appointment, onComplete }: 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [appointment]);
+
+  useEffect(() => {
+    if (open && appointment) {
+      loadCheckoutData();
+    }
+  }, [open, appointment, loadCheckoutData]);
 
   const handleCompleteCheckout = async (method: "cash" | "insurance", providerId?: string) => {
     if (!appointment) return;
