@@ -115,6 +115,10 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
 
       const savedTreatment = await onSave(submissionData);
 
+      if (!completeConsultation) {
+        toast.success("Treatment recorded successfully");
+      }
+
       // Clear existing pending payments for this treatment/patient to prevent duplicates
       const allPayments = await dataManager.getPayments();
       const existingPending = allPayments.filter(p =>
@@ -152,7 +156,7 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
         try {
           await dataManager.updateAppointment(formData.appointment_id, { status: "awaiting_checkout" });
           await dataManager.updateDoctorStatus(user?.id || "", null);
-          toast.success("Consultation completed. Patient moved to checkout.");
+          toast.success("Treatment recorded and consultation completed.");
         } catch (error) {
           console.error("Failed to complete consultation", error);
           toast.error("Treatment saved, but failed to update appointment status.");

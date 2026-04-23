@@ -77,7 +77,6 @@ const Treatments = () => {
       const savedTreatment = await dataManager.addTreatment(treatmentData);
       await loadTreatments();
       setShowAddDialog(false);
-      toast.success("Treatment recorded successfully");
       return savedTreatment;
     } catch {
       toast.error("Failed to record treatment");

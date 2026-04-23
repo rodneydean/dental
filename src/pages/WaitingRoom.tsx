@@ -201,9 +201,7 @@ const WaitingRoom = () => {
     if (!confirm(`Are you sure you want to cancel ${appt.patient_name}'s visit? This will remove them from the queue.`)) return;
     try {
       await dataManager.updateAppointment(appt.id, { status: "cancelled" });
-      if (appt.doctor_id) {
-        await dataManager.updateDoctorStatus(appt.doctor_id, null);
-      }
+      await dataManager.updateDoctorStatus(appt.doctor_id || "", null);
       toast.success("Visit cancelled");
       loadData();
     } catch {

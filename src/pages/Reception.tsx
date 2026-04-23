@@ -206,9 +206,7 @@ const Reception = () => {
     if (!confirm(`Move ${appt.patient_name} to checkout? This will end their consultation session.`)) return;
     try {
       await dataManager.updateAppointment(appt.id, { status: "awaiting_checkout" });
-      if (appt.doctor_id) {
-        await dataManager.updateDoctorStatus(appt.doctor_id, null);
-      }
+      await dataManager.updateDoctorStatus(appt.doctor_id || "", null);
       toast.success("Patient moved to checkout");
       loadData();
     } catch {
@@ -220,9 +218,7 @@ const Reception = () => {
     if (!confirm(`Are you sure you want to cancel ${appt.patient_name}'s visit? This will remove them from the queue.`)) return;
     try {
       await dataManager.updateAppointment(appt.id, { status: "cancelled" });
-      if (appt.doctor_id) {
-        await dataManager.updateDoctorStatus(appt.doctor_id, null);
-      }
+      await dataManager.updateDoctorStatus(appt.doctor_id || "", null);
       toast.success("Visit cancelled");
       loadData();
     } catch {
