@@ -56,6 +56,8 @@ function Calendar({
         dropdown_root: "relative inline-flex items-center",
         caption_label: "hidden", // Hide default label when dropdowns are active
         dropdowns: "flex items-center justify-center gap-1 w-full",
+        months_dropdown: "relative inline-flex items-center",
+        years_dropdown: "relative inline-flex items-center",
         ...classNames,
       }}
       components={{
@@ -73,10 +75,10 @@ function Calendar({
           return (
             <div className="relative inline-flex items-center group">
               <select
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                {...props}
+                className={cn("absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10", props.className)}
                 value={value}
                 onChange={handleChange}
-                {...props}
               >
                 {options?.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -95,6 +97,7 @@ function Calendar({
             </div>
           );
         },
+        CaptionLabel: () => <></>,
       }}
       {...props}
     />
