@@ -1,9 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,9 +30,6 @@ import {
   Plus,
   MoreVertical,
   Edit,
-  Phone,
-  Mail,
-  AlertTriangle,
   Users,
   History as HistoryIcon,
   FileText,
@@ -47,7 +52,7 @@ const Patients = () => {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const patientsPerPage = 9;
+  const patientsPerPage = 30;
 
   useEffect(() => {
     loadData();
@@ -195,98 +200,81 @@ const Patients = () => {
         )}
       </div>
 
-      {/* Patients Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {currentPatients.map((patient) => (
-          <Card
-            key={patient.id}
-            className="border border-gray-200 shadow-sm hover:border-primary/50 transition-colors bg-white rounded-sm"
-          >
-            <CardHeader className="pb-3 px-4 pt-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-10 w-10 rounded-sm">
-                    <AvatarFallback className="bg-blue-50 text-primary font-semibold text-sm rounded-sm">
+      {/* Patients List Table */}
+      <div className="border border-gray-200 rounded-sm overflow-hidden bg-white shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+              <TableHead className="w-[60px] py-3 px-4">Avatar</TableHead>
+              <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Name</TableHead>
+              <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Age</TableHead>
+              <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Phone</TableHead>
+              <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Email</TableHead>
+              <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {currentPatients.map((patient) => (
+              <TableRow
+                key={patient.id}
+                className="cursor-pointer hover:bg-gray-50/80 transition-colors border-b border-gray-100 last:border-0"
+                onClick={() => navigate(`/patients/${patient.id}`)}
+              >
+                <TableCell className="py-2.5 px-4">
+                  <Avatar className="h-8 w-8 rounded-sm">
+                    <AvatarFallback className="bg-blue-50 text-primary font-semibold text-[10px] rounded-sm">
                       {getPatientInitials(patient.name)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="cursor-pointer" onClick={() => navigate(`/patients/${patient.id}`)}>
-                    <CardTitle className="text-sm font-semibold text-gray-900 hover:text-primary transition-colors">
-                      {patient.name}
-                    </CardTitle>
-                    <p className="text-xs text-gray-500">
-                      Age: {calculateAge(patient.date_of_birth)}
-                    </p>
-                  </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <MoreVertical className="h-4 w-4" />
+                </TableCell>
+                <TableCell className="py-2.5 px-4 font-medium text-gray-900 text-sm">
+                  {patient.name}
+                </TableCell>
+                <TableCell className="py-2.5 px-4 text-gray-600 text-sm">
+                  {calculateAge(patient.date_of_birth)}
+                </TableCell>
+                <TableCell className="py-2.5 px-4 text-gray-600 text-sm">
+                  {patient.phone || <span className="text-gray-400 italic">No phone</span>}
+                </TableCell>
+                <TableCell className="py-2.5 px-4 text-gray-600 text-sm">
+                  {patient.email || <span className="text-gray-400 italic">No email</span>}
+                </TableCell>
+                <TableCell className="py-2.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-gray-400 hover:text-primary"
+                      onClick={() => navigate(`/patients/${patient.id}`)}
+                      title="View Records"
+                    >
+                      <FileText className="h-4 w-4" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => navigate(`/patients/${patient.id}`)}>
-                        <HistoryIcon className="h-4 w-4 mr-2" />
-                      Clinical History
-                    </DropdownMenuItem>
-                    {(user?.role === "DOCTOR" || user?.role === "ADMIN") && (
-                      <DropdownMenuItem onClick={() => setEditingPatient(patient)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Details
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 px-4 pb-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center text-xs text-gray-600">
-                  <Phone className="h-3.5 w-3.5 mr-2 text-primary/70" />
-                  {patient.phone || "No phone"}
-                </div>
-                <div className="flex items-center text-xs text-gray-600">
-                  <Mail className="h-3.5 w-3.5 mr-2 text-primary/70" />
-                  {patient.email || "No email"}
-                </div>
-              </div>
-
-              {patient.allergies && (
-                <div className="bg-red-50 p-2 rounded-sm border border-red-100">
-                  <div className="flex items-center text-red-700 mb-0.5">
-                    <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
-                    <span className="font-semibold text-[10px] uppercase tracking-wider">Allergies</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => navigate(`/patients/${patient.id}`)}>
+                            <HistoryIcon className="h-4 w-4 mr-2" />
+                          Clinical History
+                        </DropdownMenuItem>
+                        {(user?.role === "DOCTOR" || user?.role === "ADMIN") && (
+                          <DropdownMenuItem onClick={() => setEditingPatient(patient)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Details
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <p className="text-xs text-red-600">{patient.allergies}</p>
-                </div>
-              )}
-
-              {user?.role === "DOCTOR" && patient.medical_history && (
-                <div className="bg-blue-50 p-2 rounded-sm border border-blue-100">
-                  <p className="text-[10px] text-primary font-semibold uppercase tracking-wider mb-0.5">
-                    Medical History
-                  </p>
-                  <p className="text-xs text-primary/80 line-clamp-2">
-                    {patient.medical_history}
-                  </p>
-                </div>
-              )}
-
-              <div className="pt-1">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="w-full text-primary border-gray-200 hover:bg-gray-50 h-8 text-xs font-medium rounded-sm"
-                  onClick={() => navigate(`/patients/${patient.id}`)}
-                >
-                  <FileText className="h-3.5 w-3.5 mr-2" />
-                  View Records
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       {/* Pagination Controls */}
