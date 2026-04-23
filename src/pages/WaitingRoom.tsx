@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CheckoutDialog } from "@/components/CheckoutDialog";
 
 const WaitingRoom = () => {
   const { user } = useAuth();
@@ -32,6 +33,8 @@ const WaitingRoom = () => {
   const [receptionFee, setReceptionFee] = useState<number>(0);
   const [requirePaymentBeforeAdmit, setRequirePaymentBeforeAdmit] = useState<boolean>(true);
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
     loadData();
@@ -172,25 +175,9 @@ const WaitingRoom = () => {
     }
   };
 
-  const handleCheckout = async (appt: Appointment) => {
-    // Check for pending payments (if any treatments were added)
-    const allPayments = await dataManager.getPayments();
-    const pendingPayments = allPayments.filter(p => p.patient_id === appt.patient_id && p.status === 'pending');
-
-    if (pendingPayments.length > 0) {
-      toast.error("Patient has pending service fees. Please settle payments first.");
-      // In a real app, redirect to payments or open a dialog
-      return;
-    }
-
-    try {
-      await dataManager.updateAppointment(appt.id, { status: "completed" });
-      await dataManager.updateDoctorStatus(appt.doctor_id || "", null);
-      toast.success("Patient checked out successfully");
-      loadData();
-    } catch {
-      toast.error("Failed to checkout patient");
-    }
+  const handleCheckout = (appt: Appointment) => {
+    setSelectedAppointment(appt);
+    setShowCheckout(true);
   };
 
   return (
@@ -287,17 +274,17 @@ const WaitingRoom = () => {
 
         <TabsContent value="queue" className="mt-6">
           <div className="space-y-3">
-            {appointments.filter(a => a.status === 'admitted' || a.status === 'in_consultation').map(appt => (
-              <Card key={appt.id} className={`border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden border-l-4 ${appt.status === 'in_consultation' ? 'border-l-green-500' : 'border-l-primary'}`}>
+            {appointments.filter(a => a.status === 'admitted' || a.status === 'in_consultation' || a.status === 'awaiting_checkout').map(appt => (
+              <Card key={appt.id} className={`border border-gray-200 shadow-sm rounded-sm bg-white overflow-hidden border-l-4 ${appt.status === 'in_consultation' ? 'border-l-green-500' : appt.status === 'awaiting_checkout' ? 'border-l-blue-500' : 'border-l-primary'}`}>
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center space-x-4">
-                    <div className={`p-2 rounded-sm ${appt.status === 'in_consultation' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-primary'}`}>
-                      {appt.status === 'in_consultation' ? <Stethoscope className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                    <div className={`p-2 rounded-sm ${appt.status === 'in_consultation' ? 'bg-green-50 text-green-600' : appt.status === 'awaiting_checkout' ? 'bg-blue-50 text-blue-600' : 'bg-blue-50 text-primary'}`}>
+                      {appt.status === 'in_consultation' ? <Stethoscope className="h-5 w-5" /> : appt.status === 'awaiting_checkout' ? <CreditCard className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
                     </div>
                     <div>
                       <h3 className="font-semibold text-sm text-gray-900">{appt.patient_name}</h3>
                       <p className="text-[11px] font-medium text-gray-500 uppercase tracking-tight">
-                        Doctor: <span className="text-gray-900">{appt.doctor_name}</span> | Status: <span className={`font-bold ${appt.status === 'in_consultation' ? 'text-green-600' : 'text-primary'}`}>{appt.status.replace('_', ' ').toUpperCase()}</span>
+                        Doctor: <span className="text-gray-900">{appt.doctor_name}</span> | Status: <span className={`font-bold ${appt.status === 'in_consultation' ? 'text-green-600' : appt.status === 'awaiting_checkout' ? 'text-blue-600' : 'text-primary'}`}>{appt.status.replace('_', ' ').toUpperCase()}</span>
                       </p>
                     </div>
                   </div>
@@ -306,7 +293,7 @@ const WaitingRoom = () => {
                     {user?.role === 'DOCTOR' && appt.status === 'admitted' && (
                       <Button size="sm" className="h-8 text-xs font-medium bg-primary text-white rounded-sm" onClick={() => handleCallPatient(appt)}>Call Patient</Button>
                     )}
-                    {user?.role === 'RECEPTION' && appt.status === 'in_consultation' && (
+                    {(user?.role === 'RECEPTION' || user?.role === 'ADMIN') && (appt.status === 'in_consultation' || appt.status === 'awaiting_checkout') && (
                       <Button variant="outline" size="sm" className="h-8 text-xs font-medium border-gray-200 rounded-sm" onClick={() => handleCheckout(appt)}>Checkout</Button>
                     )}
                     {appt.status === 'in_consultation' && (
@@ -316,7 +303,7 @@ const WaitingRoom = () => {
                 </CardContent>
               </Card>
             ))}
-            {appointments.filter(a => a.status === 'admitted' || a.status === 'in_consultation').length === 0 && (
+            {appointments.filter(a => a.status === 'admitted' || a.status === 'in_consultation' || a.status === 'awaiting_checkout').length === 0 && (
               <div className="text-center py-12 text-gray-500">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-20" />
                 <p>Queue is empty</p>
@@ -352,6 +339,12 @@ const WaitingRoom = () => {
           </div>
         </TabsContent>
       </Tabs>
+      <CheckoutDialog
+        open={showCheckout}
+        onOpenChange={setShowCheckout}
+        appointment={selectedAppointment}
+        onComplete={loadData}
+      />
     </div>
   );
 };

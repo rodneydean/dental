@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { CheckoutDialog } from "@/components/CheckoutDialog";
 import {
   Sheet,
   SheetContent,
@@ -46,7 +47,9 @@ const Reception = () => {
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [showAddAppointment, setShowAddAppointment] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [receptionFee, setReceptionFee] = useState<number>(0);
   const [requirePayment, setRequirePayment] = useState<boolean>(true);
@@ -176,10 +179,15 @@ const Reception = () => {
     }
   };
 
+  const handleOpenCheckout = (appt: Appointment) => {
+    setSelectedAppointment(appt);
+    setShowCheckout(true);
+  };
+
   const today = new Date().toISOString().split("T")[0];
   const todayAppointments = appointments.filter(a => a.date === today);
   const scheduledToday = todayAppointments.filter(a => a.status === 'scheduled');
-  const inQueue = todayAppointments.filter(a => a.status === 'admitted' || a.status === 'in_consultation');
+  const inQueue = todayAppointments.filter(a => a.status === 'admitted' || a.status === 'in_consultation' || a.status === 'awaiting_checkout');
 
   const stats = [
     { label: "Today's Arrivals", value: todayAppointments.length, icon: Calendar, color: "text-blue-600", bg: "bg-blue-50" },
@@ -440,6 +448,33 @@ const Reception = () => {
                     </div>
                   </div>
 
+                  {/* Awaiting Checkout Section */}
+                  <div>
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center">
+                      <CreditCard className="h-3 w-3 mr-2 text-blue-500" />
+                      Awaiting Checkout ({inQueue.filter(a => a.status === 'awaiting_checkout').length})
+                    </h4>
+                    <div className="space-y-2">
+                      {inQueue.filter(a => a.status === 'awaiting_checkout').map(appt => (
+                        <div key={appt.id} className="p-3 bg-blue-50 border border-blue-100 rounded-sm">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm font-bold text-gray-900">{appt.patient_name}</p>
+                              <p className="text-[10px] text-blue-700 font-semibold uppercase">Ready for billing</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="h-7 text-[10px] font-bold bg-[#0078d4] text-white rounded-sm"
+                              onClick={() => handleOpenCheckout(appt)}
+                            >
+                              Checkout
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Waiting Section */}
                   <div className="pt-2">
                     <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center">
@@ -500,6 +535,13 @@ const Reception = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <CheckoutDialog
+        open={showCheckout}
+        onOpenChange={setShowCheckout}
+        appointment={selectedAppointment}
+        onComplete={loadData}
+      />
     </div>
   );
 };

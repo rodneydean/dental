@@ -192,11 +192,12 @@ const PatientSheet = () => {
 
   const handleAddTreatment = async (treatmentData: Omit<Treatment, "id" | "created_at" | "updated_at">) => {
     try {
-      await dataManager.addTreatment(treatmentData);
+      const savedTreatment = await dataManager.addTreatment(treatmentData);
       setShowAddTreatment(false);
       const allTreatments = await dataManager.getTreatments();
       setTreatments(allTreatments.filter(t => t.patient_id === id));
       toast.success("Treatment recorded");
+      return savedTreatment;
     } catch {
       toast.error("Failed to record treatment");
     }

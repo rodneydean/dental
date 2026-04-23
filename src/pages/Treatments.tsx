@@ -74,10 +74,11 @@ const Treatments = () => {
     treatmentData: Omit<Treatment, "id" | "created_at" | "updated_at">
   ) => {
     try {
-      await dataManager.addTreatment(treatmentData);
+      const savedTreatment = await dataManager.addTreatment(treatmentData);
       await loadTreatments();
       setShowAddDialog(false);
       toast.success("Treatment recorded successfully");
+      return savedTreatment;
     } catch {
       toast.error("Failed to record treatment");
       throw new Error("Failed to record treatment");
