@@ -544,7 +544,13 @@ class DataManager {
   }
 
   public async createWaiverRequest(request: Omit<WaiverRequest, "id" | "status" | "created_at" | "updated_at">): Promise<WaiverRequest> {
-    return await invoke<WaiverRequest>("create_waiver_request", { ...request });
+    return await invoke<WaiverRequest>("create_waiver_request", {
+      appointmentId: request.appointment_id,
+      patientId: request.patient_id,
+      patientName: request.patient_name,
+      doctorId: request.doctor_id,
+      requestedBy: request.requested_by,
+    });
   }
 
   public async updateWaiverStatus(id: string, status: "approved" | "denied"): Promise<void> {
@@ -555,8 +561,8 @@ class DataManager {
     return await invoke<DoctorStatus[]>("list_doctor_statuses");
   }
 
-  public async updateDoctorStatus(doctor_id: string, current_appointment_id: string | null): Promise<void> {
-    await invoke("update_doctor_status", { doctor_id, current_appointment_id });
+  public async updateDoctorStatus(doctorId: string, currentAppointmentId: string | null): Promise<void> {
+    await invoke("update_doctor_status", { doctorId, currentAppointmentId });
   }
 
   // Data Management methods

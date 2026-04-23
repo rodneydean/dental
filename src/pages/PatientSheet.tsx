@@ -196,7 +196,6 @@ const PatientSheet = () => {
       setShowAddTreatment(false);
       const allTreatments = await dataManager.getTreatments();
       setTreatments(allTreatments.filter(t => t.patient_id === id));
-      toast.success("Treatment recorded");
       return savedTreatment;
     } catch {
       toast.error("Failed to record treatment");
