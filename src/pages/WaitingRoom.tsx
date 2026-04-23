@@ -116,12 +116,16 @@ const WaitingRoom = () => {
   };
 
   const handleRequestWaiver = async (appt: Appointment) => {
+    if (!appt.doctor_id) {
+      toast.error("A doctor must be assigned to the appointment to request a waiver");
+      return;
+    }
     try {
       await dataManager.createWaiverRequest({
         appointment_id: appt.id,
         patient_id: appt.patient_id,
         patient_name: appt.patient_name,
-        doctor_id: appt.doctor_id || "",
+        doctor_id: appt.doctor_id,
         requested_by: user?.full_name || "Reception",
       });
       toast.success("Waiver request sent to doctor");

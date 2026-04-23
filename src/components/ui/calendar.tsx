@@ -57,6 +57,7 @@ function Calendar({
         dropdown: "flex items-center",
         dropdown_root: "relative inline-flex items-center",
         caption_label: "hidden", // Hide default label when dropdowns are active
+        dropdowns: "flex items-center justify-center gap-1 w-full",
         ...classNames,
       }}
       components={{
@@ -96,69 +97,11 @@ function Calendar({
             </div>
           );
         },
-        MonthCaption: ({ calendarMonth }: MonthCaptionProps) => {
-          return (
-            <div className="flex items-center justify-center gap-1">
-              <div className="flex items-center">
-                <CalendarDropdown
-                  name="month"
-                  aria-label="Select Month"
-                  value={calendarMonth.date.getMonth()}
-                  onChange={() => {}} // react-day-picker handles this internally via the Dropdown component
-                  options={Array.from({ length: 12 }, (_, i) => ({
-                    value: i,
-                    label: format(new Date(2024, i, 1), "MMMM"),
-                    disabled: false
-                  }))}
-                />
-              </div>
-            </div>
-          );
-        }
       }}
       {...props}
     />
   )
 }
-
-// Wrapper for Dropdown since we need to use it in MonthCaption
-interface CalendarDropdownProps {
-    value?: string | number;
-    onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-    options?: DropdownOption[];
-    [key: string]: unknown;
-}
-
-const CalendarDropdown = ({ value, onChange, options, ...props }: CalendarDropdownProps) => {
-    const selected = options?.find((option) => option.value === value);
-    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onChange?.(e);
-    };
-    return (
-      <div className="relative inline-flex items-center group">
-        <select
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          value={value}
-          onChange={handleChange}
-          {...props}
-        >
-          {options?.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2 py-1 text-sm font-medium hover:bg-accent hover:text-accent-foreground flex items-center gap-1 focus:ring-2 focus:ring-primary"
-        >
-          {selected?.label}
-          <ChevronRight className="h-3 w-3 rotate-90 opacity-50 group-hover:opacity-100 transition-opacity" />
-        </Button>
-      </div>
-    );
-};
 
 Calendar.displayName = "Calendar"
 

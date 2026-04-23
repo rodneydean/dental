@@ -202,7 +202,7 @@ export const pdfGenerator = {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .map((t) => [t.date, t.diagnosis, t.treatment]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [["Date", "Diagnosis", "Treatment"]],
       body: treatmentRows,
@@ -482,7 +482,7 @@ export const pdfGenerator = {
         m.instructions,
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [
           ["Medication", "Dosage", "Frequency", "Duration", "Instructions"],
@@ -525,7 +525,7 @@ export const pdfGenerator = {
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text("TOTAL COST:", 140, y);
-    doc.text(`KSH ${treatment.cost.toLocaleString()}`, 190, y, {
+    doc.text(`KSH ${(treatment.cost || 0).toLocaleString()}`, 190, y, {
       align: "right",
     });
     y += 25;
@@ -569,11 +569,11 @@ export const pdfGenerator = {
     doc.text(`Date: ${payment.date}`, 150, y);
     y += 10;
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [["Description", "Amount"]],
-      body: [["Dental Treatment Services", `$${payment.amount.toFixed(2)}`]],
-      foot: [["TOTAL PAID", `$${payment.amount.toFixed(2)}`]],
+      body: [["Dental Treatment Services", `$${(payment.amount || 0).toFixed(2)}`]],
+      foot: [["TOTAL PAID", `$${(payment.amount || 0).toFixed(2)}`]],
       theme: "striped",
       headStyles: { fillColor: [46, 125, 50] }, // Green for payments
     });
@@ -611,15 +611,15 @@ export const pdfGenerator = {
     doc.text(payment.patient_name, 20, y + 5);
     y += 20;
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [["Description", "Quantity", "Unit Price", "Total"]],
       body: [
         [
           "Dental Services / Treatment",
           "1",
-          `$${payment.amount.toFixed(2)}`,
-          `$${payment.amount.toFixed(2)}`,
+          `$${(payment.amount || 0).toFixed(2)}`,
+          `$${(payment.amount || 0).toFixed(2)}`,
         ],
       ],
       theme: "grid",
@@ -628,7 +628,7 @@ export const pdfGenerator = {
 
     y = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(14);
-    doc.text(`Total Amount: $${payment.amount.toFixed(2)}`, 190, y, {
+    doc.text(`Total Amount: $${(payment.amount || 0).toFixed(2)}`, 190, y, {
       align: "right",
     });
 
@@ -695,8 +695,8 @@ export const pdfGenerator = {
     y += 15;
 
     // Summary Section
-    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
-    const totalBilled = treatments.reduce((sum, t) => sum + t.cost, 0);
+    const totalRevenue = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const totalBilled = treatments.reduce((sum, t) => sum + (t.cost || 0), 0);
     const completedAppts = appointments.filter(
       (a) => a.status === "completed",
     ).length;
@@ -758,7 +758,7 @@ export const pdfGenerator = {
         p.email || "N/A",
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [["Date Registered", "Patient Name", "Phone", "Email"]],
         body: patientRows,
@@ -788,7 +788,7 @@ export const pdfGenerator = {
         a.status.toUpperCase(),
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [["Date", "Time", "Patient", "Procedure", "Status"]],
         body: apptRows,
@@ -820,7 +820,7 @@ export const pdfGenerator = {
           a.notes || "No reason provided",
         ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [["Date", "Patient", "Type", "Cancellation Notes"]],
         body: cancelledRows,
@@ -845,10 +845,10 @@ export const pdfGenerator = {
         p.date,
         p.patient_name,
         p.method.toUpperCase(),
-        `KSH ${p.amount.toLocaleString()}`,
+      `KSH ${(p.amount || 0).toLocaleString()}`,
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: y,
         head: [["Date", "Patient", "Method", "Amount"]],
         body: paymentRows,
