@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { invoke } from "@tauri-apps/api/core";
 import { useAuth, User } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { listen } from "@tauri-apps/api/event";
+import { Loader2 } from "lucide-react";
 
 const InitialSetup = ({ onComplete }: { onComplete: () => void }) => {
   const [username, setUsername] = useState("");
@@ -15,6 +17,7 @@ const InitialSetup = ({ onComplete }: { onComplete: () => void }) => {
   const [pairingCode, setPairingCode] = useState("");
   const [hubAddress, setHubAddress] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [setupMode, setSetupMode] = useState<"hub" | "spoke">("hub");
   const { setUser } = useAuth();
 
@@ -41,6 +44,28 @@ const InitialSetup = ({ onComplete }: { onComplete: () => void }) => {
     }
   };
 
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const setupSyncListener = async () => {
+      unlisten = await listen("sync-event", (event: { payload: { type: string } }) => {
+        if (event.payload?.type === "initial_sync_complete") {
+          toast.success("Synchronization complete! You can now log in.");
+          setIsSyncing(false);
+          onComplete();
+        }
+      });
+    };
+
+    if (isSyncing) {
+      setupSyncListener();
+    }
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [isSyncing, onComplete]);
+
   const handleSpokeConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -49,11 +74,10 @@ const InitialSetup = ({ onComplete }: { onComplete: () => void }) => {
         code: pairingCode,
         manualAddr: hubAddress || null
       });
-      toast.success("Connecting to Hub...");
-      onComplete();
+      toast.info("Connecting and synchronizing with Hub...");
+      setIsSyncing(true);
     } catch (error) {
       toast.error(error as string);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -156,8 +180,17 @@ const InitialSetup = ({ onComplete }: { onComplete: () => void }) => {
                   <p className="text-[10px] font-medium text-gray-400 mb-4 bg-gray-50 p-2 rounded-sm border border-gray-100 italic">
                     Enter the code displayed on your HUB instance.
                   </p>
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white rounded-sm h-10 font-semibold" disabled={isLoading}>
-                    {isLoading ? "Connecting..." : "Connect to Hub"}
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white rounded-sm h-10 font-semibold" disabled={isLoading || isSyncing}>
+                    {isSyncing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Syncing Data...
+                      </>
+                    ) : isLoading ? (
+                      "Connecting..."
+                    ) : (
+                      "Connect to Hub"
+                    )}
                   </Button>
                 </div>
               </form>

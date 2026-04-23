@@ -15,8 +15,10 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
     let hub_addresses = Arc::new(Mutex::new(if let Some(addr) = manual_addr { vec![addr] } else { Vec::new() }));
     let current_hub_index = Arc::new(Mutex::new(0));
     let pairing_token = Arc::new(Mutex::new(None));
+    let sync_notifier = Arc::new(tokio::sync::Notify::new());
 
     let hub_addrs_clone = hub_addresses.clone();
+    let notifier_mdns = sync_notifier.clone();
 
     // Background mDNS discovery
     tauri::async_runtime::spawn(async move {
@@ -46,6 +48,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                         if !current_hub_list.contains(&addr_str) {
                             info!("Discovered new Hub address: {}", addr_str);
                             current_hub_list.push(addr_str);
+                            notifier_mdns.notify_one();
                         }
                     }
                 }
@@ -59,12 +62,14 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
     let pairing_token_sync = pairing_token.clone();
     let app_handle_sync = app_handle.clone();
     let pairing_code_clone = pairing_code.clone();
+    let notifier_sync = sync_notifier.clone();
     tauri::async_runtime::spawn(async move {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .unwrap_or_else(|_| Client::new());
 
+        let mut force_sync = false;
         loop {
             let (addr, idx, total) = {
                 let addrs_lock = hub_addrs_sync.lock().ok();
@@ -100,6 +105,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                                 if let Ok(mut lock) = pairing_token_sync.lock() {
                                     *lock = Some(pair_res.token.clone());
                                     info!("Paired successfully with Hub at {}", addr);
+                                    force_sync = true;
                                 }
                             }
                         },
@@ -119,16 +125,30 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                 };
 
                 if let Some(token) = token_to_use {
-                    if let Err(e) = sync_with_hub(&client, &addr, &token, &app_handle_sync).await {
-                        error!("Sync failed with {}: {}", addr, e);
-                        // If sync fails, maybe the address is stale
-                        if let Ok(mut idx_lock) = current_idx_sync.lock() {
-                            *idx_lock = (idx + 1) % total;
+                    match sync_with_hub(&client, &addr, &token, &app_handle_sync).await {
+                        Ok(_) => {
+                            if force_sync {
+                                info!("Initial sync completed successfully for Spoke");
+                                let _ = app_handle_sync.emit("sync-event", serde_json::json!({ "type": "initial_sync_complete" }));
+                                force_sync = false;
+                            }
+                        }
+                        Err(e) => {
+                            error!("Sync failed with {}: {}", addr, e);
+                            // If sync fails, maybe the address is stale
+                            if let Ok(mut idx_lock) = current_idx_sync.lock() {
+                                *idx_lock = (idx + 1) % total;
+                            }
                         }
                     }
                 }
             }
-            tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+            tokio::select! {
+                _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {},
+                _ = notifier_sync.notified() => {
+                    info!("Sync loop woken up by notification");
+                }
+            }
         }
     });
 
@@ -287,6 +307,7 @@ async fn push_local_changes(client: &Client, hub_addr: &str, token: &str, app_ha
     push_doctor_statuses(client, hub_addr, token, app_handle).await?;
     push_settings(client, hub_addr, token, app_handle).await?;
     push_services(client, hub_addr, token, app_handle).await?;
+    push_users(client, hub_addr, token, app_handle).await?;
     Ok(())
 }
 
@@ -555,6 +576,9 @@ async fn push_payments(client: &Client, hub_addr: &str, token: &str, app_handle:
 }
 
 async fn pull_remote_changes(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    // Prioritize users for immediate login capability
+    pull_users(client, hub_addr, token, app_handle).await?;
+
     pull_patients(client, hub_addr, token, app_handle).await?;
     pull_appointments(client, hub_addr, token, app_handle).await?;
     pull_treatments(client, hub_addr, token, app_handle).await?;
@@ -637,6 +661,66 @@ async fn pull_appointments(client: &Client, hub_addr: &str, token: &str, app_han
                     a.id, a.patient_id, a.patient_name, a.doctor_id, a.doctor_name, a.date, a.time, a.status,
                     a.appointment_type, a.notes, a.duration, a.reception_fee_paid, a.reception_fee_waived, a.created_at, a.updated_at
                 ],
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn push_users(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let users: Vec<crate::hub::UserSync> = {
+        let conn = get_db_conn(app_handle)?;
+        let mut stmt = conn.prepare("SELECT id, username, password_hash, role, full_name, created_at, updated_at FROM users WHERE sync_status = 'pending'")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(crate::hub::UserSync {
+                id: row.get(0)?,
+                username: row.get(1)?,
+                password_hash: row.get(2)?,
+                role: row.get(3)?,
+                full_name: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        })?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    if !users.is_empty() {
+        let res = client.post(format!("http://{}/sync/users", hub_addr))
+            .header("Authorization", token)
+            .json(&users)
+            .send()
+            .await?;
+
+        if res.status().is_success() {
+            let conn = get_db_conn(app_handle)?;
+            conn.execute("UPDATE users SET sync_status = 'synced' WHERE sync_status = 'pending'", [])?;
+        }
+    }
+    Ok(())
+}
+
+async fn pull_users(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let conn = get_db_conn(app_handle)?;
+    let res = client.get(format!("http://{}/sync/users", hub_addr))
+        .header("Authorization", token)
+        .send()
+        .await?;
+    if res.status().is_success() {
+        let sync_res: SyncResponse<crate::hub::UserSync> = res.json().await?;
+        for u in sync_res.data {
+            let _ = conn.execute(
+                "INSERT INTO users (id, username, password_hash, role, full_name, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')
+                 ON CONFLICT(id) DO UPDATE SET
+                    username = excluded.username,
+                    password_hash = excluded.password_hash,
+                    role = excluded.role,
+                    full_name = excluded.full_name,
+                    updated_at = excluded.updated_at,
+                    sync_status = 'synced'
+                 WHERE excluded.updated_at > users.updated_at",
+                rusqlite::params![u.id, u.username, u.password_hash, u.role, u.full_name, u.created_at, u.updated_at],
             );
         }
     }

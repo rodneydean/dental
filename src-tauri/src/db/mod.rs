@@ -52,6 +52,7 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             role TEXT NOT NULL,
             full_name TEXT NOT NULL,
             created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
             sync_status TEXT DEFAULT 'synced'
         )",
         [],
@@ -457,6 +458,20 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
 
         if !columns.contains(&"sync_status".to_string()) {
             let _ = conn.execute(&format!("ALTER TABLE {} ADD COLUMN sync_status TEXT DEFAULT 'synced'", table), []);
+        }
+    }
+
+    // Migration for users updated_at
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(users)")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(row.get::<_, String>(1)?)
+        })?;
+        let columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+
+        if !columns.contains(&"updated_at".to_string()) {
+            let now = chrono::Utc::now().to_rfc3339();
+            let _ = conn.execute(&format!("ALTER TABLE users ADD COLUMN updated_at TEXT NOT NULL DEFAULT '{}'", now), []);
         }
     }
 

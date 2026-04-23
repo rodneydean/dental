@@ -7,4 +7,5 @@ pub struct User {
     pub role: String,
     pub full_name: String,
     pub created_at: String,
+    pub updated_at: String,
 }

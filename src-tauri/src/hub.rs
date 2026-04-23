@@ -59,6 +59,7 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
         .route("/sync/doctor_statuses", get(get_doctor_statuses_handler).post(post_doctor_statuses_handler))
         .route("/sync/settings", get(get_settings_handler).post(post_settings_handler))
         .route("/sync/services", get(get_services_handler).post(post_services_handler))
+        .route("/sync/users", get(get_users_handler).post(post_users_handler))
         .route("/ws", get(ws_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
@@ -121,11 +122,20 @@ async fn start_mdns_discovery(port: u16) -> Result<ServiceDaemon, Box<dyn std::e
         };
         let host_name = format!("{}.local.", instance_name);
 
+        // Ensure we are passing a valid IP address string
+        let ip_addr = match ip_str.parse::<std::net::IpAddr>() {
+            Ok(ip) => ip.to_string(),
+            Err(_) => {
+                error!("Invalid IP address found: {}", ip_str);
+                continue;
+            }
+        };
+
         match ServiceInfo::new(
             service_type,
             &instance_name,
             &host_name,
-            ip_str.clone(),
+            ip_addr,
             port,
             properties.clone(),
         ) {
@@ -688,6 +698,79 @@ async fn post_services_handler(
         );
     }
     let _ = state.tx.send("services_updated".to_string());
+    axum::http::StatusCode::OK.into_response()
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct UserSync {
+    pub id: String,
+    pub username: String,
+    pub password_hash: String,
+    pub role: String,
+    pub full_name: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+async fn get_users_handler(State(state): State<HubState>) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let mut stmt = match conn.prepare("SELECT id, username, password_hash, role, full_name, created_at, updated_at FROM users") {
+        Ok(s) => s,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let user_iter = stmt.query_map([], |row| {
+        Ok(UserSync {
+            id: row.get(0)?,
+            username: row.get(1)?,
+            password_hash: row.get(2)?,
+            role: row.get(3)?,
+            full_name: row.get(4)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
+        })
+    });
+
+    match user_iter {
+        Ok(iter) => {
+            let users: Vec<UserSync> = iter.filter_map(|r| r.ok()).collect();
+            Json(SyncResponse {
+                data: users,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            }).into_response()
+        },
+        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn post_users_handler(
+    State(state): State<HubState>,
+    Json(users): Json<Vec<UserSync>>,
+) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    for u in users {
+        let _ = conn.execute(
+            "INSERT INTO users (id, username, password_hash, role, full_name, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')
+             ON CONFLICT(id) DO UPDATE SET
+                username = excluded.username,
+                password_hash = excluded.password_hash,
+                role = excluded.role,
+                full_name = excluded.full_name,
+                updated_at = excluded.updated_at
+             WHERE excluded.updated_at > users.updated_at",
+            rusqlite::params![u.id, u.username, u.password_hash, u.role, u.full_name, u.created_at, u.updated_at],
+        );
+    }
+    let _ = state.tx.send("users_updated".to_string());
     axum::http::StatusCode::OK.into_response()
 }
 
