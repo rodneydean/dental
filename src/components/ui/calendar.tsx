@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, type DropdownOption, type DropdownProps, type MonthCaptionProps } from "react-day-picker"
-import { format } from "date-fns"
+import { DayPicker, type DropdownProps } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants, Button } from "@/components/ui/button"
@@ -53,7 +52,6 @@ function Calendar({
         range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         hidden: "invisible",
-        dropdowns: "flex items-center gap-1",
         dropdown: "flex items-center",
         dropdown_root: "relative inline-flex items-center",
         caption_label: "hidden", // Hide default label when dropdowns are active
