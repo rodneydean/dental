@@ -31,7 +31,7 @@ export interface Appointment {
   doctor_name?: string;
   date: string;
   time: string;
-  status: "scheduled" | "admitted" | "in_consultation" | "completed" | "cancelled";
+  status: "scheduled" | "admitted" | "in_consultation" | "awaiting_checkout" | "completed" | "cancelled";
   appointment_type: string;
   notes: string;
   duration: number;
@@ -373,6 +373,29 @@ class DataManager {
       notes: payment.notes,
       insuranceProviderId: payment.insurance_provider_id
     });
+  }
+
+  public async updatePayment(id: string, updates: Partial<Payment>): Promise<void> {
+    const payments = await this.getPayments();
+    const current = payments.find(p => p.id === id);
+    if (!current) throw new Error("Payment not found");
+
+    await invoke("update_payment", {
+      id,
+      patientId: updates.patient_id ?? current.patient_id,
+      patientName: updates.patient_name ?? current.patient_name,
+      treatmentId: updates.treatment_id ?? current.treatment_id,
+      amount: updates.amount ?? current.amount,
+      date: updates.date ?? current.date,
+      method: updates.method ?? current.method,
+      status: updates.status ?? current.status,
+      notes: updates.notes ?? current.notes,
+      insuranceProviderId: updates.insurance_provider_id ?? current.insurance_provider_id,
+    });
+  }
+
+  public async deletePayment(id: string): Promise<void> {
+    await invoke("delete_payment", { id });
   }
 
   // Backup and Restore methods

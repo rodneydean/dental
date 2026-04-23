@@ -572,8 +572,8 @@ export const pdfGenerator = {
     autoTable(doc, {
       startY: y,
       head: [["Description", "Amount"]],
-      body: [["Dental Treatment Services", `$${(payment.amount || 0).toFixed(2)}`]],
-      foot: [["TOTAL PAID", `$${(payment.amount || 0).toFixed(2)}`]],
+      body: [[payment.notes || "Dental Treatment Services", `KSH ${(payment.amount || 0).toLocaleString()}`]],
+      foot: [["TOTAL PAID", `KSH ${(payment.amount || 0).toLocaleString()}`]],
       theme: "striped",
       headStyles: { fillColor: [46, 125, 50] }, // Green for payments
     });
@@ -616,10 +616,10 @@ export const pdfGenerator = {
       head: [["Description", "Quantity", "Unit Price", "Total"]],
       body: [
         [
-          "Dental Services / Treatment",
+          payment.notes || "Dental Services / Treatment",
           "1",
-          `$${(payment.amount || 0).toFixed(2)}`,
-          `$${(payment.amount || 0).toFixed(2)}`,
+          `KSH ${(payment.amount || 0).toLocaleString()}`,
+          `KSH ${(payment.amount || 0).toLocaleString()}`,
         ],
       ],
       theme: "grid",
@@ -628,7 +628,7 @@ export const pdfGenerator = {
 
     y = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(14);
-    doc.text(`Total Amount: $${(payment.amount || 0).toFixed(2)}`, 190, y, {
+    doc.text(`Total Amount: KSH ${(payment.amount || 0).toLocaleString()}`, 190, y, {
       align: "right",
     });
 

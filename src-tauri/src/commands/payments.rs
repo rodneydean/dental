@@ -99,3 +99,47 @@ pub fn create_payment(
         insurance_provider_id,
     })
 }
+
+#[command]
+pub fn update_payment(
+    app_handle: AppHandle,
+    id: String,
+    patient_id: String,
+    patient_name: String,
+    treatment_id: Option<String>,
+    amount: f64,
+    date: String,
+    method: String,
+    status: String,
+    notes: Option<String>,
+    insurance_provider_id: Option<String>,
+) -> Result<(), String> {
+    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    let now = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "UPDATE payments SET patient_id = ?1, patient_name = ?2, treatment_id = ?3, amount = ?4, date = ?5, method = ?6, status = ?7, notes = ?8, updated_at = ?9, insurance_provider_id = ?10, sync_status = 'pending' WHERE id = ?11",
+        rusqlite::params![
+            patient_id,
+            patient_name,
+            treatment_id,
+            amount,
+            date,
+            method,
+            status,
+            notes,
+            now,
+            insurance_provider_id,
+            id
+        ],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[command]
+pub fn delete_payment(app_handle: AppHandle, id: String) -> Result<(), String> {
+    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM payments WHERE id = ?1", [&id]).map_err(|e| e.to_string())?;
+    Ok(())
+}

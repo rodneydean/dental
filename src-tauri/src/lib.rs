@@ -46,6 +46,8 @@ pub fn run() {
       commands::treatments::delete_treatment,
       commands::payments::list_payments,
       commands::payments::create_payment,
+      commands::payments::update_payment,
+      commands::payments::delete_payment,
       commands::network::start_as_hub,
       commands::network::start_as_spoke,
       commands::network::get_connection_status,

@@ -29,8 +29,14 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface TreatmentFormProps {
   treatment?: Treatment;
-  onSave: (treatment: Omit<Treatment, "id" | "created_at" | "updated_at">) => Promise<void>;
+  onSave: (treatment: Omit<Treatment, "id" | "created_at" | "updated_at">) => Promise<Treatment | void>;
   onCancel: () => void;
+}
+
+interface FeeItem {
+  id: string;
+  description: string;
+  amount: number;
 }
 
 const frequencies = [
@@ -54,6 +60,11 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "insurance">("cash");
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
+  const [feeItems, setFeeItems] = useState<FeeItem[]>(
+    treatment?.cost && treatment.cost > 0
+      ? [{ id: crypto.randomUUID(), description: "Initial Fee", amount: treatment.cost }]
+      : []
+  );
   const [formData, setFormData] = useState<Omit<Treatment, "id" | "created_at" | "updated_at">>({
     patient_id: treatment?.patient_id || "",
     patient_name: treatment?.patient_name || "",
@@ -83,45 +94,72 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
     loadOptions();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent, completeConsultation: boolean = false) => {
+    if (e) e.preventDefault();
 
     if (!formData.patient_id || !formData.diagnosis || !formData.treatment) {
       toast.error("Please fill in all required fields");
       return;
     }
 
+    const totalCost = feeItems.reduce((sum, item) => sum + item.amount, 0);
+
     try {
       const submissionData = {
         ...formData,
+        cost: totalCost,
         appointment_id: formData.appointment_id || undefined,
         doctor_id: treatment?.doctor_id || user?.id,
         doctor_name: treatment?.doctor_name || user?.full_name,
       };
 
-      await onSave(submissionData);
+      const savedTreatment = await onSave(submissionData);
 
-      // Create a pending payment if there's a cost
-      if (formData.cost > 0) {
+      // Clear existing pending payments for this treatment/patient to prevent duplicates
+      const allPayments = await dataManager.getPayments();
+      const existingPending = allPayments.filter(p =>
+        p.status === 'pending' &&
+        (p.treatment_id === savedTreatment?.id ||
+         (p.patient_id === formData.patient_id && p.notes?.includes("Service Fee")))
+      );
+
+      for (const p of existingPending) {
+        await dataManager.deletePayment(p.id);
+      }
+
+      // Create pending payments for each fee item
+      for (const item of feeItems) {
+        if (item.amount > 0) {
+          try {
+            await dataManager.addPayment({
+              patient_id: formData.patient_id,
+              patient_name: formData.patient_name,
+              treatment_id: savedTreatment?.id,
+              amount: item.amount,
+              date: formData.date,
+              method: paymentMethod,
+              insurance_provider_id: paymentMethod === "insurance" ? selectedProviderId : undefined,
+              status: "pending",
+              notes: item.description || `Service Fee: ${formData.treatment}`,
+            });
+          } catch (error) {
+            console.error("Failed to create pending payment", error);
+          }
+        }
+      }
+
+      if (completeConsultation && formData.appointment_id) {
         try {
-          await dataManager.addPayment({
-            patient_id: formData.patient_id,
-            patient_name: formData.patient_name,
-            amount: formData.cost,
-            date: formData.date,
-            method: paymentMethod,
-            insurance_provider_id: paymentMethod === "insurance" ? selectedProviderId : undefined,
-            status: "pending",
-            notes: `Service Fee for Treatment: ${formData.diagnosis}`,
-          });
+          await dataManager.updateAppointment(formData.appointment_id, { status: "awaiting_checkout" });
+          await dataManager.updateDoctorStatus(user?.id || "", null);
+          toast.success("Consultation completed. Patient moved to checkout.");
         } catch (error) {
-          console.error("Failed to create pending payment", error);
+          console.error("Failed to complete consultation", error);
+          toast.error("Treatment saved, but failed to update appointment status.");
         }
       }
     } catch (error) {
       console.error("Form submission failed", error);
-      // Let the parent handle specific error messaging if needed,
-      // but we shouldn't show success here if it failed.
     }
   };
 
@@ -152,9 +190,31 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       setFormData(prev => ({
         ...prev,
         treatment: selectedService.name,
-        cost: selectedService.standard_fee,
       }));
+
+      // Add as a fee item
+      setFeeItems(prev => [
+        ...prev,
+        { id: crypto.randomUUID(), description: selectedService.name, amount: selectedService.standard_fee }
+      ]);
     }
+  };
+
+  const addFeeItem = () => {
+    setFeeItems(prev => [
+      ...prev,
+      { id: crypto.randomUUID(), description: "", amount: 0 }
+    ]);
+  };
+
+  const removeFeeItem = (id: string) => {
+    setFeeItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const updateFeeItem = (id: string, field: keyof FeeItem, value: string | number) => {
+    setFeeItems(prev => prev.map(item =>
+      item.id === id ? { ...item, [field]: value } : item
+    ));
   };
 
   const addMedication = () => {
@@ -311,27 +371,6 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
           </Popover>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="cost" className="flex items-center text-xs font-semibold uppercase tracking-wider text-gray-500">
-            <DollarSign className="h-3 w-3 mr-1 text-green-600" />
-            Service Fee / Cost (KSH)
-          </Label>
-          <Input
-            id="cost"
-            type="number"
-            step="0.01"
-            min="0"
-            value={formData.cost}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                cost: parseFloat(e.target.value) || 0,
-              }))
-            }
-            placeholder="0.00"
-            className="h-9 text-sm rounded-sm border-gray-200"
-          />
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -369,6 +408,69 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        )}
+      </div>
+
+      {/* Fees Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+          <Label className="text-xs font-bold uppercase tracking-widest text-gray-900 flex items-center">
+            <DollarSign className="h-3.5 w-3.5 mr-1.5 text-green-600" />
+            Fees & Charges
+          </Label>
+          <Button
+            type="button"
+            onClick={addFeeItem}
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] font-bold uppercase tracking-wider rounded-sm border-gray-200"
+          >
+            <Plus className="h-3 w-3 mr-1.5" />
+            Add Charge
+          </Button>
+        </div>
+
+        {feeItems.length === 0 ? (
+          <div className="text-center py-4 text-gray-400 bg-gray-50 border border-dashed border-gray-200 rounded-sm">
+            <p className="text-[10px] font-medium uppercase tracking-tight">No fees added yet</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {feeItems.map((item) => (
+              <div key={item.id} className="flex gap-2 items-center">
+                <Input
+                  placeholder="Fee description"
+                  value={item.description}
+                  onChange={(e) => updateFeeItem(item.id, "description", e.target.value)}
+                  className="h-8 text-xs rounded-sm border-gray-200 flex-1"
+                />
+                <div className="relative w-32">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">KSH</span>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={item.amount}
+                    onChange={(e) => updateFeeItem(item.id, "amount", parseFloat(e.target.value) || 0)}
+                    className="h-8 text-xs rounded-sm border-gray-200 pl-10"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeFeeItem(item.id)}
+                  className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-sm"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            <div className="flex justify-end pr-10 pt-1">
+              <p className="text-xs font-bold text-gray-900">
+                Total: KSH {feeItems.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -575,15 +677,31 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
         />
       </div>
 
-      <div className="flex space-x-3 pt-2">
-        <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-sm h-9 text-sm font-semibold">
-          {treatment ? "Update Treatment" : "Save Treatment"}
-        </Button>
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Button
           type="button"
+          onClick={(e) => handleSubmit(e, false)}
           variant="outline"
+          className="flex-1 border-primary text-primary hover:bg-primary/5 rounded-sm h-9 text-sm font-semibold"
+        >
+          {treatment ? "Update Treatment" : "Save Treatment Only"}
+        </Button>
+
+        {formData.appointment_id && (
+          <Button
+            type="button"
+            onClick={(e) => handleSubmit(e, true)}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-sm h-9 text-sm font-semibold"
+          >
+            Complete & Await Checkout
+          </Button>
+        )}
+
+        <Button
+          type="button"
+          variant="ghost"
           onClick={onCancel}
-          className="flex-1 rounded-sm h-9 text-sm font-semibold border-gray-200"
+          className="rounded-sm h-9 text-sm font-semibold border-gray-200"
         >
           Cancel
         </Button>
