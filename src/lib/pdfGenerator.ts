@@ -553,41 +553,79 @@ export const pdfGenerator = {
     );
   },
 
-  async generateReceipt(payment: Payment) {
+  async generateReceipt(payment: Payment | Payment[]) {
+    const payments = Array.isArray(payment) ? payment : [payment];
+    if (payments.length === 0) return;
+
+    const mainPayment = payments[0];
     const branding = await getBranding();
     const doc = new jsPDF();
     let y = addLetterhead(doc, branding);
 
-    doc.setFontSize(16);
+    doc.setFontSize(18);
+    doc.setTextColor(46, 125, 50); // Green
     doc.setFont("helvetica", "bold");
-    doc.text("PAYMENT RECEIPT", 105, y, { align: "center" });
+    doc.text("OFFICIAL PAYMENT RECEIPT", 105, y, { align: "center" });
     y += 15;
 
-    doc.setFontSize(11);
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
     doc.setFont("helvetica", "normal");
-    doc.text(`Receipt No: ${payment.id.slice(0, 8).toUpperCase()}`, 20, y);
-    doc.text(`Date: ${payment.date}`, 150, y);
+    doc.text(`Receipt No: ${mainPayment.id.slice(0, 8).toUpperCase()}`, 20, y);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, y);
+    y += 7;
+    doc.text(`Patient: ${mainPayment.patient_name}`, 20, y);
+    doc.text(`Status: PAID`, 150, y);
     y += 10;
+
+    const totalAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const rows = payments.map(p => [
+      p.date,
+      p.notes || "Dental Services",
+      `KSH ${(p.amount || 0).toLocaleString()}`
+    ]);
 
     autoTable(doc, {
       startY: y,
-      head: [["Description", "Amount"]],
-      body: [[payment.notes || "Dental Treatment Services", `KSH ${(payment.amount || 0).toLocaleString()}`]],
-      foot: [["TOTAL PAID", `KSH ${(payment.amount || 0).toLocaleString()}`]],
+      head: [["Date", "Description", "Amount"]],
+      body: rows,
+      foot: [["", "TOTAL AMOUNT PAID", `KSH ${totalAmount.toLocaleString()}`]],
       theme: "striped",
-      headStyles: { fillColor: [46, 125, 50] }, // Green for payments
+      headStyles: { fillColor: [46, 125, 50], textColor: 255 },
+      footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        2: { cellWidth: 40, halign: 'right' }
+      }
     });
 
-    y = doc.lastAutoTable.finalY + 10;
-    doc.text(`Payment Method: ${payment.method.toUpperCase()}`, 20, y);
+    y = doc.lastAutoTable.finalY + 15;
 
-    if (payment.notes) {
-      y += 10;
-      doc.text(`Notes: ${payment.notes}`, 20, y);
+    doc.setFontSize(10);
+    doc.setTextColor(33, 33, 33);
+    doc.setFont("helvetica", "bold");
+    doc.text("Payment Information:", 20, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.text(`Payment Method: ${mainPayment.method.toUpperCase()}`, 20, y);
+
+    if (mainPayment.insurance_provider_id) {
+        doc.text(`Insurance: Covered`, 20, y + 5);
+        y += 5;
     }
 
+    y += 20;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, y, 80, y);
+    doc.setFontSize(8);
+    doc.text("Patient/Guardian Signature", 20, y + 5);
+
+    doc.line(130, y, 190, y);
+    doc.text("Clinic Authorized Signature", 130, y + 5);
+
     addFooter(doc, branding);
-    doc.save(`Receipt_${payment.patient_name.replace(/\s+/g, "_")}.pdf`);
+    doc.save(`Receipt_${mainPayment.patient_name.replace(/\s+/g, "_")}.pdf`);
   },
 
   async generateInvoice(payment: Payment) {

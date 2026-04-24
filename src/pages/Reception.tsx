@@ -35,7 +35,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
-import { dataManager, Patient, Appointment, InsuranceProvider, Treatment } from "@/lib/dataManager";
+import { dataManager, Patient, Appointment, InsuranceProvider, Treatment, Payment } from "@/lib/dataManager";
 import { toast } from "sonner";
 import PatientForm from "@/components/PatientForm";
 import AppointmentForm from "@/components/AppointmentForm";
@@ -48,6 +48,7 @@ const Reception = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [showAddPatient, setShowAddPatient] = useState(false);
@@ -63,7 +64,7 @@ const Reception = () => {
 
   const loadData = useCallback(async () => {
     try {
-      const [pts, apts, , fee, reqPay, providers, trts] = await Promise.all([
+      const [pts, apts, pmts, fee, reqPay, providers, trts] = await Promise.all([
         dataManager.getPatients(),
         dataManager.getAppointments(),
         dataManager.getPayments(),
@@ -74,6 +75,7 @@ const Reception = () => {
       ]);
       setPatients(pts);
       setAppointments(apts);
+      setPayments(pmts);
       setTreatments(trts);
       setReceptionFee(Number(fee || 0));
       setRequirePayment(reqPay === "true");
@@ -705,6 +707,41 @@ const Reception = () => {
                 {treatments.filter(t => t.patient_id === selectedAppointment?.patient_id && t.date === today && t.medications.length > 0).length === 0 && (
                   <p className="text-xs text-gray-400 italic">No prescriptions recorded today.</p>
                 )}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Payment Receipts</h4>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                {(() => {
+                  const patientPayments = payments.filter(
+                    p => p.patient_id === selectedAppointment?.patient_id && p.status === 'paid'
+                  );
+
+                  // Group by date
+                  const groupedPayments = patientPayments.reduce((acc, p) => {
+                    if (!acc[p.date]) acc[p.date] = [];
+                    acc[p.date].push(p);
+                    return acc;
+                  }, {} as Record<string, Payment[]>);
+
+                  const sortedDates = Object.keys(groupedPayments).sort((a, b) => b.localeCompare(a));
+
+                  if (sortedDates.length > 0) {
+                    return sortedDates.map(date => (
+                      <div key={date} className="flex items-center justify-between p-2 bg-green-50 rounded-sm border border-green-100 mb-2">
+                        <div>
+                          <p className="text-sm font-bold text-green-900">Receipt: {date}</p>
+                          <p className="text-[10px] text-green-700">{groupedPayments[date].length} Items Settled</p>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => pdfGenerator.generateReceipt(groupedPayments[date])}>
+                          <Download className="h-4 w-4 text-green-600" />
+                        </Button>
+                      </div>
+                    ));
+                  }
+                  return <p className="text-xs text-gray-400 italic">No payment receipts found.</p>;
+                })()}
               </div>
             </div>
           </div>

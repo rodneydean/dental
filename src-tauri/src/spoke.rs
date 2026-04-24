@@ -376,7 +376,7 @@ async fn push_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
     let patients: Vec<Patient> = {
         let conn = get_db_conn(app_handle)?;
         // Push Patients
-        let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at FROM patients WHERE sync_status = 'pending'")?;
+        let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at FROM patients WHERE sync_status = 'pending'")?;
         let rows = stmt.query_map([], |row| {
             Ok(Patient {
                 id: row.get(0)?,
@@ -389,8 +389,10 @@ async fn push_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
                 allergies: row.get(7)?,
                 emergency_contact: row.get(8)?,
                 emergency_phone: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
+                preferred_payment_method: row.get(10)?,
+                preferred_insurance_provider_id: row.get(11)?,
+                created_at: row.get(12)?,
+                updated_at: row.get(13)?,
             })
         })?;
         let mut result = Vec::new();
@@ -666,8 +668,8 @@ async fn pull_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
         let sync_res: SyncResponse<Patient> = res.json().await?;
         for p in sync_res.data {
              let _ = conn.execute(
-                "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at, sync_status)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
+                "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
                  ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     phone = excluded.phone,
@@ -678,12 +680,15 @@ async fn pull_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
                     allergies = excluded.allergies,
                     emergency_contact = excluded.emergency_contact,
                     emergency_phone = excluded.emergency_phone,
+                    preferred_payment_method = excluded.preferred_payment_method,
+                    preferred_insurance_provider_id = excluded.preferred_insurance_provider_id,
                     updated_at = excluded.updated_at,
                     sync_status = 'synced'
                  WHERE excluded.updated_at > patients.updated_at",
                 rusqlite::params![
                     p.id, p.name, p.phone, p.email, p.date_of_birth, p.address,
                     p.medical_history, p.allergies, p.emergency_contact, p.emergency_phone,
+                    p.preferred_payment_method, p.preferred_insurance_provider_id,
                     p.created_at, p.updated_at
                 ],
             );
