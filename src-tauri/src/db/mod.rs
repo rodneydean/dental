@@ -221,7 +221,9 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
     conn.execute(
         "CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            sync_status TEXT DEFAULT 'synced'
         )",
         [],
     )?;
@@ -449,7 +451,7 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
     }
 
     // Add sync_status to existing tables if they don't have it (for existing DBs)
-    let tables = vec!["users", "patients", "appointments", "treatments", "payments", "waiver_requests", "doctor_status", "patient_notes", "sick_sheets", "services", "insurance_providers"];
+    let tables = vec!["users", "patients", "appointments", "treatments", "payments", "waiver_requests", "doctor_status", "patient_notes", "sick_sheets", "services", "insurance_providers", "settings"];
     for table in tables {
         // First check if column exists to avoid errors
         let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
@@ -458,6 +460,11 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
 
         if !columns.contains(&"sync_status".to_string()) {
             let _ = conn.execute(&format!("ALTER TABLE {} ADD COLUMN sync_status TEXT DEFAULT 'synced'", table), []);
+        }
+
+        if !columns.contains(&"updated_at".to_string()) && table == "settings" {
+            let now = chrono::Utc::now().to_rfc3339();
+            let _ = conn.execute(&format!("ALTER TABLE settings ADD COLUMN updated_at TEXT NOT NULL DEFAULT '{}'", now), []);
         }
     }
 
