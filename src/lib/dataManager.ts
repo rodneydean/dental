@@ -11,6 +11,8 @@ export interface Patient {
   allergies: string;
   emergency_contact: string;
   emergency_phone: string;
+  preferred_payment_method?: "cash" | "insurance";
+  preferred_insurance_provider_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -195,7 +197,9 @@ class DataManager {
       medicalHistory: patient.medical_history,
       allergies: patient.allergies,
       emergencyContact: patient.emergency_contact,
-      emergencyPhone: patient.emergency_phone
+      emergencyPhone: patient.emergency_phone,
+      preferredPaymentMethod: patient.preferred_payment_method,
+      preferredInsuranceProviderId: patient.preferred_insurance_provider_id
     });
   }
 
@@ -215,6 +219,8 @@ class DataManager {
       allergies: updates.allergies ?? current.allergies,
       emergencyContact: updates.emergency_contact ?? current.emergency_contact,
       emergencyPhone: updates.emergency_phone ?? current.emergency_phone,
+      preferredPaymentMethod: updates.preferred_payment_method ?? current.preferred_payment_method,
+      preferredInsuranceProviderId: updates.preferred_insurance_provider_id ?? current.preferred_insurance_provider_id,
     });
   }
 

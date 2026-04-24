@@ -70,6 +70,8 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
             allergies TEXT,
             emergency_contact TEXT,
             emergency_phone TEXT,
+            preferred_payment_method TEXT,
+            preferred_insurance_provider_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             sync_status TEXT DEFAULT 'synced'
@@ -338,6 +340,21 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
         }
         if !columns.contains(&"reception_fee_waived".to_string()) {
             let _ = conn.execute("ALTER TABLE appointments ADD COLUMN reception_fee_waived BOOLEAN DEFAULT 0", []);
+        }
+    }
+
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(patients)")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(row.get::<_, String>(1)?)
+        })?;
+        let columns: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+
+        if !columns.contains(&"preferred_payment_method".to_string()) {
+            let _ = conn.execute("ALTER TABLE patients ADD COLUMN preferred_payment_method TEXT", []);
+        }
+        if !columns.contains(&"preferred_insurance_provider_id".to_string()) {
+            let _ = conn.execute("ALTER TABLE patients ADD COLUMN preferred_insurance_provider_id TEXT", []);
         }
     }
 

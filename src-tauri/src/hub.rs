@@ -253,8 +253,8 @@ async fn post_patients_handler(
 
     for p in patients {
         let _ = conn.execute(
-            "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at, sync_status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
+            "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 phone = excluded.phone,
@@ -265,11 +265,14 @@ async fn post_patients_handler(
                 allergies = excluded.allergies,
                 emergency_contact = excluded.emergency_contact,
                 emergency_phone = excluded.emergency_phone,
+                preferred_payment_method = excluded.preferred_payment_method,
+                preferred_insurance_provider_id = excluded.preferred_insurance_provider_id,
                 updated_at = excluded.updated_at
              WHERE excluded.updated_at > patients.updated_at",
             rusqlite::params![
                 p.id, p.name, p.phone, p.email, p.date_of_birth, p.address,
                 p.medical_history, p.allergies, p.emergency_contact, p.emergency_phone,
+                p.preferred_payment_method, p.preferred_insurance_provider_id,
                 p.created_at, p.updated_at
             ],
         );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { calculateAge, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,18 @@ interface Patient {
   allergies: string;
   emergency_contact: string;
   emergency_phone: string;
+  preferred_payment_method?: "cash" | "insurance";
+  preferred_insurance_provider_id?: string;
 }
+
+import { dataManager, InsuranceProvider } from "@/lib/dataManager";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PatientFormProps {
   patient?: Patient;
@@ -47,7 +58,19 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
     allergies: patient?.allergies || "",
     emergency_contact: patient?.emergency_contact || "",
     emergency_phone: patient?.emergency_phone || "",
+    preferred_payment_method: patient?.preferred_payment_method || "cash",
+    preferred_insurance_provider_id: patient?.preferred_insurance_provider_id || "",
   });
+
+  const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
+
+  useEffect(() => {
+    const loadInsurance = async () => {
+      const providers = await dataManager.getInsuranceProviders();
+      setInsuranceProviders(providers);
+    };
+    loadInsurance();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,6 +174,45 @@ const PatientForm = ({ patient, onSave, onCancel }: PatientFormProps) => {
           placeholder="Street address, city, state, zip"
           className="h-9 text-sm rounded-sm border-gray-200"
         />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-100 pt-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Preferred Payment Method</Label>
+          <Select
+            value={formData.preferred_payment_method}
+            onValueChange={(value: "cash" | "insurance") => handleChange("preferred_payment_method", value)}
+          >
+            <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
+              <SelectValue placeholder="Select payment method" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash">Cash</SelectItem>
+              <SelectItem value="insurance">Insurance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {formData.preferred_payment_method === "insurance" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Preferred Insurance Provider</Label>
+            <Select
+              value={formData.preferred_insurance_provider_id}
+              onValueChange={(value) => handleChange("preferred_insurance_provider_id", value)}
+            >
+              <SelectTrigger className="h-9 text-sm rounded-sm border-gray-200">
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {insuranceProviders.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id}>
+                    {provider.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

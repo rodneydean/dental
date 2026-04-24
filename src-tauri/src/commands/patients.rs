@@ -16,6 +16,8 @@ pub struct Patient {
     pub allergies: Option<String>,
     pub emergency_contact: Option<String>,
     pub emergency_phone: Option<String>,
+    pub preferred_payment_method: Option<String>,
+    pub preferred_insurance_provider_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -23,7 +25,7 @@ pub struct Patient {
 #[command]
 pub fn list_patients(app_handle: AppHandle) -> Result<Vec<Patient>, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at FROM patients ORDER BY created_at DESC").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at FROM patients ORDER BY created_at DESC").map_err(|e| e.to_string())?;
 
     let patient_iter = stmt.query_map([], |row| {
         Ok(Patient {
@@ -37,8 +39,10 @@ pub fn list_patients(app_handle: AppHandle) -> Result<Vec<Patient>, String> {
             allergies: row.get(7)?,
             emergency_contact: row.get(8)?,
             emergency_phone: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            preferred_payment_method: row.get(10)?,
+            preferred_insurance_provider_id: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
         })
     }).map_err(|e| e.to_string())?;
 
@@ -68,6 +72,8 @@ pub fn create_patient(
     allergies: Option<String>,
     emergency_contact: Option<String>,
     emergency_phone: Option<String>,
+    preferred_payment_method: Option<String>,
+    preferred_insurance_provider_id: Option<String>,
 ) -> Result<Patient, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
     let id = Uuid::new_v4().to_string();
@@ -81,9 +87,11 @@ pub fn create_patient(
     let allergies = empty_to_none(allergies);
     let emergency_contact = empty_to_none(emergency_contact);
     let emergency_phone = empty_to_none(emergency_phone);
+    let preferred_payment_method = empty_to_none(preferred_payment_method);
+    let preferred_insurance_provider_id = empty_to_none(preferred_insurance_provider_id);
 
     conn.execute(
-        "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'pending')",
+        "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'pending')",
         [
             Some(id.clone()),
             Some(name.clone()),
@@ -95,6 +103,8 @@ pub fn create_patient(
             allergies.clone(),
             emergency_contact.clone(),
             emergency_phone.clone(),
+            preferred_payment_method.clone(),
+            preferred_insurance_provider_id.clone(),
             Some(now.clone()),
             Some(now.clone()),
         ],
@@ -113,6 +123,8 @@ pub fn create_patient(
         allergies,
         emergency_contact,
         emergency_phone,
+        preferred_payment_method,
+        preferred_insurance_provider_id,
         created_at: now.clone(),
         updated_at: now,
     })
@@ -121,7 +133,7 @@ pub fn create_patient(
 #[command]
 pub fn get_patient(app_handle: AppHandle, id: String) -> Result<Patient, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at FROM patients WHERE id = ?1").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at FROM patients WHERE id = ?1").map_err(|e| e.to_string())?;
 
     let patient = stmt.query_row([id], |row| {
         Ok(Patient {
@@ -135,8 +147,10 @@ pub fn get_patient(app_handle: AppHandle, id: String) -> Result<Patient, String>
             allergies: row.get(7)?,
             emergency_contact: row.get(8)?,
             emergency_phone: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            preferred_payment_method: row.get(10)?,
+            preferred_insurance_provider_id: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
         })
     }).map_err(|e| e.to_string())?;
 
@@ -156,6 +170,8 @@ pub fn update_patient(
     allergies: Option<String>,
     emergency_contact: Option<String>,
     emergency_phone: Option<String>,
+    preferred_payment_method: Option<String>,
+    preferred_insurance_provider_id: Option<String>,
 ) -> Result<(), String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
     let now = Utc::now().to_rfc3339();
@@ -168,9 +184,11 @@ pub fn update_patient(
     let allergies = empty_to_none(allergies);
     let emergency_contact = empty_to_none(emergency_contact);
     let emergency_phone = empty_to_none(emergency_phone);
+    let preferred_payment_method = empty_to_none(preferred_payment_method);
+    let preferred_insurance_provider_id = empty_to_none(preferred_insurance_provider_id);
 
     conn.execute(
-        "UPDATE patients SET name = ?1, phone = ?2, email = ?3, date_of_birth = ?4, address = ?5, medical_history = ?6, allergies = ?7, emergency_contact = ?8, emergency_phone = ?9, updated_at = ?10, sync_status = 'pending' WHERE id = ?11",
+        "UPDATE patients SET name = ?1, phone = ?2, email = ?3, date_of_birth = ?4, address = ?5, medical_history = ?6, allergies = ?7, emergency_contact = ?8, emergency_phone = ?9, preferred_payment_method = ?10, preferred_insurance_provider_id = ?11, updated_at = ?12, sync_status = 'pending' WHERE id = ?13",
         [
             Some(name),
             phone,
@@ -181,6 +199,8 @@ pub fn update_patient(
             allergies,
             emergency_contact,
             emergency_phone,
+            preferred_payment_method,
+            preferred_insurance_provider_id,
             Some(now),
             Some(id),
         ],
