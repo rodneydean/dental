@@ -77,22 +77,16 @@ export const CheckoutDialog = ({ open, onOpenChange, appointment, onComplete }: 
       onOpenChange(false);
       onComplete();
 
-      // 3. Generate Receipt
-      const total = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
-      const summaryPayment = {
-        id: crypto.randomUUID(),
-        patient_id: appointment.patient_id,
-        patient_name: appointment.patient_name,
-        amount: total,
-        date: new Date().toISOString().split("T")[0],
-        method: method,
+      // 3. Generate Consolidated Receipt with all payments
+      const detailedPayments = pendingPayments.map(p => ({
+        ...p,
+        method,
+        insurance_provider_id: providerId,
         status: "paid" as const,
-        notes: "Checkout Settlement",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+        date: new Date().toISOString().split("T")[0]
+      }));
 
-      await pdfGenerator.generateReceipt(summaryPayment);
+      await pdfGenerator.generateReceipt(detailedPayments);
 
     } catch (error) {
       console.error("Checkout failed", error);

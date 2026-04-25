@@ -22,7 +22,6 @@ function Calendar({
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        month_caption: "flex justify-center pt-1 relative items-center",
         nav: "space-x-1 flex items-center",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
@@ -58,6 +57,7 @@ function Calendar({
         dropdowns: "flex items-center justify-center gap-1 w-full",
         months_dropdown: "relative inline-flex items-center",
         years_dropdown: "relative inline-flex items-center",
+        month_caption: "flex justify-center pt-1 relative items-center h-9",
         ...classNames,
       }}
       components={{
@@ -73,7 +73,7 @@ function Calendar({
             onChange?.({ target: { value: e.target.value } } as React.ChangeEvent<HTMLSelectElement>);
           };
           return (
-            <div className="relative inline-flex items-center group">
+            <div className="relative inline-flex items-center group mx-1">
               <select
                 {...props}
                 className={cn("absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10", props.className)}
@@ -89,7 +89,7 @@ function Calendar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2 py-1 text-sm font-medium hover:bg-accent hover:text-accent-foreground flex items-center gap-1 focus:ring-2 focus:ring-primary"
+                className="h-8 px-2 py-1 text-sm font-medium hover:bg-accent hover:text-accent-foreground flex items-center gap-1 focus:ring-2 focus:ring-primary whitespace-nowrap"
               >
                 {selected?.label}
                 <ChevronRight className="h-3 w-3 rotate-90 opacity-50 group-hover:opacity-100 transition-opacity" />

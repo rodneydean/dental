@@ -59,6 +59,7 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
         .route("/sync/doctor_statuses", get(get_doctor_statuses_handler).post(post_doctor_statuses_handler))
         .route("/sync/settings", get(get_settings_handler).post(post_settings_handler))
         .route("/sync/services", get(get_services_handler).post(post_services_handler))
+        .route("/sync/insurance_providers", get(get_insurance_providers_handler).post(post_insurance_providers_handler))
         .route("/sync/users", get(get_users_handler).post(post_users_handler))
         .route("/ws", get(ws_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
@@ -252,8 +253,8 @@ async fn post_patients_handler(
 
     for p in patients {
         let _ = conn.execute(
-            "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at, sync_status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
+            "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 phone = excluded.phone,
@@ -264,11 +265,15 @@ async fn post_patients_handler(
                 allergies = excluded.allergies,
                 emergency_contact = excluded.emergency_contact,
                 emergency_phone = excluded.emergency_phone,
-                updated_at = excluded.updated_at
+                preferred_payment_method = excluded.preferred_payment_method,
+                preferred_insurance_provider_id = excluded.preferred_insurance_provider_id,
+                updated_at = excluded.updated_at,
+                sync_status = 'synced'
              WHERE excluded.updated_at > patients.updated_at",
             rusqlite::params![
                 p.id, p.name, p.phone, p.email, p.date_of_birth, p.address,
                 p.medical_history, p.allergies, p.emergency_contact, p.emergency_phone,
+                p.preferred_payment_method, p.preferred_insurance_provider_id,
                 p.created_at, p.updated_at
             ],
         );
@@ -370,17 +375,20 @@ async fn post_payments_handler(
 
     for p in payments {
         let _ = conn.execute(
-            "INSERT INTO payments (id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, sync_status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'synced')
+            "INSERT INTO payments (id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, insurance_provider_id, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
              ON CONFLICT(id) DO UPDATE SET
                 amount = excluded.amount,
                 status = excluded.status,
                 notes = excluded.notes,
-                updated_at = excluded.updated_at
+                updated_at = excluded.updated_at,
+                insurance_provider_id = excluded.insurance_provider_id,
+                sync_status = 'synced'
              WHERE excluded.updated_at > payments.updated_at",
             rusqlite::params![
                 p.id, p.patient_id, p.patient_name, p.treatment_id, p.amount,
-                p.date, p.method, p.status, p.notes, p.created_at, p.updated_at
+                p.date, p.method, p.status, p.notes, p.created_at, p.updated_at,
+                p.insurance_provider_id
             ],
         );
     }
@@ -658,8 +666,14 @@ async fn post_settings_handler(
 
     for s in settings {
         let _ = conn.execute(
-            "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            rusqlite::params![s.key, s.value],
+            "INSERT INTO settings (key, value, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, 'synced')
+             ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = excluded.updated_at,
+                sync_status = 'synced'
+             WHERE excluded.updated_at > settings.updated_at",
+            rusqlite::params![s.key, s.value, s.updated_at],
         );
     }
     let _ = state.tx.send("settings_updated".to_string());
@@ -698,6 +712,41 @@ async fn post_services_handler(
         );
     }
     let _ = state.tx.send("services_updated".to_string());
+    axum::http::StatusCode::OK.into_response()
+}
+
+async fn get_insurance_providers_handler(State(state): State<HubState>) -> impl IntoResponse {
+    match crate::commands::insurance::list_insurance_providers(state.app_handle) {
+        Ok(providers) => Json(SyncResponse {
+            data: providers,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        }).into_response(),
+        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
+    }
+}
+
+async fn post_insurance_providers_handler(
+    State(state): State<HubState>,
+    Json(providers): Json<Vec<crate::commands::insurance::InsuranceProvider>>,
+) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    for p in providers {
+        let _ = conn.execute(
+            "INSERT INTO insurance_providers (id, name, pays_reception_fee, created_at, updated_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'synced')
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                pays_reception_fee = excluded.pays_reception_fee,
+                updated_at = excluded.updated_at
+             WHERE excluded.updated_at > insurance_providers.updated_at",
+            rusqlite::params![p.id, p.name, p.pays_reception_fee, p.created_at, p.updated_at],
+        );
+    }
+    let _ = state.tx.send("insurance_providers_updated".to_string());
     axum::http::StatusCode::OK.into_response()
 }
 

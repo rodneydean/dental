@@ -299,22 +299,28 @@ async fn push_doctor_statuses(client: &Client, hub_addr: &str, token: &str, app_
 async fn push_settings(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let settings: Vec<crate::commands::settings::Setting> = {
         let conn = get_db_conn(app_handle)?;
-        let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
+        let mut stmt = conn.prepare("SELECT key, value, updated_at FROM settings WHERE sync_status = 'pending'")?;
         let rows = stmt.query_map([], |row| {
             Ok(crate::commands::settings::Setting {
                 key: row.get(0)?,
                 value: row.get(1)?,
+                updated_at: row.get(2)?,
             })
         })?;
         rows.filter_map(|r| r.ok()).collect()
     };
 
     if !settings.is_empty() {
-        let _ = client.post(format!("http://{}/sync/settings", hub_addr))
+        let res = client.post(format!("http://{}/sync/settings", hub_addr))
             .header("Authorization", token)
             .json(&settings)
             .send()
-            .await;
+            .await?;
+
+        if res.status().is_success() {
+            let conn = get_db_conn(app_handle)?;
+            conn.execute("UPDATE settings SET sync_status = 'synced' WHERE sync_status = 'pending'", [])?;
+        }
     }
     Ok(())
 }
@@ -330,7 +336,39 @@ async fn push_local_changes(client: &Client, hub_addr: &str, token: &str, app_ha
     push_doctor_statuses(client, hub_addr, token, app_handle).await?;
     push_settings(client, hub_addr, token, app_handle).await?;
     push_services(client, hub_addr, token, app_handle).await?;
+    push_insurance_providers(client, hub_addr, token, app_handle).await?;
     push_users(client, hub_addr, token, app_handle).await?;
+    Ok(())
+}
+
+async fn push_insurance_providers(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let providers: Vec<crate::commands::insurance::InsuranceProvider> = {
+        let conn = get_db_conn(app_handle)?;
+        let mut stmt = conn.prepare("SELECT id, name, pays_reception_fee, created_at, updated_at FROM insurance_providers WHERE sync_status = 'pending'")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(crate::commands::insurance::InsuranceProvider {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                pays_reception_fee: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    if !providers.is_empty() {
+        let res = client.post(format!("http://{}/sync/insurance_providers", hub_addr))
+            .header("Authorization", token)
+            .json(&providers)
+            .send()
+            .await?;
+
+        if res.status().is_success() {
+            let conn = get_db_conn(app_handle)?;
+            conn.execute("UPDATE insurance_providers SET sync_status = 'synced' WHERE sync_status = 'pending'", [])?;
+        }
+    }
     Ok(())
 }
 
@@ -338,7 +376,7 @@ async fn push_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
     let patients: Vec<Patient> = {
         let conn = get_db_conn(app_handle)?;
         // Push Patients
-        let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at FROM patients WHERE sync_status = 'pending'")?;
+        let mut stmt = conn.prepare("SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at FROM patients WHERE sync_status = 'pending'")?;
         let rows = stmt.query_map([], |row| {
             Ok(Patient {
                 id: row.get(0)?,
@@ -351,8 +389,10 @@ async fn push_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
                 allergies: row.get(7)?,
                 emergency_contact: row.get(8)?,
                 emergency_phone: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
+                preferred_payment_method: row.get(10)?,
+                preferred_insurance_provider_id: row.get(11)?,
+                created_at: row.get(12)?,
+                updated_at: row.get(13)?,
             })
         })?;
         let mut result = Vec::new();
@@ -612,6 +652,7 @@ async fn pull_remote_changes(client: &Client, hub_addr: &str, token: &str, app_h
     pull_doctor_statuses(client, hub_addr, token, app_handle).await?;
     pull_settings(client, hub_addr, token, app_handle).await?;
     pull_services(client, hub_addr, token, app_handle).await?;
+    pull_insurance_providers(client, hub_addr, token, app_handle).await?;
     Ok(())
 }
 
@@ -627,8 +668,8 @@ async fn pull_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
         let sync_res: SyncResponse<Patient> = res.json().await?;
         for p in sync_res.data {
              let _ = conn.execute(
-                "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, created_at, updated_at, sync_status)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
+                "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
                  ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     phone = excluded.phone,
@@ -639,12 +680,15 @@ async fn pull_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
                     allergies = excluded.allergies,
                     emergency_contact = excluded.emergency_contact,
                     emergency_phone = excluded.emergency_phone,
+                    preferred_payment_method = excluded.preferred_payment_method,
+                    preferred_insurance_provider_id = excluded.preferred_insurance_provider_id,
                     updated_at = excluded.updated_at,
                     sync_status = 'synced'
                  WHERE excluded.updated_at > patients.updated_at",
                 rusqlite::params![
                     p.id, p.name, p.phone, p.email, p.date_of_birth, p.address,
                     p.medical_history, p.allergies, p.emergency_contact, p.emergency_phone,
+                    p.preferred_payment_method, p.preferred_insurance_provider_id,
                     p.created_at, p.updated_at
                 ],
             );
@@ -863,8 +907,39 @@ async fn pull_settings(client: &Client, hub_addr: &str, token: &str, app_handle:
         let sync_res: SyncResponse<crate::commands::settings::Setting> = res.json().await?;
         for s in sync_res.data {
             let _ = conn.execute(
-                "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                rusqlite::params![s.key, s.value],
+                "INSERT INTO settings (key, value, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, 'synced')
+                 ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at,
+                    sync_status = 'synced'
+                 WHERE excluded.updated_at > settings.updated_at",
+                rusqlite::params![s.key, s.value, s.updated_at],
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn pull_insurance_providers(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let conn = get_db_conn(app_handle)?;
+    let res = client.get(format!("http://{}/sync/insurance_providers", hub_addr))
+        .header("Authorization", token)
+        .send()
+        .await?;
+    if res.status().is_success() {
+        let sync_res: SyncResponse<crate::commands::insurance::InsuranceProvider> = res.json().await?;
+        for p in sync_res.data {
+            let _ = conn.execute(
+                "INSERT INTO insurance_providers (id, name, pays_reception_fee, created_at, updated_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 'synced')
+                 ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    pays_reception_fee = excluded.pays_reception_fee,
+                    updated_at = excluded.updated_at,
+                    sync_status = 'synced'
+                 WHERE excluded.updated_at > insurance_providers.updated_at",
+                rusqlite::params![p.id, p.name, p.pays_reception_fee, p.created_at, p.updated_at],
             );
         }
     }

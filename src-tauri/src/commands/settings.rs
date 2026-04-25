@@ -9,6 +9,7 @@ use base64::{Engine as _, engine::general_purpose};
 pub struct Setting {
     pub key: String,
     pub value: String,
+    pub updated_at: String,
 }
 
 #[command]
@@ -22,9 +23,15 @@ pub fn get_setting(app_handle: AppHandle, key: String) -> Result<Option<String>,
 #[command]
 pub fn set_setting(app_handle: AppHandle, key: String, value: String) -> Result<(), String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
     conn.execute(
-        "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        [key, value],
+        "INSERT INTO settings (key, value, updated_at, sync_status)
+         VALUES (?1, ?2, ?3, 'pending')
+         ON CONFLICT(key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = excluded.updated_at,
+            sync_status = 'pending'",
+        [key, value, now],
     ).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -32,11 +39,12 @@ pub fn set_setting(app_handle: AppHandle, key: String, value: String) -> Result<
 #[command]
 pub fn list_settings(app_handle: AppHandle) -> Result<Vec<Setting>, String> {
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT key, value FROM settings").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT key, value, updated_at FROM settings").map_err(|e| e.to_string())?;
     let setting_iter = stmt.query_map([], |row| {
         Ok(Setting {
             key: row.get(0)?,
             value: row.get(1)?,
+            updated_at: row.get(2)?,
         })
     }).map_err(|e| e.to_string())?;
 

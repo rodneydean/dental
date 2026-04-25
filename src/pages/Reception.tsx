@@ -16,6 +16,8 @@ import {
   UserCheck,
   Calendar,
   XCircle,
+  FileText,
+  Download,
 } from "lucide-react";
 import {
   Dialog,
@@ -33,10 +35,11 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
-import { dataManager, Patient, Appointment, InsuranceProvider } from "@/lib/dataManager";
+import { dataManager, Patient, Appointment, InsuranceProvider, Treatment, Payment } from "@/lib/dataManager";
 import { toast } from "sonner";
 import PatientForm from "@/components/PatientForm";
 import AppointmentForm from "@/components/AppointmentForm";
+import { pdfGenerator } from "@/lib/pdfGenerator";
 import { listen } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +47,8 @@ const Reception = () => {
   const { user, logout } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [showAddPatient, setShowAddPatient] = useState(false);
@@ -51,6 +56,7 @@ const Reception = () => {
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [showDocuments, setShowDocuments] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [receptionFee, setReceptionFee] = useState<number>(0);
   const [requirePayment, setRequirePayment] = useState<boolean>(true);
@@ -58,16 +64,19 @@ const Reception = () => {
 
   const loadData = useCallback(async () => {
     try {
-      const [pts, apts, , fee, reqPay, providers] = await Promise.all([
+      const [pts, apts, pmts, fee, reqPay, providers, trts] = await Promise.all([
         dataManager.getPatients(),
         dataManager.getAppointments(),
         dataManager.getPayments(),
         dataManager.getSetting("reception_fee"),
         dataManager.getSetting("require_payment_before_admit"),
-        dataManager.getInsuranceProviders()
+        dataManager.getInsuranceProviders(),
+        dataManager.getTreatments()
       ]);
       setPatients(pts);
       setAppointments(apts);
+      setPayments(pmts);
+      setTreatments(trts);
       setReceptionFee(Number(fee || 0));
       setRequirePayment(reqPay === "true");
       setInsuranceProviders(providers);
@@ -200,6 +209,11 @@ const Reception = () => {
   const handleOpenCheckout = (appt: Appointment) => {
     setSelectedAppointment(appt);
     setShowCheckout(true);
+  };
+
+  const handleOpenDocuments = (appt: Appointment) => {
+    setSelectedAppointment(appt);
+    setShowDocuments(true);
   };
 
   const handleMoveToCheckout = async (appt: Appointment) => {
@@ -540,14 +554,24 @@ const Reception = () => {
                               >
                                 Checkout
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 text-[9px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm"
-                                onClick={() => handleCancelVisit(appt)}
-                              >
-                                Cancel Visit
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[9px] font-bold border-gray-200 flex-1"
+                                  onClick={() => handleOpenDocuments(appt)}
+                                >
+                                  <FileText className="h-3 w-3 mr-1" /> Documents
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[9px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm"
+                                  onClick={() => handleCancelVisit(appt)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -632,6 +656,97 @@ const Reception = () => {
         appointment={selectedAppointment}
         onComplete={loadData}
       />
+
+      <Dialog open={showDocuments} onOpenChange={setShowDocuments}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Patient Documents</DialogTitle>
+            <DialogDescription>
+              Download cards for appointments and prescriptions created today for {selectedAppointment?.patient_name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Today's Appointments</h4>
+              <div className="space-y-2">
+                {appointments
+                  .filter(a => a.patient_id === selectedAppointment?.patient_id && a.date >= today && a.status === 'scheduled')
+                  .map(a => (
+                    <div key={a.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-sm border border-gray-100">
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{a.appointment_type}</p>
+                        <p className="text-[10px] text-gray-500">{a.date} at {a.time}</p>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => pdfGenerator.generateAppointmentCard(a)}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                {appointments.filter(a => a.patient_id === selectedAppointment?.patient_id && a.date >= today && a.status === 'scheduled').length === 0 && (
+                  <p className="text-xs text-gray-400 italic">No future appointments scheduled.</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Today's Prescriptions</h4>
+              <div className="space-y-2">
+                {treatments
+                  .filter(t => t.patient_id === selectedAppointment?.patient_id && t.date === today && t.medications.length > 0)
+                  .map(t => (
+                    <div key={t.id} className="flex items-center justify-between p-2 bg-blue-50 rounded-sm border border-blue-100">
+                      <div>
+                        <p className="text-sm font-bold text-blue-900">{t.diagnosis}</p>
+                        <p className="text-[10px] text-blue-700">{t.medications.length} Medications</p>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => pdfGenerator.generatePrescription(t, t.medications)}>
+                        <Download className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    </div>
+                  ))}
+                {treatments.filter(t => t.patient_id === selectedAppointment?.patient_id && t.date === today && t.medications.length > 0).length === 0 && (
+                  <p className="text-xs text-gray-400 italic">No prescriptions recorded today.</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Payment Receipts</h4>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                {(() => {
+                  const patientPayments = payments.filter(
+                    p => p.patient_id === selectedAppointment?.patient_id && p.status === 'paid'
+                  );
+
+                  // Group by date
+                  const groupedPayments = patientPayments.reduce((acc, p) => {
+                    if (!acc[p.date]) acc[p.date] = [];
+                    acc[p.date].push(p);
+                    return acc;
+                  }, {} as Record<string, Payment[]>);
+
+                  const sortedDates = Object.keys(groupedPayments).sort((a, b) => b.localeCompare(a));
+
+                  if (sortedDates.length > 0) {
+                    return sortedDates.map(date => (
+                      <div key={date} className="flex items-center justify-between p-2 bg-green-50 rounded-sm border border-green-100 mb-2">
+                        <div>
+                          <p className="text-sm font-bold text-green-900">Receipt: {date}</p>
+                          <p className="text-[10px] text-green-700">{groupedPayments[date].length} Items Settled</p>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => pdfGenerator.generateReceipt(groupedPayments[date])}>
+                          <Download className="h-4 w-4 text-green-600" />
+                        </Button>
+                      </div>
+                    ));
+                  }
+                  return <p className="text-xs text-gray-400 italic">No payment receipts found.</p>;
+                })()}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

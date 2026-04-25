@@ -175,6 +175,13 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
       patient_name: selectedPatient?.name || "",
       appointment_id: "",
     }));
+
+    if (selectedPatient?.preferred_payment_method) {
+      setPaymentMethod(selectedPatient.preferred_payment_method);
+      if (selectedPatient.preferred_payment_method === "insurance") {
+        setSelectedProviderId(selectedPatient.preferred_insurance_provider_id || "");
+      }
+    }
   };
 
   const handleAppointmentChange = (appointment_id: string) => {
