@@ -51,41 +51,6 @@ const DoctorDashboard = () => {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-
-    const unlisten = listen("sync-event", () => {
-      loadData();
-    });
-
-    const intervalId = setInterval(loadData, 30000);
-
-    // Keyboard Shortcuts
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === "n") {
-        e.preventDefault();
-        handleCallNext();
-      } else if (e.altKey && e.key === "s") {
-        e.preventDefault();
-        document.getElementById("patient-search")?.focus();
-      } else if (e.altKey && e.key === "t") {
-        e.preventDefault();
-        navigate("/appointments");
-      } else if (e.altKey && e.key === "h") {
-        e.preventDefault();
-        navigate("/");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      unlisten.then(f => f());
-      clearInterval(intervalId);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [loadData, navigate]);
-
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   const stats = useMemo(() => {
@@ -123,7 +88,7 @@ const DoctorDashboard = () => {
     );
   }, [appointments, user?.id]);
 
-  const handleCallPatient = async (appt: Appointment) => {
+  const handleCallPatient = useCallback(async (appt: Appointment) => {
     try {
       await dataManager.updateAppointment(appt.id, {
         status: "in_consultation",
@@ -136,9 +101,9 @@ const DoctorDashboard = () => {
     } catch {
       toast.error("Failed to call patient");
     }
-  };
+  }, [user?.id, user?.full_name, navigate]);
 
-  const handleCallNext = () => {
+  const handleCallNext = useCallback(() => {
     if (currentAppointment) {
       toast.warning("You already have a patient in consultation. Please finish or checkout first.");
       return;
@@ -149,7 +114,42 @@ const DoctorDashboard = () => {
     } else {
       toast.info("No patients waiting in queue");
     }
-  };
+  }, [currentAppointment, myQueue, generalPool, handleCallPatient]);
+
+  useEffect(() => {
+    loadData();
+
+    const unlisten = listen("sync-event", () => {
+      loadData();
+    });
+
+    const intervalId = setInterval(loadData, 30000);
+
+    // Keyboard Shortcuts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === "n") {
+        e.preventDefault();
+        handleCallNext();
+      } else if (e.altKey && e.key === "s") {
+        e.preventDefault();
+        document.getElementById("patient-search")?.focus();
+      } else if (e.altKey && e.key === "t") {
+        e.preventDefault();
+        navigate("/appointments");
+      } else if (e.altKey && e.key === "h") {
+        e.preventDefault();
+        navigate("/");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      unlisten.then(f => f());
+      clearInterval(intervalId);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [loadData, navigate, handleCallNext]);
 
   const filteredPatients = useMemo(() => {
     if (searchTerm.length < 2) return [];

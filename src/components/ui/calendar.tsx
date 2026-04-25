@@ -75,7 +75,13 @@ function Calendar({
           };
 
           // Filter out props that shouldn't reach the native select
-          const { classNames, styles, components, ...selectProps } = props as any;
+          const {
+            classNames: _classNames,
+            components: _components,
+            ...selectProps
+          } = props as DropdownProps & { [key: string]: unknown };
+          void _classNames;
+          void _components;
 
           return (
             <div className="relative inline-flex items-center">
