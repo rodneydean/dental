@@ -62,30 +62,37 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        CaptionLabel: () => <></>,
-        Chevron: (props) => {
+        Chevron: ({ ...props }) => {
           if (props.orientation === 'left') {
             return <ChevronLeft className="h-4 w-4" />
           }
           return <ChevronRight className="h-4 w-4" />
         },
-        Dropdown: (props: DropdownProps) => {
-          const { value, onChange, options, ...selectProps } = props;
+        Dropdown: ({ value, onChange, options, ...props }: DropdownProps) => {
           const selected = options?.find((option) => option.value === value);
           const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
             onChange?.(e);
           };
 
+          // Filter out props that shouldn't reach the native select
+          const {
+            classNames: _classNames,
+            components: _components,
+            ...selectProps
+          } = props as DropdownProps & { [key: string]: unknown };
+          void _classNames;
+          void _components;
+
           return (
-            <div className="relative inline-flex items-center group mx-0.5">
+            <div className="relative inline-flex items-center">
               <select
                 {...selectProps}
-                className={cn("absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20", selectProps.className)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                 value={value}
                 onChange={handleChange}
               >
                 {options?.map((option) => (
-                  <option key={option.value} value={option.value} disabled={option.disabled}>
+                  <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
@@ -93,10 +100,10 @@ function Calendar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 py-0 text-sm font-medium hover:bg-accent hover:text-accent-foreground flex items-center gap-1 focus:ring-2 focus:ring-primary whitespace-nowrap z-10"
+                className="h-8 px-2 py-0 text-sm font-bold hover:bg-accent hover:text-accent-foreground flex items-center gap-1 whitespace-nowrap z-10 pointer-events-none"
               >
-                {selected?.label || (options?.find(opt => opt.value === value)?.label) || "Select"}
-                <ChevronRight className="h-3 w-3 rotate-90 opacity-50 group-hover:opacity-100 transition-opacity" />
+                {selected?.label || "Select"}
+                <ChevronRight className="h-3 w-3 rotate-90 opacity-50" />
               </Button>
             </div>
           );
