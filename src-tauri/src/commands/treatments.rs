@@ -246,6 +246,13 @@ pub fn delete_treatment(app_handle: AppHandle, id: String) -> Result<(), String>
     tx.execute("DELETE FROM medications WHERE treatment_id = ?1", [&id]).map_err(|e| e.to_string())?;
     tx.execute("DELETE FROM treatments WHERE id = ?1", [&id]).map_err(|e| e.to_string())?;
 
+    let now = Utc::now().to_rfc3339();
+    let deletion_id = Uuid::new_v4().to_string();
+    tx.execute(
+        "INSERT INTO deleted_records (id, table_name, record_id, deleted_at, sync_status) VALUES (?1, 'treatments', ?2, ?3, 'pending')",
+        [deletion_id, id, now],
+    ).map_err(|e| e.to_string())?;
+
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }

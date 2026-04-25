@@ -1,4 +1,4 @@
-use tauri::{AppHandle, command, State, Manager};
+use tauri::{AppHandle, command, State};
 use std::sync::Mutex;
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;

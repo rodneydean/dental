@@ -338,6 +338,37 @@ async fn push_local_changes(client: &Client, hub_addr: &str, token: &str, app_ha
     push_services(client, hub_addr, token, app_handle).await?;
     push_insurance_providers(client, hub_addr, token, app_handle).await?;
     push_users(client, hub_addr, token, app_handle).await?;
+    push_deletions(client, hub_addr, token, app_handle).await?;
+    Ok(())
+}
+
+async fn push_deletions(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let deletions: Vec<crate::hub::DeletedRecord> = {
+        let conn = get_db_conn(app_handle)?;
+        let mut stmt = conn.prepare("SELECT id, table_name, record_id, deleted_at FROM deleted_records WHERE sync_status = 'pending'")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(crate::hub::DeletedRecord {
+                id: row.get(0)?,
+                table_name: row.get(1)?,
+                record_id: row.get(2)?,
+                deleted_at: row.get(3)?,
+            })
+        })?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    if !deletions.is_empty() {
+        let res = client.post(format!("http://{}/sync/deletions", hub_addr))
+            .header("Authorization", token)
+            .json(&deletions)
+            .send()
+            .await?;
+
+        if res.status().is_success() {
+            let conn = get_db_conn(app_handle)?;
+            conn.execute("UPDATE deleted_records SET sync_status = 'synced' WHERE sync_status = 'pending'", [])?;
+        }
+    }
     Ok(())
 }
 
@@ -653,6 +684,40 @@ async fn pull_remote_changes(client: &Client, hub_addr: &str, token: &str, app_h
     pull_settings(client, hub_addr, token, app_handle).await?;
     pull_services(client, hub_addr, token, app_handle).await?;
     pull_insurance_providers(client, hub_addr, token, app_handle).await?;
+    pull_deletions(client, hub_addr, token, app_handle).await?;
+    Ok(())
+}
+
+async fn pull_deletions(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let mut conn = get_db_conn(app_handle)?;
+    let res = client.get(format!("http://{}/sync/deletions", hub_addr))
+        .header("Authorization", token)
+        .send()
+        .await?;
+
+    if res.status().is_success() {
+        let sync_res: SyncResponse<crate::hub::DeletedRecord> = res.json().await?;
+        let tx = conn.transaction()?;
+        for d in sync_res.data {
+            let _ = tx.execute(
+                "INSERT INTO deleted_records (id, table_name, record_id, deleted_at, sync_status)
+                 VALUES (?1, ?2, ?3, ?4, 'synced')
+                 ON CONFLICT(id) DO NOTHING",
+                rusqlite::params![d.id, d.table_name, d.record_id, d.deleted_at],
+            );
+
+            let allowed_tables = vec!["patients", "appointments", "treatments", "payments", "patient_notes", "sick_sheets", "services", "insurance_providers", "users"];
+            if allowed_tables.contains(&d.table_name.as_str()) {
+                let query = format!("DELETE FROM {} WHERE id = ?1", d.table_name);
+                let _ = tx.execute(&query, [&d.record_id]);
+
+                if d.table_name == "treatments" {
+                    let _ = tx.execute("DELETE FROM medications WHERE treatment_id = ?1", [&d.record_id]);
+                }
+            }
+        }
+        tx.commit()?;
+    }
     Ok(())
 }
 

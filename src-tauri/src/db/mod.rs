@@ -321,6 +321,17 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS deleted_records (
+            id TEXT PRIMARY KEY,
+            table_name TEXT NOT NULL,
+            record_id TEXT NOT NULL,
+            deleted_at TEXT NOT NULL,
+            sync_status TEXT DEFAULT 'pending'
+        )",
+        [],
+    )?;
+
     // Add columns to existing tables if they don't have them
     {
         let mut stmt = conn.prepare("PRAGMA table_info(appointments)")?;

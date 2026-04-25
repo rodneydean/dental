@@ -17,6 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Sheet,
@@ -26,6 +27,16 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Search,
   Plus,
   MoreVertical,
@@ -33,6 +44,7 @@ import {
   Users,
   History as HistoryIcon,
   FileText,
+  Trash2,
 } from "lucide-react";
 import PatientForm from "@/components/PatientForm";
 import { dataManager, Patient } from "@/lib/dataManager";
@@ -47,6 +59,7 @@ const Patients = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [showAllPatients, setShowAllPatients] = useState(user?.role !== "RECEPTION");
 
@@ -117,6 +130,19 @@ const Patients = () => {
       toast.success("Patient updated successfully");
     } catch {
       toast.error("Failed to update patient");
+    }
+  };
+
+  const handleDeletePatient = async () => {
+    if (!patientToDelete) return;
+
+    try {
+      await dataManager.deletePatient(patientToDelete.id);
+      await loadData();
+      setPatientToDelete(null);
+      toast.success("Patient deleted successfully");
+    } catch {
+      toast.error("Failed to delete patient");
     }
   };
 
@@ -262,10 +288,24 @@ const Patients = () => {
                           Clinical History
                         </DropdownMenuItem>
                         {(user?.role === "DOCTOR" || user?.role === "ADMIN") && (
-                          <DropdownMenuItem onClick={() => setEditingPatient(patient)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit Details
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem onClick={() => setEditingPatient(patient)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Details
+                            </DropdownMenuItem>
+                            {user?.role === "ADMIN" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600 focus:text-red-600"
+                                  onClick={() => setPatientToDelete(patient)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Patient
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -348,6 +388,32 @@ const Patients = () => {
         </Card>
       )}
 
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!patientToDelete}
+        onOpenChange={(open) => !open && setPatientToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the record for{" "}
+              <span className="font-semibold">{patientToDelete?.name}</span>.
+              This action cannot be undone and will be synced across all connected devices.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePatient}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit Patient Sheet */}
       <Sheet

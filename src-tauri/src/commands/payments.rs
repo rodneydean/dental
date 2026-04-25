@@ -139,7 +139,18 @@ pub fn update_payment(
 
 #[command]
 pub fn delete_payment(app_handle: AppHandle, id: String) -> Result<(), String> {
-    let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM payments WHERE id = ?1", [&id]).map_err(|e| e.to_string())?;
+    let mut conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    tx.execute("DELETE FROM payments WHERE id = ?1", [&id]).map_err(|e| e.to_string())?;
+
+    let now = Utc::now().to_rfc3339();
+    let deletion_id = Uuid::new_v4().to_string();
+    tx.execute(
+        "INSERT INTO deleted_records (id, table_name, record_id, deleted_at, sync_status) VALUES (?1, 'payments', ?2, ?3, 'pending')",
+        [deletion_id, id, now],
+    ).map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
