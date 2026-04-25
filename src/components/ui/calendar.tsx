@@ -69,8 +69,7 @@ function Calendar({
           }
           return <ChevronRight className="h-4 w-4" />
         },
-        Dropdown: (props: DropdownProps) => {
-          const { value, onChange, options, ...selectProps } = props;
+        Dropdown: ({ value, onChange, options }: DropdownProps) => {
           const selected = options?.find((option) => option.value === value);
           const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
             onChange?.(e);
@@ -79,8 +78,7 @@ function Calendar({
           return (
             <div className="relative inline-flex items-center group mx-0.5">
               <select
-                {...selectProps}
-                className={cn("absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20", selectProps.className)}
+                className={cn("absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20")}
                 value={value}
                 onChange={handleChange}
               >
