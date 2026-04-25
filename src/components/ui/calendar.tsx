@@ -69,21 +69,18 @@ function Calendar({
           }
           return <ChevronRight className="h-4 w-4" />
         },
-        Dropdown: ({ value, onChange, options, ...props }: DropdownProps) => {
+        Dropdown: (props: DropdownProps) => {
+          const { value, onChange, options, ...selectProps } = props;
           const selected = options?.find((option) => option.value === value);
           const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
             onChange?.(e);
           };
 
-          // Destructure components and classNames out of props to avoid passing them to the select element
-          // and causing React warnings/errors
-          const { components, classNames, ...selectProps } = props as any;
-
           return (
             <div className="relative inline-flex items-center group mx-0.5">
               <select
                 {...selectProps}
-                className={cn("absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20", props.className)}
+                className={cn("absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20", selectProps.className)}
                 value={value}
                 onChange={handleChange}
               >
