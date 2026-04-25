@@ -13,7 +13,6 @@ import {
   CreditCard,
   LogOut,
   Activity,
-  UserCheck,
   Calendar,
   XCircle,
   FileText,
@@ -139,10 +138,15 @@ const Reception = () => {
   const handleAddPatient = async (patientData: Omit<Patient, "id" | "created_at" | "updated_at">) => {
     try {
       const newPatient = await dataManager.addPatient(patientData);
-      await loadData();
       setShowAddPatient(false);
-      handlePatientSelect(newPatient);
-      toast.success("Patient registered successfully");
+      // Automatically admit the new patient
+      const admitted = await handleQuickAdmit(newPatient, true);
+      if (admitted) {
+        toast.success("Patient registered and admitted successfully");
+      } else {
+        toast.warning("Patient registered but auto-admission failed");
+        await loadData();
+      }
     } catch {
       toast.error("Failed to register patient");
     }
@@ -160,7 +164,18 @@ const Reception = () => {
     }
   };
 
-  const handleQuickAdmit = async (patient: Patient) => {
+  const handleQuickAdmit = async (patient: Patient, silent = false) => {
+    // Check if patient is already in the active queue
+    const activeAppointment = appointments.find(a =>
+      a.patient_id === patient.id &&
+      (a.status === 'admitted' || a.status === 'in_consultation' || a.status === 'awaiting_checkout')
+    );
+
+    if (activeAppointment) {
+      if (!silent) toast.error(`${patient.name} is already in the queue or in consultation.`);
+      return false;
+    }
+
     try {
       const today = new Date().toISOString().split("T")[0];
       const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -170,9 +185,9 @@ const Reception = () => {
         patient_name: patient.name,
         date: today,
         time: now,
-        status: "scheduled",
-        appointment_type: "Consultation",
-        notes: "Walk-in patient",
+        status: "admitted",
+        appointment_type: "General Consultation",
+        notes: "Quick admission",
         duration: 30,
         reception_fee_paid: false,
         reception_fee_waived: false,
@@ -180,9 +195,13 @@ const Reception = () => {
 
       await loadData();
       setSelectedPatient(null);
-      toast.success(`${patient.name} added to today's arrivals`);
+      setSearchTerm("");
+      setSearchResults([]);
+      if (!silent) toast.success(`${patient.name} admitted to waiting room`);
+      return true;
     } catch {
-      toast.error("Failed to create quick admission");
+      if (!silent) toast.error("Failed to admit patient");
+      return false;
     }
   };
 
@@ -375,17 +394,26 @@ const Reception = () => {
                     {searchResults.length > 0 && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-100 shadow-xl rounded-sm z-50 overflow-hidden divide-y divide-gray-50">
                         {searchResults.map((p) => (
-                          <button
+                          <div
                             key={p.id}
-                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                            onClick={() => handlePatientSelect(p)}
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
                           >
-                            <div>
+                            <button
+                              className="flex-1 text-left"
+                              onClick={() => handlePatientSelect(p)}
+                            >
                               <p className="text-sm font-bold text-gray-900">{p.name}</p>
                               <p className="text-[10px] text-gray-500">{p.phone} • {p.email || 'No email'}</p>
-                            </div>
-                            <UserCheck className="h-4 w-4 text-[#0078d4] opacity-0 group-hover:opacity-100" />
-                          </button>
+                            </button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-[10px] font-bold border-[#0078d4] text-[#0078d4] hover:bg-blue-50 ml-2"
+                              onClick={() => handleQuickAdmit(p)}
+                            >
+                              Admit Now
+                            </Button>
+                          </div>
                         ))}
                       </div>
                     )}
