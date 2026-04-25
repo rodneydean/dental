@@ -66,6 +66,7 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     let app = Router::new()
+        .route("/ping", get(ping_handler))
         .route("/pair", post(pair_handler))
         .merge(auth_router)
         .with_state(state);
@@ -82,7 +83,7 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
 
     info!("Hub server successfully bound to 0.0.0.0:{}", port);
 
-    // Start mDNS in a separate task so it doesn't block or crash the server
+    // Start mDNS and UDP broadcast in separate tasks
     tauri::async_runtime::spawn(async move {
         info!("Initializing mDNS discovery...");
         match start_mdns_discovery(port).await {
@@ -94,6 +95,13 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
                 }
             },
             Err(e) => warn!("mDNS discovery failed to start: {}. Hub will still be accessible via manual IP.", e),
+        }
+    });
+
+    tauri::async_runtime::spawn(async move {
+        info!("Starting UDP presence broadcast...");
+        if let Err(e) = start_udp_broadcast(port).await {
+            error!("UDP broadcast error: {}", e);
         }
     });
 
@@ -189,6 +197,23 @@ async fn auth_middleware(
         next.run(req).await
     } else {
         axum::http::StatusCode::UNAUTHORIZED.into_response()
+    }
+}
+
+async fn ping_handler() -> impl IntoResponse {
+    axum::http::StatusCode::OK
+}
+
+async fn start_udp_broadcast(port: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let socket = tokio::net::UdpSocket::bind("0.0.0.0:0").await?;
+    socket.set_broadcast(true)?;
+
+    let broadcast_addr = "255.255.255.255:5005"; // Use 5005 to avoid macOS AirPlay conflict on 5000
+    let message = format!("DENTIST_HUB_ALIVE:{}", port);
+
+    loop {
+        let _ = socket.send_to(message.as_bytes(), broadcast_addr).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
 }
 
