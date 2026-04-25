@@ -62,6 +62,7 @@ function Calendar({
         ...classNames,
       }}
       components={{
+        CaptionLabel: () => <></>,
         Chevron: (props) => {
           if (props.orientation === 'left') {
             return <ChevronLeft className="h-4 w-4" />
@@ -73,16 +74,21 @@ function Calendar({
           const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
             onChange?.(e);
           };
+
+          // Destructure components and classNames out of props to avoid passing them to the select element
+          // and causing React warnings/errors
+          const { components, classNames, ...selectProps } = props as any;
+
           return (
             <div className="relative inline-flex items-center group mx-0.5">
               <select
-                {...props}
+                {...selectProps}
                 className={cn("absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20", props.className)}
                 value={value}
                 onChange={handleChange}
               >
                 {options?.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={option.value} value={option.value} disabled={option.disabled}>
                     {option.label}
                   </option>
                 ))}
@@ -92,7 +98,7 @@ function Calendar({
                 size="sm"
                 className="h-7 px-2 py-0 text-sm font-medium hover:bg-accent hover:text-accent-foreground flex items-center gap-1 focus:ring-2 focus:ring-primary whitespace-nowrap z-10"
               >
-                {selected?.label}
+                {selected?.label || (options?.find(opt => opt.value === value)?.label) || "Select"}
                 <ChevronRight className="h-3 w-3 rotate-90 opacity-50 group-hover:opacity-100 transition-opacity" />
               </Button>
             </div>
