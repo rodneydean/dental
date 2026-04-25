@@ -224,6 +224,10 @@ class DataManager {
     });
   }
 
+  public async deletePatient(id: string): Promise<void> {
+    await invoke("delete_patient", { id });
+  }
+
   public async getPatientNotes(patient_id: string): Promise<PatientNote[]> {
     return await invoke<PatientNote[]>("list_patient_notes", { patientId: patient_id });
   }

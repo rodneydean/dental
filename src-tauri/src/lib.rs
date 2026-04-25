@@ -31,6 +31,7 @@ pub fn run() {
       commands::patients::get_patient,
       commands::patients::create_patient,
       commands::patients::update_patient,
+      commands::patients::delete_patient,
       commands::patients::list_patient_notes,
       commands::patients::create_patient_note,
       commands::patients::update_patient_note,

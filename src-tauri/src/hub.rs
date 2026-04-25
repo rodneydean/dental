@@ -61,6 +61,7 @@ pub async fn start_hub_server(app_handle: AppHandle, code: String) -> Result<(),
         .route("/sync/services", get(get_services_handler).post(post_services_handler))
         .route("/sync/insurance_providers", get(get_insurance_providers_handler).post(post_insurance_providers_handler))
         .route("/sync/users", get(get_users_handler).post(post_users_handler))
+        .route("/sync/deletions", get(get_deletions_handler).post(post_deletions_handler))
         .route("/ws", get(ws_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
@@ -748,6 +749,90 @@ async fn post_insurance_providers_handler(
     }
     let _ = state.tx.send("insurance_providers_updated".to_string());
     axum::http::StatusCode::OK.into_response()
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct DeletedRecord {
+    pub id: String,
+    pub table_name: String,
+    pub record_id: String,
+    pub deleted_at: String,
+}
+
+async fn get_deletions_handler(State(state): State<HubState>) -> impl IntoResponse {
+    let conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let mut stmt = match conn.prepare("SELECT id, table_name, record_id, deleted_at FROM deleted_records") {
+        Ok(s) => s,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let del_iter = stmt.query_map([], |row| {
+        Ok(DeletedRecord {
+            id: row.get(0)?,
+            table_name: row.get(1)?,
+            record_id: row.get(2)?,
+            deleted_at: row.get(3)?,
+        })
+    });
+
+    match del_iter {
+        Ok(iter) => {
+            let deletions: Vec<DeletedRecord> = iter.filter_map(|r| r.ok()).collect();
+            Json(SyncResponse {
+                data: deletions,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            }).into_response()
+        },
+        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn post_deletions_handler(
+    State(state): State<HubState>,
+    Json(deletions): Json<Vec<DeletedRecord>>,
+) -> impl IntoResponse {
+    let mut conn = match get_db_conn(&state.app_handle) {
+        Ok(c) => c,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    let tx = match conn.transaction() {
+        Ok(t) => t,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+
+    for d in deletions {
+        // Record deletion
+        let _ = tx.execute(
+            "INSERT INTO deleted_records (id, table_name, record_id, deleted_at, sync_status)
+             VALUES (?1, ?2, ?3, ?4, 'synced')
+             ON CONFLICT(id) DO NOTHING",
+            rusqlite::params![d.id, d.table_name, d.record_id, d.deleted_at],
+        );
+
+        // Perform actual deletion on Hub if not already deleted
+        let allowed_tables = vec!["patients", "appointments", "treatments", "payments", "patient_notes", "sick_sheets", "services", "insurance_providers", "users"];
+        if allowed_tables.contains(&d.table_name.as_str()) {
+            let query = format!("DELETE FROM {} WHERE id = ?1", d.table_name);
+            let _ = tx.execute(&query, [&d.record_id]);
+
+            if d.table_name == "treatments" {
+                let _ = tx.execute("DELETE FROM medications WHERE treatment_id = ?1", [&d.record_id]);
+            }
+        }
+    }
+
+    match tx.commit() {
+        Ok(_) => {
+            let _ = state.tx.send("deletions_synced".to_string());
+            axum::http::StatusCode::OK.into_response()
+        },
+        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
 }
 
 #[derive(Serialize, Deserialize)]
