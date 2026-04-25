@@ -216,6 +216,63 @@ const UsageGuide = () => {
         <TabsContent value="doctor" className="mt-8 space-y-8">
           <section className="space-y-4">
             <h2 className="text-lg font-bold text-gray-900 flex items-center">
+              <Zap className="h-5 w-5 mr-2 text-primary" />
+              Clinical Command Center (Doctor Dashboard)
+            </h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              The new <strong>Doctor Dashboard</strong> is a high-efficiency workbench designed for rapid patient serving and real-time clinical management.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-4">
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-gray-800">Keyboard Shortcuts</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 bg-gray-50 border border-gray-100 rounded-sm">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Call Next Patient</p>
+                    <p className="text-xs font-bold text-primary mt-0.5">Alt + N</p>
+                  </div>
+                  <div className="p-2 bg-gray-50 border border-gray-100 rounded-sm">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Search Patients</p>
+                    <p className="text-xs font-bold text-primary mt-0.5">Alt + S</p>
+                  </div>
+                  <div className="p-2 bg-gray-50 border border-gray-100 rounded-sm">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Today's Schedule</p>
+                    <p className="text-xs font-bold text-primary mt-0.5">Alt + T</p>
+                  </div>
+                  <div className="p-2 bg-gray-50 border border-gray-100 rounded-sm">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Go Home / Dashboard</p>
+                    <p className="text-xs font-bold text-primary mt-0.5">Alt + H</p>
+                  </div>
+                </div>
+
+                <p className="text-sm font-bold text-gray-800 mt-6">Smart Queue Logic</p>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  When you click <strong>"Call Next"</strong>, the system automatically prioritizes:
+                  <br />1. Patients specifically assigned to you by Reception.
+                  <br />2. General walk-in patients (if no assigned patients remain).
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-gray-800">Clinical Analytics</p>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Monitor your daily efficiency with real-time metrics:
+                </p>
+                <ul className="text-[11px] text-gray-500 space-y-1 list-disc pl-4">
+                  <li><strong>Served Today:</strong> Count of patients you have treated.</li>
+                  <li><strong>Avg Consultation:</strong> Your average time per patient today.</li>
+                  <li><strong>Volume Trend:</strong> A 7-day chart of clinical activity.</li>
+                </ul>
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-sm mt-2">
+                   <p className="text-[10px] font-bold text-[#0078d4] uppercase tracking-widest mb-1">Enterprise Workbench</p>
+                   <p className="text-[11px] text-[#0078d4]/80 italic">The dashboard is designed to remain open as your primary tool throughout the day.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center">
               <Stethoscope className="h-5 w-5 mr-2 text-primary" />
               Clinical Workflow
             </h2>
@@ -224,7 +281,7 @@ const UsageGuide = () => {
               <div className="space-y-4">
                 <p className="text-sm font-bold text-gray-800">Starting a Consultation</p>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  Go to the <strong>Waiting Room</strong>. Admitted patients appear here in order of arrival. Click <strong>"Start Consultation"</strong> to move them to your private list.
+                   Patients appear in your dashboard queue as soon as they are admitted by Reception. Click <strong>"Call Next"</strong> or the <strong>"Call"</strong> icon next to a specific patient to begin. This will automatically open the <strong>Patient Sheet</strong>.
                 </p>
 
                 <p className="text-sm font-bold text-gray-800">Recording Treatment</p>
