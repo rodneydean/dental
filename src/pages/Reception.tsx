@@ -13,7 +13,6 @@ import {
   CreditCard,
   LogOut,
   Activity,
-  UserCheck,
   Calendar,
   XCircle,
   FileText,
