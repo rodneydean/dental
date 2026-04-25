@@ -81,6 +81,20 @@ const PatientSheet = () => {
 
   const [showAddAppointment, setShowAddAppointment] = useState(false);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
+
+  const activeConsultation = appointments.find(a => a.status === 'in_consultation' && a.doctor_id === user?.id);
+
+  const handleMoveToCheckout = async () => {
+    if (!activeConsultation) return;
+    try {
+      await dataManager.updateAppointment(activeConsultation.id, { status: "awaiting_checkout" });
+      await dataManager.updateDoctorStatus(user?.id || "", null);
+      toast.success("Patient moved to checkout");
+      if (id) loadData(id);
+    } catch {
+      toast.error("Failed to update status");
+    }
+  };
   const [showAddSickSheet, setShowAddSickSheet] = useState(false);
   const [editingNote, setEditingNote] = useState<PatientNote | null>(null);
 
@@ -290,6 +304,17 @@ const PatientSheet = () => {
                 />
               </DialogContent>
             </Dialog>
+          )}
+
+          {activeConsultation && (
+             <Button
+                size="sm"
+                variant="outline"
+                className="border-green-600 text-green-600 hover:bg-green-50 rounded-sm"
+                onClick={handleMoveToCheckout}
+             >
+                Move to Checkout
+             </Button>
           )}
 
           {(user?.role === "DOCTOR" || user?.role === "ADMIN") && (
