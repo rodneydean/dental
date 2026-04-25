@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { dataManager } from "@/lib/dataManager";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -54,18 +55,28 @@ const Navigation = () => {
   const [fullName, setFullName] = useState(user?.full_name || "");
 
   useEffect(() => {
-    const checkStatus = async () => {
+    let unlisten: () => void;
+
+    const setupStatusListener = async () => {
       try {
+        // Initial check
         const status = await invoke<string>("get_connection_status");
         setConnStatus(status);
-      } catch {
+
+        // Listen for real-time updates
+        unlisten = await listen<string>("connection-status-changed", (event) => {
+          setConnStatus(event.payload);
+        });
+      } catch (error) {
+        console.error("Failed to setup connection status listener", error);
         setConnStatus("Offline");
       }
     };
 
-    checkStatus();
-    const interval = setInterval(checkStatus, 10000);
-    return () => clearInterval(interval);
+    setupStatusListener();
+    return () => {
+      if (unlisten) unlisten();
+    };
   }, []);
 
   useEffect(() => {
@@ -196,8 +207,10 @@ const Navigation = () => {
           <div className="flex items-center space-x-2">
             {/* Connection Status */}
             <div className="hidden lg:flex items-center px-2 py-0.5 bg-white/10 rounded-sm">
-              {connStatus === "Connected" ? (
+              {connStatus === "Connected" || connStatus === "Server Online" ? (
                 <Cloud className="h-3 w-3 text-green-300 mr-2" />
+              ) : connStatus.includes("Syncing") ? (
+                <Activity className="h-3 w-3 text-blue-300 mr-2 animate-pulse" />
               ) : (
                 <CloudOff className="h-3 w-3 text-red-300 mr-2" />
               )}
