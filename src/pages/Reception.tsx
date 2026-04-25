@@ -133,8 +133,6 @@ const Reception = () => {
 
     if (todayApt) {
       toast.info(`Found scheduled appointment for ${patient.name} today.`);
-    } else {
-      setShowAddAppointment(true);
     }
   };
 
@@ -155,9 +153,36 @@ const Reception = () => {
       await dataManager.addAppointment(apptData);
       await loadData();
       setShowAddAppointment(false);
+      setSelectedPatient(null);
       toast.success("Appointment created");
     } catch {
       toast.error("Failed to create appointment");
+    }
+  };
+
+  const handleQuickAdmit = async (patient: Patient) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+      await dataManager.addAppointment({
+        patient_id: patient.id,
+        patient_name: patient.name,
+        date: today,
+        time: now,
+        status: "scheduled",
+        appointment_type: "Consultation",
+        notes: "Walk-in patient",
+        duration: 30,
+        reception_fee_paid: false,
+        reception_fee_waived: false,
+      });
+
+      await loadData();
+      setSelectedPatient(null);
+      toast.success(`${patient.name} added to today's arrivals`);
+    } catch {
+      toast.error("Failed to create quick admission");
     }
   };
 
@@ -394,7 +419,15 @@ const Reception = () => {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button variant="outline" size="sm" className="h-8 text-xs border-gray-200" onClick={() => setSelectedPatient(null)}>Cancel</Button>
-                      <Button size="sm" className="h-8 text-xs bg-[#0078d4] text-white" onClick={() => setShowAddAppointment(true)}>Create Appointment</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs border-[#0078d4] text-[#0078d4] hover:bg-blue-50"
+                        onClick={() => handleQuickAdmit(selectedPatient)}
+                      >
+                        Quick Admit
+                      </Button>
+                      <Button size="sm" className="h-8 text-xs bg-[#0078d4] text-white" onClick={() => setShowAddAppointment(true)}>Schedule Visit</Button>
                     </div>
                   </div>
                 )}

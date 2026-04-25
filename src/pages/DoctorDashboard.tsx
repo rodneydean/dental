@@ -103,6 +103,17 @@ const DoctorDashboard = () => {
     }
   }, [user?.id, user?.full_name, navigate]);
 
+  const handleMoveToCheckout = useCallback(async (appt: Appointment) => {
+    try {
+      await dataManager.updateAppointment(appt.id, { status: "awaiting_checkout" });
+      await dataManager.updateDoctorStatus(user?.id || "", null);
+      toast.success("Patient moved to checkout");
+      loadData();
+    } catch {
+      toast.error("Failed to move patient to checkout");
+    }
+  }, [user?.id, loadData]);
+
   const handleCallNext = useCallback(() => {
     if (currentAppointment) {
       toast.warning("You already have a patient in consultation. Please finish or checkout first.");
@@ -240,12 +251,21 @@ const DoctorDashboard = () => {
                       </div>
                     </div>
                   </div>
-                  <Button
-                    className="bg-white text-[#0078d4] hover:bg-white/90 font-bold rounded-sm"
-                    onClick={() => navigate(`/patients/${currentAppointment.patient_id}`)}
-                  >
-                    Open Patient Sheet
-                  </Button>
+                  <div className="flex items-center space-x-3">
+                    <Button
+                      variant="outline"
+                      className="bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold rounded-sm"
+                      onClick={() => handleMoveToCheckout(currentAppointment)}
+                    >
+                      Move to Checkout
+                    </Button>
+                    <Button
+                      className="bg-white text-[#0078d4] hover:bg-white/90 font-bold rounded-sm"
+                      onClick={() => navigate(`/patients/${currentAppointment.patient_id}`)}
+                    >
+                      Open Patient Sheet
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
