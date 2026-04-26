@@ -330,6 +330,7 @@ const PatientSheet = () => {
                   <DialogTitle>Record New Treatment</DialogTitle>
                 </DialogHeader>
                 <TreatmentForm
+                  patient={patient}
                   onSave={handleAddTreatment}
                   onCancel={() => setShowAddTreatment(false)}
                 />
