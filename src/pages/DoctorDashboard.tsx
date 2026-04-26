@@ -16,7 +16,6 @@ import {
   Search,
   Activity,
   ArrowRight,
-  UserCheck,
   ChevronRight,
   FileText,
   History,
@@ -73,7 +72,7 @@ const DoctorDashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
