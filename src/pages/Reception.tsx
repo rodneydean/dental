@@ -40,7 +40,7 @@ import PatientForm from "@/components/PatientForm";
 import AppointmentForm from "@/components/AppointmentForm";
 import { pdfGenerator } from "@/lib/pdfGenerator";
 import { listen } from "@tauri-apps/api/event";
-import { cn } from "@/lib/utils";
+import { cn, getLocalDate } from "@/lib/utils";
 
 const Reception = () => {
   const { user, logout } = useAuth();
@@ -294,10 +294,11 @@ const Reception = () => {
     }
   };
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDate();
   const todayAppointments = appointments.filter(a => a.date === today);
   const scheduledToday = todayAppointments.filter(a => a.status === 'scheduled');
   const inQueue = todayAppointments.filter(a => a.status === 'admitted' || a.status === 'in_consultation' || a.status === 'awaiting_checkout');
+  const recentlyCompleted = todayAppointments.filter(a => a.status === 'completed' || a.status === 'cancelled');
 
   const stats = [
     { label: "Today's Arrivals", value: todayAppointments.length, icon: Calendar, color: "text-blue-600", bg: "bg-blue-50" },
@@ -581,13 +582,23 @@ const Reception = () => {
                               <p className="text-[10px] text-green-700 font-semibold uppercase">{appt.doctor_name || 'Assigned Doctor'}</p>
                             </div>
                             <div className="flex flex-col gap-1">
-                              <Button
-                                size="sm"
-                                className="h-6 text-[9px] font-bold bg-[#0078d4] text-white rounded-sm"
-                                onClick={() => handleMoveToCheckout(appt)}
-                              >
-                                Move to Checkout
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  className="h-6 text-[9px] font-bold bg-[#0078d4] text-white rounded-sm flex-1"
+                                  onClick={() => handleMoveToCheckout(appt)}
+                                >
+                                  Checkout
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[9px] font-bold border-gray-200"
+                                  onClick={() => handleOpenDocuments(appt)}
+                                >
+                                  <FileText className="h-3 w-3" />
+                                </Button>
+                              </div>
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -644,6 +655,39 @@ const Reception = () => {
                                 </Button>
                               </div>
                             </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Recently Completed Section */}
+                  <div className="pt-2 border-t border-gray-50 mt-2">
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center">
+                      <Activity className="h-3 w-3 mr-2 text-gray-400" />
+                      Recently Completed ({recentlyCompleted.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {recentlyCompleted.slice(0, 5).map(appt => (
+                        <div key={appt.id} className="p-3 bg-gray-50/50 border border-gray-100 rounded-sm">
+                          <div className="flex justify-between items-center">
+                            <div className="flex-1">
+                              <p className="text-sm font-bold text-gray-900">{appt.patient_name}</p>
+                              <Badge className={cn(
+                                "text-[8px] h-4 px-1 rounded-sm border-none uppercase font-black",
+                                appt.status === 'completed' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                              )}>
+                                {appt.status}
+                              </Badge>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[10px] font-bold border-gray-200"
+                              onClick={() => handleOpenDocuments(appt)}
+                            >
+                              <FileText className="h-3 w-3 mr-1" /> Docs
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -760,30 +804,68 @@ const Reception = () => {
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Today's Prescriptions</h4>
-              <div className="space-y-2">
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Prescription Cards</h4>
+              <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
                 {treatments
-                  .filter(t => t.patient_id === selectedAppointment?.patient_id && t.date === today && t.medications.length > 0)
+                  .filter(t => t.patient_id === selectedAppointment?.patient_id && t.medications && t.medications.length > 0)
+                  .sort((a, b) => b.date.localeCompare(a.date))
                   .map(t => (
                     <div key={t.id} className="flex items-center justify-between p-2 bg-blue-50 rounded-sm border border-blue-100">
-                      <div>
-                        <p className="text-sm font-bold text-blue-900">{t.diagnosis}</p>
-                        <p className="text-[10px] text-blue-700">{t.medications.length} Medications</p>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                           <p className="text-sm font-bold text-blue-900">{t.diagnosis || "Dental Treatment"}</p>
+                           <span className="text-[9px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-sm">{t.date}</span>
+                        </div>
+                        <p className="text-[10px] text-blue-700">{t.medications.length} Medications: {t.medications.map(m => m.name).join(", ")}</p>
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => pdfGenerator.generatePrescription(t, t.medications)}>
                         <Download className="h-4 w-4 text-blue-600" />
                       </Button>
                     </div>
                   ))}
-                {treatments.filter(t => t.patient_id === selectedAppointment?.patient_id && t.date === today && t.medications.length > 0).length === 0 && (
-                  <p className="text-xs text-gray-400 italic">No prescriptions recorded today.</p>
+                {treatments.filter(t => t.patient_id === selectedAppointment?.patient_id && t.medications && t.medications.length > 0).length === 0 && (
+                  <div className="py-6 text-center bg-gray-50 border border-dashed border-gray-200 rounded-sm">
+                    <p className="text-xs text-gray-400 italic">No prescriptions found.</p>
+                  </div>
                 )}
               </div>
             </div>
 
             <div>
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Pending Invoices</h4>
+              <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 mb-4">
+                {(() => {
+                  const pending = payments.filter(
+                    p => p.patient_id === selectedAppointment?.patient_id && p.status === 'pending'
+                  );
+
+                  if (pending.length > 0) {
+                    const grouped = pending.reduce((acc, p) => {
+                      const key = p.treatment_id || `pending-${p.date}`;
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(p);
+                      return acc;
+                    }, {} as Record<string, Payment[]>);
+
+                    return Object.values(grouped).map((group, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 bg-amber-50 rounded-sm border border-amber-100">
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-amber-900">Unpaid Services ({group[0].date})</p>
+                          <p className="text-[10px] text-amber-700 font-medium line-clamp-1">{group.map(p => p.notes).join(", ")}</p>
+                          <p className="text-[10px] font-bold text-amber-800 mt-0.5">Total: KSH {group.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}</p>
+                        </div>
+                        <Button size="sm" variant="ghost" className="text-amber-600" onClick={() => pdfGenerator.generateInvoice(group)}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ));
+                  }
+                  return <p className="text-xs text-gray-400 italic py-2">No pending charges.</p>;
+                })()}
+              </div>
+
               <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Payment Receipts</h4>
-              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                 {(() => {
                   const patientPayments = payments.filter(
                     p => p.patient_id === selectedAppointment?.patient_id && p.status === 'paid'
@@ -803,7 +885,7 @@ const Reception = () => {
                     );
 
                     return sortedGroups.map((group, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2.5 bg-green-50 rounded-sm border border-green-100 mb-2 hover:bg-green-100/50 transition-colors">
+                      <div key={idx} className="flex items-center justify-between p-2.5 bg-green-50 rounded-sm border border-green-100 hover:bg-green-100/50 transition-colors">
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
                             <p className="text-sm font-bold text-green-900">
@@ -838,6 +920,25 @@ const Reception = () => {
                     </div>
                   );
                 })()}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Clinical Records</h4>
+              <div className="space-y-2">
+                {treatments
+                  .filter(t => t.patient_id === selectedAppointment?.patient_id && t.date === today)
+                  .map(t => (
+                    <div key={t.id} className="flex items-center justify-between p-2 bg-indigo-50 rounded-sm border border-indigo-100">
+                      <div>
+                        <p className="text-sm font-bold text-indigo-900">Treatment Record</p>
+                        <p className="text-[10px] text-indigo-700">{t.treatment}</p>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => pdfGenerator.generateTreatmentRecord(t)}>
+                        <Download className="h-4 w-4 text-indigo-600" />
+                      </Button>
+                    </div>
+                  ))}
               </div>
             </div>
           </div>
