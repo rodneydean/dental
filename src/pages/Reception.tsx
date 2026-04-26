@@ -165,14 +165,24 @@ const Reception = () => {
   };
 
   const handleQuickAdmit = async (patient: Patient, silent = false) => {
-    // Check if patient is already in the active queue
+    // Check if patient is already in the active queue TODAY
+    const today = new Date().toISOString().split("T")[0];
     const activeAppointment = appointments.find(a =>
       a.patient_id === patient.id &&
+      a.date === today &&
       (a.status === 'admitted' || a.status === 'in_consultation' || a.status === 'awaiting_checkout')
     );
 
     if (activeAppointment) {
-      if (!silent) toast.error(`${patient.name} is already in the queue or in consultation.`);
+      if (!silent) {
+        const statusMap = {
+          'admitted': 'already in the waiting room',
+          'in_consultation': 'already in consultation',
+          'awaiting_checkout': 'awaiting checkout'
+        };
+        const statusText = statusMap[activeAppointment.status as keyof typeof statusMap] || 'already in the queue';
+        toast.error(`${patient.name} is ${statusText}.`);
+      }
       return false;
     }
 
@@ -773,35 +783,60 @@ const Reception = () => {
 
             <div>
               <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Payment Receipts</h4>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
                 {(() => {
                   const patientPayments = payments.filter(
                     p => p.patient_id === selectedAppointment?.patient_id && p.status === 'paid'
                   );
 
-                  // Group by date
-                  const groupedPayments = patientPayments.reduce((acc, p) => {
-                    if (!acc[p.date]) acc[p.date] = [];
-                    acc[p.date].push(p);
-                    return acc;
-                  }, {} as Record<string, Payment[]>);
+                  if (patientPayments.length > 0) {
+                    // Group by date AND treatment_id (or lack thereof for reception fees)
+                    const groupedPayments = patientPayments.reduce((acc, p) => {
+                      const key = p.treatment_id || `reception-${p.date}`;
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(p);
+                      return acc;
+                    }, {} as Record<string, Payment[]>);
 
-                  const sortedDates = Object.keys(groupedPayments).sort((a, b) => b.localeCompare(a));
+                    const sortedGroups = Object.values(groupedPayments).sort((a, b) =>
+                      b[0].date.localeCompare(a[0].date)
+                    );
 
-                  if (sortedDates.length > 0) {
-                    return sortedDates.map(date => (
-                      <div key={date} className="flex items-center justify-between p-2 bg-green-50 rounded-sm border border-green-100 mb-2">
-                        <div>
-                          <p className="text-sm font-bold text-green-900">Receipt: {date}</p>
-                          <p className="text-[10px] text-green-700">{groupedPayments[date].length} Items Settled</p>
+                    return sortedGroups.map((group, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 bg-green-50 rounded-sm border border-green-100 mb-2 hover:bg-green-100/50 transition-colors">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-bold text-green-900">
+                              {group[0].treatment_id ? "Treatment Receipt" : "Reception Fee Receipt"}
+                            </p>
+                            <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-sm">
+                              {group[0].date}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-green-700 font-medium line-clamp-1">
+                            {group.map(p => p.notes).join(", ")}
+                          </p>
+                          <p className="text-[10px] font-bold text-green-800 mt-1">
+                            Total: KSH {group.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                          </p>
                         </div>
-                        <Button size="sm" variant="ghost" onClick={() => pdfGenerator.generateReceipt(groupedPayments[date])}>
-                          <Download className="h-4 w-4 text-green-600" />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-9 w-9 text-green-600 hover:text-green-700 hover:bg-green-200/50 ml-2"
+                          onClick={() => pdfGenerator.generateReceipt(group)}
+                        >
+                          <Download className="h-5 w-5" />
                         </Button>
                       </div>
                     ));
                   }
-                  return <p className="text-xs text-gray-400 italic">No payment receipts found.</p>;
+                  return (
+                    <div className="py-8 text-center bg-gray-50 border border-dashed border-gray-200 rounded-sm">
+                       <CreditCard className="h-8 w-8 text-gray-300 mx-auto mb-2 opacity-50" />
+                       <p className="text-xs text-gray-400 italic">No payment receipts found.</p>
+                    </div>
+                  );
                 })()}
               </div>
             </div>

@@ -29,6 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface TreatmentFormProps {
   treatment?: Treatment;
+  patient?: Patient;
   onSave: (treatment: Omit<Treatment, "id" | "created_at" | "updated_at">) => Promise<Treatment | void>;
   onCancel: () => void;
 }
@@ -52,22 +53,24 @@ const frequencies = [
   "After meals",
 ];
 
-const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
+const TreatmentForm = ({ treatment, patient, onSave, onCancel }: TreatmentFormProps) => {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "insurance">("cash");
-  const [selectedProviderId, setSelectedProviderId] = useState<string>("");
+  const [selectedProviderId, setSelectedProviderId] = useState<string>(
+    patient?.preferred_insurance_provider_id || ""
+  );
   const [feeItems, setFeeItems] = useState<FeeItem[]>(
     treatment?.cost && treatment.cost > 0
       ? [{ id: crypto.randomUUID(), description: "Initial Fee", amount: treatment.cost }]
       : []
   );
   const [formData, setFormData] = useState<Omit<Treatment, "id" | "created_at" | "updated_at">>({
-    patient_id: treatment?.patient_id || "",
-    patient_name: treatment?.patient_name || "",
+    patient_id: treatment?.patient_id || patient?.id || "",
+    patient_name: treatment?.patient_name || patient?.name || "",
     appointment_id: treatment?.appointment_id || "",
     date: treatment?.date || new Date().toISOString().split("T")[0],
     diagnosis: treatment?.diagnosis || "",
@@ -77,6 +80,24 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
     follow_up_date: treatment?.follow_up_date || "",
     cost: treatment?.cost || 0,
   });
+
+  useEffect(() => {
+    if (patient || treatment) {
+      setFormData(prev => ({
+        ...prev,
+        patient_id: treatment?.patient_id || patient?.id || prev.patient_id,
+        patient_name: treatment?.patient_name || patient?.name || prev.patient_name,
+        appointment_id: treatment?.appointment_id || prev.appointment_id,
+        date: treatment?.date || prev.date,
+        diagnosis: treatment?.diagnosis || prev.diagnosis,
+        treatment: treatment?.treatment || prev.treatment,
+        medications: treatment?.medications || prev.medications,
+        notes: treatment?.notes || prev.notes,
+        follow_up_date: treatment?.follow_up_date || prev.follow_up_date,
+        cost: treatment?.cost || prev.cost,
+      }));
+    }
+  }, [patient, treatment]);
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -90,9 +111,15 @@ const TreatmentForm = ({ treatment, onSave, onCancel }: TreatmentFormProps) => {
         setAppointments(apts);
         setServices(svcs);
         setInsuranceProviders(providers);
+
+        if (patient) {
+          if (patient.preferred_payment_method) {
+            setPaymentMethod(patient.preferred_payment_method);
+          }
+        }
     };
     loadOptions();
-  }, []);
+  }, [patient]);
 
   const handleSubmit = async (e: React.FormEvent, completeConsultation: boolean = false) => {
     if (e) e.preventDefault();

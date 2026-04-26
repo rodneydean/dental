@@ -84,6 +84,24 @@ const AppointmentForm = ({
   });
 
   useEffect(() => {
+    if (patient || appointment) {
+      setFormData(prev => ({
+        ...prev,
+        patient_id: appointment?.patient_id || patient?.id || prev.patient_id,
+        patient_name: appointment?.patient_name || patient?.name || prev.patient_name,
+        doctor_id: appointment?.doctor_id || prev.doctor_id,
+        doctor_name: appointment?.doctor_name || prev.doctor_name,
+        date: appointment?.date || prev.date,
+        time: appointment?.time || prev.time,
+        status: appointment?.status || prev.status,
+        appointment_type: appointment?.appointment_type || prev.appointment_type,
+        notes: appointment?.notes || prev.notes,
+        duration: appointment?.duration || prev.duration,
+      }));
+    }
+  }, [patient, appointment]);
+
+  useEffect(() => {
     const loadData = async () => {
         const [pts, users, svcs] = await Promise.all([
           dataManager.getPatients(),
