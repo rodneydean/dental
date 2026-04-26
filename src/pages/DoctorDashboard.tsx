@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Stethoscope,
   Users,
@@ -13,16 +16,19 @@ import {
   Search,
   Activity,
   ArrowRight,
-  TrendingUp,
   UserCheck,
-  Timer,
   ChevronRight,
+  FileText,
+  History,
+  ClipboardList,
+  AlertCircle,
 } from "lucide-react";
-import { dataManager, Appointment, Patient, Treatment } from "@/lib/dataManager";
+import { dataManager, Appointment, Patient, Treatment, PatientNote } from "@/lib/dataManager";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { listen } from "@tauri-apps/api/event";
-import { format, parseISO, subDays } from "date-fns";
+import { format, parseISO } from "date-fns";
+import TreatmentForm from "@/components/TreatmentForm";
 
 const DoctorDashboard = () => {
   const { user } = useAuth();
@@ -30,8 +36,17 @@ const DoctorDashboard = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [activePatientNotes, setActivePatientNotes] = useState<PatientNote[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [newNote, setNewNote] = useState("");
+
+  const currentAppointment = useMemo(() => {
+    return appointments.find(a =>
+      a.status === 'in_consultation' && a.doctor_id === user?.id
+    );
+  }, [appointments, user?.id]);
 
   const loadData = useCallback(async () => {
     try {
@@ -43,6 +58,15 @@ const DoctorDashboard = () => {
       setAppointments(apts);
       setTreatments(trts);
       setPatients(pts);
+
+      // If there's an active patient, load their specific notes
+      const activeAppt = apts.find(a => a.status === 'in_consultation' && a.doctor_id === user?.id);
+      if (activeAppt) {
+        const notes = await dataManager.getPatientNotes(activeAppt.patient_id);
+        setActivePatientNotes(notes);
+      } else {
+        setActivePatientNotes([]);
+      }
     } catch (error) {
       console.error("Failed to load doctor dashboard data", error);
       toast.error("Failed to refresh dashboard");
@@ -52,23 +76,6 @@ const DoctorDashboard = () => {
   }, []);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
-
-  const stats = useMemo(() => {
-    const todayTreatments = treatments.filter(t => t.date === today && t.doctor_id === user?.id);
-    const waitingPatients = appointments.filter(a => a.status === 'admitted').length;
-
-    // Simple average consultation time calculation (mock logic based on duration if not available)
-    const avgTime = todayTreatments.length > 0
-      ? Math.round(todayTreatments.reduce((acc) => acc + 30, 0) / todayTreatments.length)
-      : 0;
-
-    return {
-      served: todayTreatments.length,
-      waiting: waitingPatients,
-      avgTime: avgTime || 25,
-      efficiency: 92
-    };
-  }, [treatments, appointments, today, user?.id]);
 
   const myQueue = useMemo(() => {
     return appointments.filter(a =>
@@ -81,12 +88,6 @@ const DoctorDashboard = () => {
       a.status === 'admitted' && (!a.doctor_id || a.doctor_id === "")
     ).sort((a, b) => a.time.localeCompare(b.time));
   }, [appointments]);
-
-  const currentAppointment = useMemo(() => {
-    return appointments.find(a =>
-      a.status === 'in_consultation' && a.doctor_id === user?.id
-    );
-  }, [appointments, user?.id]);
 
   const handleCallPatient = useCallback(async (appt: Appointment) => {
     try {
@@ -126,6 +127,38 @@ const DoctorDashboard = () => {
       toast.info("No patients waiting in queue");
     }
   }, [currentAppointment, myQueue, generalPool, handleCallPatient]);
+
+  const handleQuickNote = async () => {
+    if (!currentAppointment || !newNote.trim()) return;
+    setIsSubmittingNote(true);
+    try {
+      await dataManager.addPatientNote({
+        patient_id: currentAppointment.patient_id,
+        doctor_id: user?.id || "unknown",
+        doctor_name: user?.full_name || "Doctor",
+        note_type: "General",
+        note: newNote,
+      });
+      setNewNote("");
+      const updatedNotes = await dataManager.getPatientNotes(currentAppointment.patient_id);
+      setActivePatientNotes(updatedNotes);
+      toast.success("Clinical note added");
+    } catch {
+      toast.error("Failed to add note");
+    } finally {
+      setIsSubmittingNote(false);
+    }
+  };
+
+  const handleAddTreatment = async (treatmentData: Omit<Treatment, "id" | "created_at" | "updated_at">) => {
+    try {
+      const saved = await dataManager.addTreatment(treatmentData);
+      loadData();
+      return saved;
+    } catch {
+      toast.error("Failed to record treatment");
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -174,18 +207,28 @@ const DoctorDashboard = () => {
     return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
-  const weeklyTrend = useMemo(() => {
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const d = subDays(new Date(), 6 - i);
-      const dateStr = d.toISOString().split("T")[0];
-      const count = treatments.filter(t => t.date === dateStr).length;
-      return { date: format(d, "EEE"), count };
-    });
-    return days;
-  }, [treatments]);
+  const currentPatient = useMemo(() => {
+    if (!currentAppointment) return null;
+    return patients.find(p => p.id === currentAppointment.patient_id);
+  }, [currentAppointment, patients]);
+
+  const activePatientTreatments = useMemo(() => {
+    if (!currentAppointment) return [];
+    return treatments
+      .filter(t => t.patient_id === currentAppointment.patient_id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  }, [currentAppointment, treatments]);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading Clinical Command Center...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+        <div className="text-center">
+          <Clock className="h-8 w-8 animate-spin text-[#0078d4] mx-auto mb-4" />
+          <p className="text-gray-500 font-medium">Loading Clinical Workbench...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -197,28 +240,14 @@ const DoctorDashboard = () => {
             <Stethoscope className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900 leading-none">Clinical Command Center</h1>
+            <h1 className="text-lg font-bold text-gray-900 leading-none">Clinical Workbench</h1>
             <p className="text-xs text-gray-500 font-medium mt-1">Dr. {user?.full_name} | {format(new Date(), "PPPP")}</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-8">
-            <div className="text-center">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Served Today</p>
-              <p className="text-xl font-bold text-gray-900">{stats.served}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">In Queue</p>
-              <p className="text-xl font-bold text-[#0078d4]">{stats.waiting}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Avg Consultation</p>
-              <p className="text-xl font-bold text-gray-900">{stats.avgTime}m</p>
-            </div>
-          </div>
+        <div className="flex items-center space-x-4">
           <Button
-            className="bg-[#0078d4] hover:bg-[#005a9e] text-white font-bold rounded-sm h-10 px-6 shadow-sm"
+            className="bg-[#0078d4] hover:bg-[#005a9e] text-white font-bold rounded-sm h-9 px-4 shadow-sm text-sm"
             onClick={handleCallNext}
           >
             <ArrowRight className="h-4 w-4 mr-2" />
@@ -228,159 +257,246 @@ const DoctorDashboard = () => {
       </div>
 
       <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
-        {/* Main Workbench Area */}
+        {/* Left Column: Active Patient Workbench */}
         <div className="lg:col-span-8 space-y-6 overflow-y-auto pr-2 custom-scrollbar">
 
-          {/* Active Patient Hero */}
           {currentAppointment ? (
-            <Card className="border-none shadow-sm bg-linear-to-r from-[#0078d4] to-[#005a9e] text-white overflow-hidden rounded-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-6">
-                    <Avatar className="h-16 w-16 rounded-sm border-2 border-white/20 shadow-lg">
-                      <AvatarFallback className="bg-white/10 text-white font-bold text-xl">
-                        {getInitials(currentAppointment.patient_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="space-y-1">
-                      <Badge className="bg-white/20 text-white border-none text-[10px] font-bold uppercase mb-1">Current Consultation</Badge>
-                      <h2 className="text-2xl font-bold leading-tight">{currentAppointment.patient_name}</h2>
-                      <div className="flex items-center space-x-4 text-xs font-medium opacity-90">
-                        <span className="flex items-center"><Clock className="h-3.5 w-3.5 mr-1.5" /> Started at {format(parseISO(currentAppointment.updated_at), "p")}</span>
-                        <span className="flex items-center"><Activity className="h-3.5 w-3.5 mr-1.5" /> {currentAppointment.appointment_type}</span>
+            <div className="space-y-6">
+              {/* Patient Hero Widget */}
+              <Card className="border-none shadow-sm bg-white overflow-hidden rounded-sm">
+                <CardContent className="p-0">
+                  <div className="h-2 bg-[#0078d4]" />
+                  <div className="p-6 flex items-center justify-between">
+                    <div className="flex items-center space-x-6">
+                      <Avatar className="h-16 w-16 rounded-sm border border-gray-100 shadow-sm">
+                        <AvatarFallback className="bg-blue-50 text-[#0078d4] font-bold text-xl">
+                          {getInitials(currentAppointment.patient_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center space-x-3 mb-1">
+                          <h2 className="text-2xl font-bold text-gray-900">{currentAppointment.patient_name}</h2>
+                          <Badge className="bg-blue-50 text-[#0078d4] border-none text-[10px] font-bold uppercase">Active</Badge>
+                        </div>
+                        <div className="flex items-center space-x-4 text-xs font-medium text-gray-500">
+                          <span className="flex items-center"><Clock className="h-3.5 w-3.5 mr-1.5 text-gray-400" /> Started at {format(parseISO(currentAppointment.updated_at), "p")}</span>
+                          <span className="flex items-center"><Activity className="h-3.5 w-3.5 mr-1.5 text-gray-400" /> {currentAppointment.appointment_type}</span>
+                          {currentPatient && (
+                             <span className="flex items-center"><AlertCircle className="h-3.5 w-3.5 mr-1.5 text-red-400" /> {currentPatient.allergies || "No Allergies"}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center space-x-2">
+                       <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-gray-200 text-gray-600 font-bold rounded-sm h-9"
+                          onClick={() => navigate(`/patients/${currentAppointment.patient_id}`)}
+                       >
+                          View Full Sheet
+                       </Button>
+                       <Button
+                          className="bg-[#0078d4] hover:bg-[#005a9e] text-white font-bold rounded-sm h-9"
+                          onClick={() => handleMoveToCheckout(currentAppointment)}
+                       >
+                          Complete & Checkout
+                       </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Button
-                      variant="outline"
-                      className="bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold rounded-sm"
-                      onClick={() => handleMoveToCheckout(currentAppointment)}
-                    >
-                      Move to Checkout
-                    </Button>
-                    <Button
-                      className="bg-white text-[#0078d4] hover:bg-white/90 font-bold rounded-sm"
-                      onClick={() => navigate(`/patients/${currentAppointment.patient_id}`)}
-                    >
-                      Open Patient Sheet
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-             <Card className="border-2 border-dashed border-gray-200 shadow-none bg-transparent rounded-sm">
-                <CardContent className="p-12 text-center">
-                   <div className="p-4 bg-gray-100 rounded-full w-fit mx-auto mb-4">
-                      <Users className="h-8 w-8 text-gray-400" />
-                   </div>
-                   <h3 className="text-lg font-bold text-gray-900">No active consultation</h3>
-                   <p className="text-sm text-gray-500 mt-1">Select a patient from the queue or click "Call Next" to begin.</p>
                 </CardContent>
-             </Card>
+              </Card>
+
+              {/* Integrated Tools Workbench */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div className="xl:col-span-2 space-y-6">
+                  <Tabs defaultValue="notes" className="w-full">
+                    <TabsList className="bg-white p-1 border border-gray-100 rounded-sm w-full justify-start space-x-2 h-12">
+                      <TabsTrigger value="notes" className="rounded-sm data-[state=active]:bg-blue-50 data-[state=active]:text-[#0078d4] font-bold text-xs uppercase tracking-wider px-6">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Clinical Notes
+                      </TabsTrigger>
+                      <TabsTrigger value="treatment" className="rounded-sm data-[state=active]:bg-blue-50 data-[state=active]:text-[#0078d4] font-bold text-xs uppercase tracking-wider px-6">
+                        <ClipboardList className="h-4 w-4 mr-2" />
+                        Record Treatment
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <div className="mt-4">
+                      <TabsContent value="notes">
+                        <Card className="border-none shadow-sm bg-white rounded-sm">
+                          <CardContent className="p-6 space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-bold uppercase text-gray-400">Quick Clinical Observations</Label>
+                              <Textarea
+                                placeholder="Enter findings, observations or notes for this session..."
+                                className="min-h-[250px] text-sm border-gray-100 focus:ring-blue-500 rounded-sm shadow-inner"
+                                value={newNote}
+                                onChange={(e) => setNewNote(e.target.value)}
+                              />
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <p className="text-[10px] text-gray-400 italic">Notes will be saved to patient's clinical record.</p>
+                              <Button
+                                onClick={handleQuickNote}
+                                disabled={isSubmittingNote || !newNote.trim()}
+                                className="bg-[#0078d4] hover:bg-[#005a9e] text-white font-bold rounded-sm h-9 px-6"
+                              >
+                                Save Clinical Note
+                              </Button>
+                            </div>
+
+                            {activePatientNotes.length > 0 && (
+                              <div className="mt-6 pt-6 border-t border-gray-50">
+                                <h4 className="text-[10px] font-bold uppercase text-gray-400 mb-4 tracking-widest">Previous Notes (This Session)</h4>
+                                <div className="space-y-3">
+                                  {activePatientNotes.slice(0, 3).map((note) => (
+                                    <div key={note.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-[#0078d4]">{note.note_type}</span>
+                                        <span className="text-[10px] text-gray-400">{format(parseISO(note.created_at), "p")}</span>
+                                      </div>
+                                      <p className="text-xs text-gray-700">{note.note}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      <TabsContent value="treatment">
+                        <Card className="border-none shadow-sm bg-white rounded-sm">
+                          <CardContent className="p-6">
+                            <TreatmentForm
+                              patient={currentPatient || undefined}
+                              onSave={handleAddTreatment}
+                              onCancel={() => {}}
+                            />
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    </div>
+                  </Tabs>
+                </div>
+
+                <div className="xl:col-span-1 space-y-6">
+                  {/* Simplified History Widget - Always Visible */}
+                  <Card className="border-none shadow-sm bg-white rounded-sm h-full">
+                    <CardHeader className="pb-3 border-b border-gray-50 bg-gray-50/30">
+                      <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500 flex items-center">
+                        <History className="h-3.5 w-3.5 mr-2 text-gray-400" />
+                        Patient History
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="divide-y divide-gray-50">
+                        {activePatientTreatments.map((t) => (
+                          <div key={t.id} className="p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-sm">
+                                {format(parseISO(t.date), "MMM d, yy")}
+                              </span>
+                            </div>
+                            <p className="text-xs font-bold text-gray-900 leading-tight">{t.treatment}</p>
+                            <p className="text-[10px] text-gray-500 italic line-clamp-2">{t.diagnosis}</p>
+                            {t.medications.length > 0 && (
+                               <div className="flex flex-wrap gap-1 mt-2">
+                                  {t.medications.slice(0, 2).map((m, idx) => (
+                                     <Badge key={idx} variant="outline" className="text-[8px] font-bold uppercase border-blue-100 bg-blue-50 text-[#0078d4] py-0 h-4">{m.name}</Badge>
+                                  ))}
+                               </div>
+                            )}
+                          </div>
+                        ))}
+                        {activePatientTreatments.length === 0 && (
+                          <div className="p-12 text-center text-gray-400 text-[10px] font-bold uppercase tracking-widest italic">No History</div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+               <Card className="border-2 border-dashed border-gray-200 shadow-none bg-transparent rounded-sm">
+                  <CardContent className="p-12 text-center">
+                     <div className="p-4 bg-gray-100 rounded-full w-fit mx-auto mb-4">
+                        <Users className="h-8 w-8 text-gray-400" />
+                     </div>
+                     <h3 className="text-lg font-bold text-gray-900">Workbench Ready</h3>
+                     <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">Call the next patient from the queue or search for a patient to begin a session.</p>
+                  </CardContent>
+               </Card>
+
+               {/* Quick Stats Summary for Empty State */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="border-none shadow-sm bg-white rounded-sm">
+                     <CardHeader className="pb-3 border-b border-gray-50">
+                        <CardTitle className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Scheduled</CardTitle>
+                     </CardHeader>
+                     <CardContent className="p-6">
+                        {appointments.filter(a => a.date === today && a.status === 'scheduled').slice(0, 1).map(a => (
+                           <div key={a.id} className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4">
+                                 <div className="bg-blue-50 text-[#0078d4] p-3 rounded-sm font-black text-xs">{a.time}</div>
+                                 <div>
+                                    <p className="text-sm font-bold text-gray-900">{a.patient_name}</p>
+                                    <p className="text-[10px] text-gray-500 font-medium">{a.appointment_type}</p>
+                                 </div>
+                              </div>
+                              <Button
+                                 size="sm"
+                                 variant="ghost"
+                                 className="text-[#0078d4] hover:bg-blue-50 font-bold text-[10px] uppercase"
+                                 onClick={() => navigate(`/patients/${a.patient_id}`)}
+                              >
+                                 Sheet
+                              </Button>
+                           </div>
+                        ))}
+                        {appointments.filter(a => a.date === today && a.status === 'scheduled').length === 0 && (
+                           <p className="text-xs text-gray-400 text-center italic">No upcoming appointments for today.</p>
+                        )}
+                     </CardContent>
+                  </Card>
+
+                  <Card className="border-none shadow-sm bg-white rounded-sm">
+                     <CardHeader className="pb-3 border-b border-gray-50">
+                        <CardTitle className="text-xs font-bold uppercase tracking-widest text-gray-500">Queue Summary</CardTitle>
+                     </CardHeader>
+                     <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                           <span className="text-xs font-medium text-gray-500">Assigned Patients</span>
+                           <span className="text-sm font-black text-[#0078d4]">{myQueue.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                           <span className="text-xs font-medium text-gray-500">General Pool</span>
+                           <span className="text-sm font-black text-gray-900">{generalPool.length}</span>
+                        </div>
+                     </CardContent>
+                  </Card>
+               </div>
+            </div>
           )}
-
-          {/* Double Pool Queue */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* My Queue */}
-            <Card className="border-none shadow-sm bg-white rounded-sm">
-              <CardHeader className="pb-3 border-b border-gray-50 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-gray-500 flex items-center">
-                  <UserCheck className="h-4 w-4 mr-2 text-[#0078d4]" />
-                  Assigned to Me
-                </CardTitle>
-                <Badge variant="outline" className="rounded-sm border-[#0078d4]/20 text-[#0078d4] bg-blue-50 font-bold">{myQueue.length}</Badge>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-gray-50">
-                  {myQueue.map((appt) => (
-                    <div key={appt.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-center w-12">
-                          <p className="text-xs font-bold text-gray-900">{appt.time}</p>
-                          <p className="text-[9px] text-gray-400 font-bold uppercase">{appt.duration}m</p>
-                        </div>
-                        <div className="h-8 w-[2px] bg-blue-100 group-hover:bg-[#0078d4]" />
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{appt.patient_name}</p>
-                          <p className="text-[10px] text-gray-500 font-medium">{appt.appointment_type}</p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 text-[#0078d4] hover:bg-blue-50 hover:text-[#005a9e]"
-                        onClick={() => handleCallPatient(appt)}
-                      >
-                        <ChevronRight className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  ))}
-                  {myQueue.length === 0 && (
-                    <div className="p-8 text-center text-gray-400 text-xs font-medium">No assigned patients waiting.</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* General Pool */}
-            <Card className="border-none shadow-sm bg-white rounded-sm">
-              <CardHeader className="pb-3 border-b border-gray-50 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-gray-500 flex items-center">
-                  <Users className="h-4 w-4 mr-2 text-green-600" />
-                  General Waiting Pool
-                </CardTitle>
-                <Badge variant="outline" className="rounded-sm border-gray-200 text-gray-500 font-bold">{generalPool.length}</Badge>
-              </CardHeader>
-              <CardContent className="p-0">
-                 <div className="divide-y divide-gray-50">
-                  {generalPool.map((appt) => (
-                    <div key={appt.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-center w-12">
-                          <p className="text-xs font-bold text-gray-900">{appt.time}</p>
-                          <p className="text-[9px] text-gray-400 font-bold uppercase">{appt.duration}m</p>
-                        </div>
-                        <div className="h-8 w-[2px] bg-gray-100 group-hover:bg-green-500" />
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{appt.patient_name}</p>
-                          <p className="text-[10px] text-gray-500 font-medium">{appt.appointment_type}</p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 text-gray-400 hover:text-green-600 hover:bg-green-50"
-                        onClick={() => handleCallPatient(appt)}
-                      >
-                        <ChevronRight className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  ))}
-                  {generalPool.length === 0 && (
-                    <div className="p-8 text-center text-gray-400 text-xs font-medium">No general walk-ins waiting.</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
-        {/* Sidebar Analytics & Search */}
+        {/* Right Column: Global Context Sidebar */}
         <div className="lg:col-span-4 space-y-6 overflow-y-auto custom-scrollbar">
           {/* Quick Search */}
           <Card className="border-none shadow-sm bg-white rounded-sm overflow-visible">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold uppercase tracking-wider text-gray-500">Patient Lookup (Alt+S)</CardTitle>
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Patient Lookup (Alt+S)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                 <Input
                   id="patient-search"
                   placeholder="Search by name or phone..."
-                  className="pl-10 h-10 text-sm border-gray-200 focus:ring-[#0078d4] rounded-sm"
+                  className="pl-10 h-10 text-sm border-gray-100 focus:ring-[#0078d4] rounded-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -405,77 +521,83 @@ const DoctorDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Efficiency Analytics */}
+          {/* Unified Queue Sidebar */}
           <Card className="border-none shadow-sm bg-white rounded-sm">
-            <CardHeader className="pb-3 border-b border-gray-50">
-              <CardTitle className="text-sm font-bold uppercase tracking-wider text-gray-500 flex items-center">
-                <TrendingUp className="h-4 w-4 mr-2 text-primary" />
-                Patient Volume Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="flex items-end justify-between h-32 px-2">
-                {weeklyTrend.map((day, i) => (
-                  <div key={i} className="flex flex-col items-center flex-1">
-                    <div
-                      className="w-4 bg-[#0078d4] rounded-t-sm transition-all duration-500 ease-out hover:bg-[#005a9e] relative group"
-                      style={{ height: `${Math.max((day.count / Math.max(...weeklyTrend.map(d => d.count), 1)) * 100, 5)}%` }}
-                    >
-                       <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                          {day.count} Patients
-                       </div>
+             <CardHeader className="pb-3 border-b border-gray-50 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Waiting Queue</CardTitle>
+                <Badge className="bg-blue-50 text-[#0078d4] border-none text-[9px] font-bold">{myQueue.length + generalPool.length}</Badge>
+             </CardHeader>
+             <CardContent className="p-0">
+                <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
+                   {/* My Queue Section */}
+                   {myQueue.length > 0 && (
+                      <div className="bg-blue-50/30 px-3 py-1.5 text-[9px] font-black text-[#0078d4] uppercase tracking-tighter">Assigned to Me</div>
+                   )}
+                   {myQueue.map((appt) => (
+                    <div key={appt.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-center w-10">
+                          <p className="text-xs font-bold text-gray-900">{appt.time}</p>
+                        </div>
+                        <div className="h-8 w-[2px] bg-blue-100 group-hover:bg-[#0078d4]" />
+                        <div>
+                          <p className="text-xs font-bold text-gray-900">{appt.patient_name}</p>
+                          <p className="text-[9px] text-gray-500 font-medium uppercase">{appt.appointment_type}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-[#0078d4] hover:bg-blue-50"
+                        onClick={() => handleCallPatient(appt)}
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </Button>
                     </div>
-                    <span className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-tighter">{day.date}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-6 pt-4 border-t border-gray-50">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center text-xs font-bold text-gray-500">
-                       <Timer className="h-3.5 w-3.5 mr-1.5 text-orange-500" />
-                       Efficiency Rating
-                    </div>
-                    <span className="text-sm font-black text-gray-900">{stats.efficiency}%</span>
-                 </div>
-                 <div className="w-full bg-gray-100 h-1.5 rounded-full mt-2">
-                    <div className="bg-orange-500 h-full rounded-full" style={{ width: `${stats.efficiency}%` }} />
-                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
 
-          {/* Today's Stats Cards */}
-          <div className="grid grid-cols-2 gap-4">
-             <Card className="border-none shadow-sm bg-white rounded-sm">
-                <CardContent className="p-4">
-                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Completed</p>
-                   <p className="text-xl font-black text-gray-900 mt-1">{stats.served}</p>
-                   <div className="flex items-center text-[9px] font-bold text-green-600 mt-1">
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      +12% vs LW
-                   </div>
-                </CardContent>
-             </Card>
-             <Card className="border-none shadow-sm bg-white rounded-sm">
-                <CardContent className="p-4">
-                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">In Queue</p>
-                   <p className="text-xl font-black text-[#0078d4] mt-1">{stats.waiting}</p>
-                   <div className="flex items-center text-[9px] font-bold text-[#0078d4] mt-1">
-                      <Clock className="h-3 w-3 mr-1" />
-                      ~{stats.waiting * 20}m total
-                   </div>
-                </CardContent>
-             </Card>
-          </div>
+                  {/* General Pool Section */}
+                  {generalPool.length > 0 && (
+                      <div className="bg-gray-50 px-3 py-1.5 text-[9px] font-black text-gray-400 uppercase tracking-tighter">General Pool</div>
+                   )}
+                  {generalPool.map((appt) => (
+                    <div key={appt.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-center w-10">
+                          <p className="text-xs font-bold text-gray-900">{appt.time}</p>
+                        </div>
+                        <div className="h-8 w-[2px] bg-gray-100 group-hover:bg-green-500" />
+                        <div>
+                          <p className="text-xs font-bold text-gray-900">{appt.patient_name}</p>
+                          <p className="text-[9px] text-gray-500 font-medium uppercase">{appt.appointment_type}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-gray-400 hover:text-green-600 hover:bg-green-50"
+                        onClick={() => handleCallPatient(appt)}
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  {myQueue.length === 0 && generalPool.length === 0 && (
+                    <div className="p-12 text-center text-gray-300 text-[10px] font-bold uppercase tracking-widest italic">Queue is Empty</div>
+                  )}
+                </div>
+             </CardContent>
+          </Card>
 
           {/* Schedule Summary */}
           <Card className="border-none shadow-sm bg-white rounded-sm">
             <CardHeader className="pb-3 border-b border-gray-50 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-bold uppercase tracking-wider text-gray-500 flex items-center">
-                <Calendar className="h-4 w-4 mr-2 text-primary" />
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-400 flex items-center">
+                <Calendar className="h-3 w-3 mr-2 text-gray-400" />
                 Remaining Schedule
               </CardTitle>
-              <Link to="/appointments" className="text-[10px] font-bold text-[#0078d4] hover:underline uppercase">Full Calendar</Link>
+              <Link to="/appointments" className="text-[9px] font-bold text-[#0078d4] hover:underline uppercase">View All</Link>
             </CardHeader>
             <CardContent className="p-0">
                <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
@@ -492,7 +614,7 @@ const DoctorDashboard = () => {
                      </div>
                   ))}
                   {appointments.filter(a => a.date === today && a.status === 'scheduled').length === 0 && (
-                     <div className="p-8 text-center text-gray-400 text-[10px] font-medium uppercase italic">No more scheduled patients.</div>
+                     <div className="p-8 text-center text-gray-300 text-[10px] font-bold uppercase italic">No more scheduled.</div>
                   )}
                </div>
             </CardContent>
