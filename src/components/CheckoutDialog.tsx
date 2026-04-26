@@ -128,6 +128,16 @@ export const CheckoutDialog = ({ open, onOpenChange, appointment, onComplete }: 
                 </span>
               </div>
             </div>
+            {pendingPayments.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-2 text-[10px] font-bold text-gray-400 hover:text-primary"
+                onClick={() => pdfGenerator.generateInvoice(pendingPayments)}
+              >
+                PRINT PRO-FORMA INVOICE
+              </Button>
+            )}
           </div>
 
           <div className="space-y-3">
