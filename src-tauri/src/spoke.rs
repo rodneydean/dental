@@ -17,12 +17,27 @@ use tauri::Manager;
 struct HubAddress {
     addr: String,
     last_seen: SystemTime,
+    is_manual: bool,
+}
+
+fn update_status(app_handle: &AppHandle, status: &str, is_connected: bool) {
+    if let Some(state) = app_handle.try_state::<crate::commands::network::GlobalState>() {
+        if let Ok(mut status_lock) = state.connection_status.lock() {
+            *status_lock = status.to_string();
+        }
+        if let Ok(mut connected_lock) = state.is_connected.lock() {
+            *connected_lock = is_connected;
+        }
+    }
+    let _ = app_handle.emit("connection-status-changed", status);
 }
 
 pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, manual_addr: Option<String>) {
+    update_status(&app_handle, "Searching for Hub...", false);
+
     // hub_addresses stores a list of potential addresses to try
-    let initial_addrs = if let Some(addr) = manual_addr {
-        vec![HubAddress { addr, last_seen: SystemTime::now() }]
+    let initial_addrs = if let Some(addr) = manual_addr.clone() {
+        vec![HubAddress { addr, last_seen: SystemTime::now(), is_manual: true }]
     } else {
         Vec::new()
     };
@@ -73,7 +88,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                             existing.last_seen = SystemTime::now();
                         } else {
                             info!("Discovered new Hub address (mDNS): {}", addr_str);
-                            current_hub_list.push(HubAddress { addr: addr_str, last_seen: SystemTime::now() });
+                            current_hub_list.push(HubAddress { addr: addr_str, last_seen: SystemTime::now(), is_manual: false });
                             notifier_mdns.notify_one();
                         }
                     }
@@ -107,7 +122,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                                 existing.last_seen = SystemTime::now();
                             } else {
                                 info!("Discovered new Hub address (UDP): {}", addr_str);
-                                current_hub_list.push(HubAddress { addr: addr_str, last_seen: SystemTime::now() });
+                            current_hub_list.push(HubAddress { addr: addr_str, last_seen: SystemTime::now(), is_manual: false });
                                 notifier_udp.notify_one();
                             }
                         }
@@ -137,6 +152,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
             if let Ok(mut addrs_lock) = hub_addrs_sync.lock() {
                 let now = SystemTime::now();
                 addrs_lock.retain(|h| {
+                    if h.is_manual { return true; }
                     if let Ok(elapsed) = now.duration_since(h.last_seen) {
                         elapsed < Duration::from_secs(120) // 2 minutes
                     } else {
@@ -168,6 +184,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                 };
 
                 if current_token.is_none() {
+                    update_status(&app_handle_sync, &format!("Pairing with {}...", addr), false);
                     // Try to pair
                     let res = client.post(format!("http://{}/pair", addr))
                         .json(&serde_json::json!({ "code": pairing_code_clone }))
@@ -181,24 +198,18 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                                     *lock = Some(pair_res.token.clone());
                                     info!("Paired successfully with Hub at {}", addr);
                                     force_sync = true;
-
-                                    if let Some(state) = app_handle_sync.try_state::<crate::commands::network::GlobalState>() {
-                                        if let Ok(mut conn_lock) = state.is_connected.lock() {
-                                            *conn_lock = true;
-                                        }
-                                    }
-                                    if !was_connected {
-                                        was_connected = true;
-                                        force_sync = true; // Full sync on re-establish
-                                    }
+                                    was_connected = true;
                                 }
                             }
                         },
                         _ => {
+                            update_status(&app_handle_sync, &format!("Pairing failed with {}. Retrying...", addr), false);
                             // If failed to pair, try next address next time
                             if let Ok(mut idx_lock) = current_idx_sync.lock() {
-                                *idx_lock = (idx + 1) % total;
-                                info!("Connection failed to {}. Trying next address: {}", addr, (idx + 1) % total);
+                                if total > 0 {
+                                    *idx_lock = (idx + 1) % total;
+                                }
+                                info!("Connection failed to {}. Trying next address.", addr);
                             }
                         }
                     }
@@ -210,9 +221,16 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                 };
 
                 if let Some(token) = token_to_use {
+                    if force_sync {
+                        update_status(&app_handle_sync, "Initial Syncing...", true);
+                    } else {
+                        update_status(&app_handle_sync, "Syncing...", true);
+                    }
+
                     match sync_with_hub(&client, &addr, &token, &app_handle_sync).await {
                         Ok(_) => {
                             sync_success = true;
+                            update_status(&app_handle_sync, "Connected", true);
                             if force_sync {
                                 info!("Full sync completed successfully for Spoke");
                                 let _ = app_handle_sync.emit("sync-event", serde_json::json!({ "type": "initial_sync_complete" }));
@@ -222,11 +240,15 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                         Err(e) => {
                             error!("Sync failed with {}: {}", addr, e);
                             was_connected = false;
-                            if let Some(state) = app_handle_sync.try_state::<crate::commands::network::GlobalState>() {
-                                if let Ok(mut conn_lock) = state.is_connected.lock() {
-                                    *conn_lock = false;
+                            update_status(&app_handle_sync, "Reconnecting...", false);
+
+                            // If it's a 401, clear the token so we re-pair
+                            if e.to_string().contains("401") || e.to_string().contains("Unauthorized") {
+                                if let Ok(mut lock) = pairing_token_sync.lock() {
+                                    *lock = None;
                                 }
                             }
+
                             // If sync fails, rotate to next address
                             if let Ok(mut idx_lock) = current_idx_sync.lock() {
                                 if total > 0 {
@@ -257,6 +279,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
     // Heartbeat Task
     let hub_addrs_hb = hub_addresses.clone();
     let current_idx_hb = current_hub_index.clone();
+    let pairing_token_hb = pairing_token.clone();
     let app_handle_hb = app_handle.clone();
     let notifier_hb = sync_notifier.clone();
     tauri::async_runtime::spawn(async move {
@@ -282,7 +305,10 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
 
             if let Some(addr) = addr {
                 let res = client.get(format!("http://{}/ping", &addr)).send().await;
-                let is_alive = res.is_ok() && res.unwrap().status().is_success();
+                let is_alive = match res {
+                    Ok(resp) => resp.status().is_success(),
+                    Err(_) => false,
+                };
 
                 if is_alive {
                     if let Ok(mut addrs_lock) = hub_addrs_hb.lock() {
@@ -290,24 +316,32 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                             h.last_seen = SystemTime::now();
                         }
                     }
+                } else {
+                    // If we lost heartbeat, clear token so we re-pair on next sync attempt
+                    // This handles Hub restarts gracefully
+                    if let Ok(mut lock) = pairing_token_hb.lock() {
+                         if lock.is_some() {
+                             info!("Heartbeat lost with Hub at {}. Clearing pairing token.", addr);
+                             *lock = None;
+                         }
+                    }
+                    update_status(&app_handle_hb, "Reconnecting...", false);
                 }
 
-                let mut status_changed_to_connected = false;
+                let mut should_notify = false;
                 if let Some(state) = app_handle_hb.try_state::<crate::commands::network::GlobalState>() {
-                    if let Ok(mut conn_lock) = state.is_connected.lock() {
-                        if *conn_lock != is_alive {
-                            *conn_lock = is_alive;
-                            info!("Connection status changed: {}", if is_alive { "Connected" } else { "Disconnected" });
-                            if is_alive {
-                                status_changed_to_connected = true;
-                            }
+                    if let Ok(conn_lock) = state.is_connected.lock() {
+                        if *conn_lock != is_alive && is_alive {
+                            should_notify = true;
                         }
                     }
                 }
 
-                if status_changed_to_connected {
+                if should_notify {
                     notifier_hb.notify_one(); // Wake up sync loop immediately
                 }
+            } else {
+                update_status(&app_handle_hb, "Searching for Hub...", false);
             }
             tokio::time::sleep(Duration::from_secs(5)).await;
         }

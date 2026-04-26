@@ -15,6 +15,7 @@ pub fn run() {
       mode: std::sync::Mutex::new("none".to_string()),
       pairing_code: std::sync::Mutex::new(None),
       is_connected: std::sync::Mutex::new(false),
+      connection_status: std::sync::Mutex::new("Disconnected".to_string()),
     })
     .plugin(tauri_plugin_log::Builder::default().build())
     .plugin(tauri_plugin_updater::Builder::new().build())

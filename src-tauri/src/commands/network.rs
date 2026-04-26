@@ -13,6 +13,7 @@ pub struct GlobalState {
     pub mode: Mutex<String>, // "none", "hub", "spoke"
     pub pairing_code: Mutex<Option<String>>,
     pub is_connected: Mutex<bool>,
+    pub connection_status: Mutex<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -113,17 +114,13 @@ pub fn start_as_spoke(app_handle: AppHandle, state: State<'_, GlobalState>, code
 #[command]
 pub fn get_connection_status(state: State<'_, GlobalState>) -> Result<String, String> {
     let mode = state.mode.lock().map(|m| m.clone()).unwrap_or_else(|_| "none".to_string());
-    let connected = state.is_connected.lock().map(|c| *c).unwrap_or(false);
+    let status = state.connection_status.lock().map(|s| s.clone()).unwrap_or_else(|_| "Unknown".to_string());
 
     if mode == "hub" {
         return Ok("Server Online".to_string());
     }
     if mode == "spoke" {
-        if connected {
-            return Ok("Connected".to_string());
-        } else {
-            return Ok("Reconnecting...".to_string());
-        }
+        return Ok(status);
     }
     Ok("Standalone".to_string())
 }
