@@ -11,7 +11,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use crate::db::get_db_conn;
 use crate::commands::patients::{Patient, PatientNote, SickSheet};
 use crate::commands::appointments::Appointment;
@@ -278,7 +278,7 @@ async fn post_patients_handler(
     };
 
     for p in patients {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -302,12 +302,9 @@ async fn post_patients_handler(
                 p.preferred_payment_method, p.preferred_insurance_provider_id,
                 p.created_at, p.updated_at
             ],
-        ) {
-            error!("Failed to upsert patient from spoke: {}", e);
-        }
+        );
     }
     let _ = state.tx.send("patient".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "patient_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -359,20 +356,16 @@ async fn post_treatments_handler(
 
         if let Ok(rows_affected) = res {
             if rows_affected > 0 {
-                if let Err(e) = tx.execute("DELETE FROM medications WHERE treatment_id = ?1", [&t.id]) {
-                    error!("Failed to delete medications for treatment {}: {}", t.id, e);
-                }
+                let _ = tx.execute("DELETE FROM medications WHERE treatment_id = ?1", [&t.id]);
                 for med in t.medications {
-                    if let Err(e) = tx.execute(
+                    let _ = tx.execute(
                         "INSERT INTO medications (id, treatment_id, name, dosage, frequency, duration, instructions, sync_status)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')",
                         rusqlite::params![
                             med.id, t.id, med.name, med.dosage, med.frequency,
                             med.duration, med.instructions
                         ],
-                    ) {
-                        error!("Failed to insert medication {} for treatment {}: {}", med.id, t.id, e);
-                    }
+                    );
                 }
             }
         }
@@ -381,7 +374,6 @@ async fn post_treatments_handler(
     match tx.commit() {
         Ok(_) => {
             let _ = state.tx.send("treatment".to_string());
-            let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "treatment_updated", "source": "spoke" }));
             axum::http::StatusCode::OK.into_response()
         },
         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
@@ -408,7 +400,7 @@ async fn post_payments_handler(
     };
 
     for p in payments {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO payments (id, patient_id, patient_name, treatment_id, amount, date, method, status, notes, created_at, updated_at, insurance_provider_id, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -424,12 +416,9 @@ async fn post_payments_handler(
                 p.date, p.method, p.status, p.notes, p.created_at, p.updated_at,
                 p.insurance_provider_id
             ],
-        ) {
-            error!("Failed to upsert payment {} from spoke: {}", p.id, e);
-        }
+        );
     }
     let _ = state.tx.send("payment".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "payment_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -453,7 +442,7 @@ async fn post_appointments_handler(
     };
 
     for a in appointments {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO appointments (id, patient_id, patient_name, doctor_id, doctor_name, date, time, status, type, notes, duration, reception_fee_paid, reception_fee_waived, created_at, updated_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -473,12 +462,9 @@ async fn post_appointments_handler(
                 a.id, a.patient_id, a.patient_name, a.doctor_id, a.doctor_name, a.date, a.time, a.status,
                 a.appointment_type, a.notes, a.duration, a.reception_fee_paid, a.reception_fee_waived, a.created_at, a.updated_at
             ],
-        ) {
-            error!("Failed to upsert appointment {} from spoke: {}", a.id, e);
-        }
+        );
     }
     let _ = state.tx.send("appointment".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "appointment_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -502,7 +488,7 @@ async fn post_waivers_handler(
     };
 
     for w in waivers {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO waiver_requests (id, appointment_id, patient_id, patient_name, doctor_id, requested_by, status, created_at, updated_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -512,12 +498,9 @@ async fn post_waivers_handler(
             rusqlite::params![
                 w.id, w.appointment_id, w.patient_id, w.patient_name, w.doctor_id, w.requested_by, w.status, w.created_at, w.updated_at
             ],
-        ) {
-            error!("Failed to upsert waiver request {} from spoke: {}", w.id, e);
-        }
+        );
     }
     let _ = state.tx.send("waiver_request".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "waiver_request_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -541,7 +524,7 @@ async fn post_doctor_statuses_handler(
     };
 
     for s in statuses {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO doctor_status (doctor_id, current_appointment_id, updated_at, sync_status)
              VALUES (?1, ?2, ?3, 'synced')
              ON CONFLICT(doctor_id) DO UPDATE SET
@@ -551,12 +534,9 @@ async fn post_doctor_statuses_handler(
             rusqlite::params![
                 s.doctor_id, s.current_appointment_id, s.updated_at
             ],
-        ) {
-            error!("Failed to upsert doctor status for {} from spoke: {}", s.doctor_id, e);
-        }
+        );
     }
     let _ = state.tx.send("doctor_status_updated".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "doctor_status_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -606,7 +586,7 @@ async fn post_patient_notes_handler(
     };
 
     for n in notes {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO patient_notes (id, patient_id, doctor_id, doctor_name, note_type, note, created_at, updated_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -618,12 +598,9 @@ async fn post_patient_notes_handler(
                 n.id, n.patient_id, n.doctor_id, n.doctor_name, n.note_type, n.note,
                 n.created_at, n.updated_at
             ],
-        ) {
-            error!("Failed to upsert patient note {} from spoke: {}", n.id, e);
-        }
+        );
     }
     let _ = state.tx.send("patient_note".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "patient_note_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -675,7 +652,7 @@ async fn post_sick_sheets_handler(
     };
 
     for s in sheets {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO sick_sheets (id, patient_id, patient_name, doctor_id, doctor_name, start_date, end_date, reason, created_at, updated_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -688,26 +665,24 @@ async fn post_sick_sheets_handler(
                 s.id, s.patient_id, s.patient_name, s.doctor_id, s.doctor_name,
                 s.start_date, s.end_date, s.reason, s.created_at, s.updated_at
             ],
-        ) {
-            error!("Failed to upsert sick sheet {} from spoke: {}", s.id, e);
-        }
+        );
     }
     let _ = state.tx.send("sick_sheet".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "sick_sheet_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
 async fn get_settings_handler(State(state): State<HubState>) -> impl IntoResponse {
     match crate::commands::settings::list_settings(state.app_handle) {
         Ok(settings) => {
-            let filtered_settings = settings.into_iter()
-                .filter(|s| !["network_mode", "pairing_code", "hub_address"].contains(&s.key.as_str()))
+            let filtered: Vec<Setting> = settings
+                .into_iter()
+                .filter(|s| s.key != "network_mode" && s.key != "pairing_code" && s.key != "hub_address")
                 .collect();
             Json(SyncResponse {
-                data: filtered_settings,
+                data: filtered,
                 timestamp: chrono::Utc::now().to_rfc3339(),
             }).into_response()
-        },
+        }
         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
     }
 }
@@ -722,7 +697,7 @@ async fn post_settings_handler(
     };
 
     for s in settings {
-        if ["network_mode", "pairing_code", "hub_address"].contains(&s.key.as_str()) {
+        if s.key == "network_mode" || s.key == "pairing_code" || s.key == "hub_address" {
             continue;
         }
         let _ = conn.execute(
@@ -733,13 +708,10 @@ async fn post_settings_handler(
                 updated_at = excluded.updated_at,
                 sync_status = 'synced'
              WHERE excluded.updated_at > settings.updated_at",
-            rusqlite::params![s.key, s.value, s.updated_at],
-        ) {
-            error!("Failed to upsert setting {} from spoke: {}", s.key, e);
-        }
+            rusqlite::params![&s.key, &s.value, &s.updated_at],
+        );
     }
     let _ = state.tx.send("settings_updated".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "settings_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -763,7 +735,7 @@ async fn post_services_handler(
     };
 
     for s in services {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO services (id, name, standard_fee, created_at, updated_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -771,13 +743,10 @@ async fn post_services_handler(
                 standard_fee = excluded.standard_fee,
                 updated_at = excluded.updated_at
              WHERE excluded.updated_at > services.updated_at",
-            rusqlite::params![s.id, s.name, s.standard_fee, s.created_at, s.updated_at],
-        ) {
-            error!("Failed to upsert service {} from spoke: {}", s.id, e);
-        }
+            rusqlite::params![&s.id, &s.name, &s.standard_fee, &s.created_at, &s.updated_at],
+        );
     }
     let _ = state.tx.send("services_updated".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "services_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -801,7 +770,7 @@ async fn post_insurance_providers_handler(
     };
 
     for p in providers {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO insurance_providers (id, name, pays_reception_fee, created_at, updated_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -809,13 +778,10 @@ async fn post_insurance_providers_handler(
                 pays_reception_fee = excluded.pays_reception_fee,
                 updated_at = excluded.updated_at
              WHERE excluded.updated_at > insurance_providers.updated_at",
-            rusqlite::params![p.id, p.name, p.pays_reception_fee, p.created_at, p.updated_at],
-        ) {
-            error!("Failed to upsert insurance provider {} from spoke: {}", p.id, e);
-        }
+            rusqlite::params![&p.id, &p.name, &p.pays_reception_fee, &p.created_at, &p.updated_at],
+        );
     }
     let _ = state.tx.send("insurance_providers_updated".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "insurance_providers_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 
@@ -875,27 +841,21 @@ async fn post_deletions_handler(
 
     for d in deletions {
         // Record deletion
-        if let Err(e) = tx.execute(
+        let _ = tx.execute(
             "INSERT INTO deleted_records (id, table_name, record_id, deleted_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, 'synced')
              ON CONFLICT(id) DO NOTHING",
-            rusqlite::params![d.id, d.table_name, d.record_id, d.deleted_at],
-        ) {
-            error!("Failed to record deletion {} from spoke: {}", d.id, e);
-        }
+            rusqlite::params![&d.id, &d.table_name, &d.record_id, &d.deleted_at],
+        );
 
         // Perform actual deletion on Hub if not already deleted
         let allowed_tables = vec!["patients", "appointments", "treatments", "payments", "patient_notes", "sick_sheets", "services", "insurance_providers", "users"];
         if allowed_tables.contains(&d.table_name.as_str()) {
             let query = format!("DELETE FROM {} WHERE id = ?1", d.table_name);
-            if let Err(e) = tx.execute(&query, [&d.record_id]) {
-                error!("Failed to perform deletion of {} from spoke in table {}: {}", d.record_id, d.table_name, e);
-            }
+            let _ = tx.execute(&query, [&d.record_id]);
 
             if d.table_name == "treatments" {
-                if let Err(e) = tx.execute("DELETE FROM medications WHERE treatment_id = ?1", [&d.record_id]) {
-                    error!("Failed to delete orphaned medications for treatment {}: {}", d.record_id, e);
-                }
+                let _ = tx.execute("DELETE FROM medications WHERE treatment_id = ?1", [&d.record_id]);
             }
         }
     }
@@ -903,7 +863,6 @@ async fn post_deletions_handler(
     match tx.commit() {
         Ok(_) => {
             let _ = state.tx.send("deletions_synced".to_string());
-            let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "deletions_synced", "source": "spoke" }));
             axum::http::StatusCode::OK.into_response()
         },
         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
@@ -966,7 +925,7 @@ async fn post_users_handler(
     };
 
     for u in users {
-        if let Err(e) = conn.execute(
+        let _ = conn.execute(
             "INSERT INTO users (id, username, password_hash, role, full_name, created_at, updated_at, sync_status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'synced')
              ON CONFLICT(id) DO UPDATE SET
@@ -976,13 +935,10 @@ async fn post_users_handler(
                 full_name = excluded.full_name,
                 updated_at = excluded.updated_at
              WHERE excluded.updated_at > users.updated_at",
-            rusqlite::params![u.id, u.username, u.password_hash, u.role, u.full_name, u.created_at, u.updated_at],
-        ) {
-            error!("Failed to upsert user {} from spoke: {}", u.id, e);
-        }
+            rusqlite::params![&u.id, &u.username, &u.password_hash, &u.role, &u.full_name, &u.created_at, &u.updated_at],
+        );
     }
     let _ = state.tx.send("users_updated".to_string());
-    let _ = state.app_handle.emit("sync-event", serde_json::json!({ "type": "users_updated", "source": "spoke" }));
     axum::http::StatusCode::OK.into_response()
 }
 

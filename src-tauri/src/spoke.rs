@@ -146,7 +146,6 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
             .unwrap_or_else(|_| Client::new());
 
         let mut force_sync = false;
-        let mut was_connected = false;
         loop {
             // Cleanup stale addresses
             if let Ok(mut addrs_lock) = hub_addrs_sync.lock() {
@@ -198,7 +197,6 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                                     *lock = Some(pair_res.token.clone());
                                     info!("Paired successfully with Hub at {}", addr);
                                     force_sync = true;
-                                    was_connected = true;
                                 }
                             }
                         },
@@ -239,7 +237,6 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                         }
                         Err(e) => {
                             error!("Sync failed with {}: {}", addr, e);
-                            was_connected = false;
                             update_status(&app_handle_sync, "Reconnecting...", false);
 
                             // If it's a 401, clear the token so we re-pair
@@ -276,36 +273,9 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
         }
     });
 
-    // Listen for local changes to trigger immediate sync push
-    let notifier_local = sync_notifier.clone();
-    let app_handle_local = app_handle.clone();
-    tauri::async_runtime::spawn(async move {
-        use tauri::Listener;
-        app_handle_local.listen("sync-event", move |event| {
-            // Avoid re-triggering sync if the event was just received from the Hub via WebSocket
-            // We can check if the payload contains "type" which we use for remote events
-            let should_trigger = if let Ok(payload) = serde_json::from_str::<serde_json::Value>(event.payload()) {
-                // If it has a type (like treatment_updated) and it's NOT from spoke, it must be local
-                // OR if it explicitly says source: local
-                let is_from_spoke = payload.get("source").and_then(|s| s.as_str()) == Some("spoke");
-                let is_explicit_local = payload.get("source").and_then(|s| s.as_str()) == Some("local");
-
-                !is_from_spoke || is_explicit_local
-            } else {
-                true
-            };
-
-            if should_trigger {
-                info!("Local sync-event detected, triggering immediate spoke sync push");
-                notifier_local.notify_one();
-            }
-        });
-    });
-
     // Heartbeat Task
     let hub_addrs_hb = hub_addresses.clone();
     let current_idx_hb = current_hub_index.clone();
-    let pairing_token_hb = pairing_token.clone();
     let app_handle_hb = app_handle.clone();
     let notifier_hb = sync_notifier.clone();
     tauri::async_runtime::spawn(async move {

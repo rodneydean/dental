@@ -1,6 +1,6 @@
 use crate::db::get_db_conn;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, command, Emitter};
+use tauri::{AppHandle, command};
 use uuid::Uuid;
 use chrono::Utc;
 
@@ -84,8 +84,6 @@ pub fn create_payment(
         ],
     ).map_err(|e| e.to_string())?;
 
-    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "payment_updated", "source": "local" }));
-
     Ok(Payment {
         id,
         patient_id,
@@ -136,8 +134,6 @@ pub fn update_payment(
         ],
     ).map_err(|e| e.to_string())?;
 
-    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "payment_updated", "source": "local" }));
-
     Ok(())
 }
 
@@ -156,8 +152,5 @@ pub fn delete_payment(app_handle: AppHandle, id: String) -> Result<(), String> {
     ).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
-
-    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "payment_updated" }));
-
     Ok(())
 }
