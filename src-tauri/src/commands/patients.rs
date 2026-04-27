@@ -206,6 +206,8 @@ pub fn update_patient(
         ],
     ).map_err(|e| e.to_string())?;
 
+    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_updated", "source": "local" }));
+
     Ok(())
 }
 
@@ -273,7 +275,7 @@ pub fn create_patient_note(
         ],
     ).map_err(|e| e.to_string())?;
 
-    Ok(PatientNote {
+    let note_obj = PatientNote {
         id,
         patient_id,
         doctor_id,
@@ -282,7 +284,11 @@ pub fn create_patient_note(
         note,
         created_at: now.clone(),
         updated_at: now,
-    })
+    };
+
+    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_updated", "source": "local" }));
+
+    Ok(note_obj)
 }
 
 #[command]
@@ -299,6 +305,8 @@ pub fn update_patient_note(
         "UPDATE patient_notes SET note_type = ?1, note = ?2, updated_at = ?3, sync_status = 'pending' WHERE id = ?4",
         [note_type, note, now, id],
     ).map_err(|e| e.to_string())?;
+
+    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_updated", "source": "local" }));
 
     Ok(())
 }
@@ -318,6 +326,9 @@ pub fn delete_patient(app_handle: AppHandle, id: String) -> Result<(), String> {
     ).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
+
+    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_updated", "source": "local" }));
+
     Ok(())
 }
 
@@ -336,6 +347,9 @@ pub fn delete_patient_note(app_handle: AppHandle, id: String) -> Result<(), Stri
     ).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
+
+    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_updated", "source": "local" }));
+
     Ok(())
 }
 
@@ -410,6 +424,8 @@ pub fn create_sick_sheet(
             Some(now.clone()),
         ],
     ).map_err(|e| e.to_string())?;
+
+    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_updated", "source": "local" }));
 
     Ok(SickSheet {
         id,
