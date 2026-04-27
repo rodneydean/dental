@@ -19,17 +19,19 @@ interface ClinicBranding {
   taxId: string;
   footer: string;
   logo: string | null;
+  thermalReceipts: boolean;
 }
 
 const getBranding = async (): Promise<ClinicBranding> => {
-  const [name, address, phone, website, taxId, footer, logo] = await Promise.all([
+  const [name, address, phone, website, taxId, footer, logo, thermal] = await Promise.all([
     dataManager.getSetting("clinic_name"),
     dataManager.getSetting("clinic_address"),
     dataManager.getSetting("clinic_phone"),
     dataManager.getSetting("clinic_website"),
     dataManager.getSetting("clinic_tax_id"),
     dataManager.getSetting("clinic_footer"),
-    dataManager.getLogo()
+    dataManager.getLogo(),
+    dataManager.getSetting("thermal_receipts")
   ]);
 
   return {
@@ -39,7 +41,8 @@ const getBranding = async (): Promise<ClinicBranding> => {
     website: website || "",
     taxId: taxId || "",
     footer: footer || "",
-    logo: logo
+    logo: logo,
+    thermalReceipts: thermal === "true"
   };
 };
 
@@ -559,25 +562,6 @@ export const pdfGenerator = {
 
     const mainPayment = payments[0];
     const branding = await getBranding();
-    const doc = new jsPDF();
-    let y = addLetterhead(doc, branding);
-
-    doc.setFontSize(18);
-    doc.setTextColor(46, 125, 50); // Green
-    doc.setFont("helvetica", "bold");
-    doc.text("OFFICIAL PAYMENT RECEIPT", 105, y, { align: "center" });
-    y += 15;
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Receipt No: ${mainPayment.id.slice(0, 8).toUpperCase()}`, 20, y);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, y);
-    y += 7;
-    doc.text(`Patient: ${mainPayment.patient_name}`, 20, y);
-    doc.text(`Status: PAID`, 150, y);
-    y += 10;
-
     const totalAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     const rows = payments.map(p => [
       p.date,
@@ -585,47 +569,160 @@ export const pdfGenerator = {
       `KSH ${(p.amount || 0).toLocaleString()}`
     ]);
 
-    autoTable(doc, {
-      startY: y,
-      head: [["Date", "Description", "Amount"]],
-      body: rows,
-      foot: [["", "TOTAL AMOUNT PAID", `KSH ${totalAmount.toLocaleString()}`]],
-      theme: "striped",
-      headStyles: { fillColor: [46, 125, 50], textColor: 255 },
-      footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' },
-      styles: { fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 30 },
-        2: { cellWidth: 40, halign: 'right' }
+    if (branding.thermalReceipts) {
+      // 80mm Thermal Receipt Layout
+      const width = 80;
+      const margin = 5;
+
+      // Calculate Height
+      const dummyDoc = new jsPDF({ orientation: "portrait", unit: "mm", format: [width, 1000] });
+      autoTable(dummyDoc, {
+        startY: 50,
+        head: [["Description", "Amount"]],
+        body: rows.map(r => [r[1], r[2]]),
+        theme: "plain",
+        styles: { fontSize: 8, cellPadding: 1 },
+        margin: { left: margin, right: margin }
+      });
+      const tableHeight = dummyDoc.lastAutoTable.finalY;
+      const docHeight = Math.max(100, tableHeight + 40);
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [width, docHeight] });
+
+      let y = 10;
+      if (branding.logo) {
+        try {
+          doc.addImage(branding.logo, 'PNG', (width - 15) / 2, y, 15, 15);
+          y += 18;
+        } catch (e) {
+          console.error("Failed to add logo to thermal PDF", e);
+        }
       }
-    });
 
-    y = doc.lastAutoTable.finalY + 15;
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "bold");
+      doc.text(branding.name, width / 2, y, { align: "center" });
+      y += 5;
 
-    doc.setFontSize(10);
-    doc.setTextColor(33, 33, 33);
-    doc.setFont("helvetica", "bold");
-    doc.text("Payment Information:", 20, y);
-    y += 6;
-    doc.setFont("helvetica", "normal");
-    doc.text(`Payment Method: ${mainPayment.method.toUpperCase()}`, 20, y);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      if (branding.address) {
+        const addrLines = doc.splitTextToSize(branding.address, width - margin * 2);
+        doc.text(addrLines, width / 2, y, { align: "center" });
+        y += addrLines.length * 4;
+      }
+      if (branding.phone) {
+        doc.text(`Tel: ${branding.phone}`, width / 2, y, { align: "center" });
+        y += 4;
+      }
 
-    if (mainPayment.insurance_provider_id) {
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, y, width - margin, y);
+      y += 6;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("PAYMENT RECEIPT", width / 2, y, { align: "center" });
+      y += 6;
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Receipt: ${mainPayment.id.slice(0, 8).toUpperCase()}`, margin, y);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, width - margin, y, { align: "right" });
+      y += 4;
+      doc.text(`Patient: ${mainPayment.patient_name}`, margin, y);
+      y += 6;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Description", "Amount"]],
+        body: rows.map(r => [r[1], r[2]]),
+        theme: "plain",
+        headStyles: { fontStyle: 'bold', lineColor: [200, 200, 200], lineWidth: { bottom: 0.1 } },
+        styles: { fontSize: 8, cellPadding: 1 },
+        columnStyles: { 1: { halign: 'right' } },
+        margin: { left: margin, right: margin }
+      });
+
+      y = doc.lastAutoTable.finalY + 4;
+      doc.setFont("helvetica", "bold");
+      doc.text("TOTAL PAID:", margin, y);
+      doc.text(`KSH ${totalAmount.toLocaleString()}`, width - margin, y, { align: "right" });
+      y += 6;
+
+      doc.setFont("helvetica", "normal");
+      doc.text(`Method: ${mainPayment.method.toUpperCase()}`, margin, y);
+      y += 10;
+
+      doc.setFontSize(7);
+      doc.text(branding.footer || "Thank you for choosing our clinic.", width / 2, y, { align: "center" });
+      y += 4;
+      doc.text(`Issued at: ${new Date().toLocaleTimeString()}`, width / 2, y, { align: "center" });
+
+      doc.save(`Receipt_${mainPayment.patient_name.replace(/\s+/g, "_")}.pdf`);
+    } else {
+      const doc = new jsPDF();
+      let y = addLetterhead(doc, branding);
+
+      doc.setFontSize(18);
+      doc.setTextColor(46, 125, 50); // Green
+      doc.setFont("helvetica", "bold");
+      doc.text("OFFICIAL PAYMENT RECEIPT", 105, y, { align: "center" });
+      y += 15;
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Receipt No: ${mainPayment.id.slice(0, 8).toUpperCase()}`, 20, y);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, y);
+      y += 7;
+      doc.text(`Patient: ${mainPayment.patient_name}`, 20, y);
+      doc.text(`Status: PAID`, 150, y);
+      y += 10;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Date", "Description", "Amount"]],
+        body: rows,
+        foot: [["", "TOTAL AMOUNT PAID", `KSH ${totalAmount.toLocaleString()}`]],
+        theme: "striped",
+        headStyles: { fillColor: [46, 125, 50], textColor: 255 },
+        footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' },
+        styles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          2: { cellWidth: 40, halign: 'right' }
+        }
+      });
+
+      y = doc.lastAutoTable.finalY + 15;
+
+      doc.setFontSize(10);
+      doc.setTextColor(33, 33, 33);
+      doc.setFont("helvetica", "bold");
+      doc.text("Payment Information:", 20, y);
+      y += 6;
+      doc.setFont("helvetica", "normal");
+      doc.text(`Payment Method: ${mainPayment.method.toUpperCase()}`, 20, y);
+
+      if (mainPayment.insurance_provider_id) {
         doc.text(`Insurance: Covered`, 20, y + 5);
         y += 5;
+      }
+
+      y += 20;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, y, 80, y);
+      doc.setFontSize(8);
+      doc.text("Patient/Guardian Signature", 20, y + 5);
+
+      doc.line(130, y, 190, y);
+      doc.text("Clinic Authorized Signature", 130, y + 5);
+
+      addFooter(doc, branding);
+      doc.save(`Receipt_${mainPayment.patient_name.replace(/\s+/g, "_")}.pdf`);
     }
-
-    y += 20;
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, y, 80, y);
-    doc.setFontSize(8);
-    doc.text("Patient/Guardian Signature", 20, y + 5);
-
-    doc.line(130, y, 190, y);
-    doc.text("Clinic Authorized Signature", 130, y + 5);
-
-    addFooter(doc, branding);
-    doc.save(`Receipt_${mainPayment.patient_name.replace(/\s+/g, "_")}.pdf`);
   },
 
   async generateInvoice(payment: Payment | Payment[]) {
@@ -634,25 +731,6 @@ export const pdfGenerator = {
 
     const mainPayment = payments[0];
     const branding = await getBranding();
-    const doc = new jsPDF();
-    let y = addLetterhead(doc, branding);
-
-    doc.setFontSize(18);
-    doc.setTextColor(33, 33, 33);
-    doc.setFont("helvetica", "bold");
-    doc.text("PRO-FORMA INVOICE / BILL", 105, y, { align: "center" });
-    y += 15;
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Invoice No: INV-${mainPayment.id.slice(0, 8).toUpperCase()}`, 20, y);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, y);
-    y += 7;
-    doc.text(`Patient: ${mainPayment.patient_name}`, 20, y);
-    doc.text(`Status: PENDING`, 150, y);
-    y += 10;
-
     const totalAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     const rows = payments.map(p => [
       p.date,
@@ -660,41 +738,156 @@ export const pdfGenerator = {
       `KSH ${(p.amount || 0).toLocaleString()}`
     ]);
 
-    autoTable(doc, {
-      startY: y,
-      head: [["Date", "Description", "Amount"]],
-      body: rows,
-      foot: [["", "TOTAL AMOUNT DUE", `KSH ${totalAmount.toLocaleString()}`]],
-      theme: "striped",
-      headStyles: { fillColor: [33, 33, 33], textColor: 255 },
-      footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' },
-      styles: { fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 30 },
-        2: { cellWidth: 40, halign: 'right' }
+    if (branding.thermalReceipts) {
+      // 80mm Thermal Invoice Layout
+      const width = 80;
+      const margin = 5;
+
+      // Calculate Height
+      const dummyDoc = new jsPDF({ orientation: "portrait", unit: "mm", format: [width, 1000] });
+      autoTable(dummyDoc, {
+        startY: 50,
+        head: [["Description", "Amount"]],
+        body: rows.map(r => [r[1], r[2]]),
+        theme: "plain",
+        styles: { fontSize: 8, cellPadding: 1 },
+        margin: { left: margin, right: margin }
+      });
+      const tableHeight = dummyDoc.lastAutoTable.finalY;
+      const docHeight = Math.max(100, tableHeight + 50);
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [width, docHeight] });
+
+      let y = 10;
+      if (branding.logo) {
+        try {
+          doc.addImage(branding.logo, 'PNG', (width - 15) / 2, y, 15, 15);
+          y += 18;
+        } catch (e) {
+          console.error("Failed to add logo to thermal PDF", e);
+        }
       }
-    });
 
-    y = doc.lastAutoTable.finalY + 15;
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "bold");
+      doc.text(branding.name, width / 2, y, { align: "center" });
+      y += 5;
 
-    doc.setFontSize(10);
-    doc.setTextColor(33, 33, 33);
-    doc.setFont("helvetica", "normal");
-    const note = "This is a pro-forma invoice for services rendered. Please proceed to the cashier for payment.";
-    const lines = doc.splitTextToSize(note, 170);
-    doc.text(lines, 20, y);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      if (branding.address) {
+        const addrLines = doc.splitTextToSize(branding.address, width - margin * 2);
+        doc.text(addrLines, width / 2, y, { align: "center" });
+        y += addrLines.length * 4;
+      }
+      if (branding.phone) {
+        doc.text(`Tel: ${branding.phone}`, width / 2, y, { align: "center" });
+        y += 4;
+      }
 
-    y += 30;
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, y, 80, y);
-    doc.setFontSize(8);
-    doc.text("Patient/Guardian Signature", 20, y + 5);
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, y, width - margin, y);
+      y += 6;
 
-    doc.line(130, y, 190, y);
-    doc.text("Clinic Authorized Signature", 130, y + 5);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("PRO-FORMA INVOICE", width / 2, y, { align: "center" });
+      y += 6;
 
-    addFooter(doc, branding);
-    doc.save(`Invoice_${mainPayment.patient_name.replace(/\s+/g, "_")}.pdf`);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Invoice: INV-${mainPayment.id.slice(0, 8).toUpperCase()}`, margin, y);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, width - margin, y, { align: "right" });
+      y += 4;
+      doc.text(`Patient: ${mainPayment.patient_name}`, margin, y);
+      y += 6;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Description", "Amount"]],
+        body: rows.map(r => [r[1], r[2]]),
+        theme: "plain",
+        headStyles: { fontStyle: 'bold', lineColor: [200, 200, 200], lineWidth: { bottom: 0.1 } },
+        styles: { fontSize: 8, cellPadding: 1 },
+        columnStyles: { 1: { halign: 'right' } },
+        margin: { left: margin, right: margin }
+      });
+
+      y = doc.lastAutoTable.finalY + 4;
+      doc.setFont("helvetica", "bold");
+      doc.text("TOTAL DUE:", margin, y);
+      doc.text(`KSH ${totalAmount.toLocaleString()}`, width - margin, y, { align: "right" });
+      y += 10;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      const note = "Please proceed to the cashier for payment.";
+      const noteLines = doc.splitTextToSize(note, width - margin * 2);
+      doc.text(noteLines, width / 2, y, { align: "center" });
+      y += noteLines.length * 4 + 6;
+
+      doc.text(branding.footer || "Thank you for choosing our clinic.", width / 2, y, { align: "center" });
+      y += 4;
+      doc.text(`Issued at: ${new Date().toLocaleTimeString()}`, width / 2, y, { align: "center" });
+
+      doc.save(`Invoice_${mainPayment.patient_name.replace(/\s+/g, "_")}.pdf`);
+    } else {
+      const doc = new jsPDF();
+      let y = addLetterhead(doc, branding);
+
+      doc.setFontSize(18);
+      doc.setTextColor(33, 33, 33);
+      doc.setFont("helvetica", "bold");
+      doc.text("PRO-FORMA INVOICE / BILL", 105, y, { align: "center" });
+      y += 15;
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Invoice No: INV-${mainPayment.id.slice(0, 8).toUpperCase()}`, 20, y);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, y);
+      y += 7;
+      doc.text(`Patient: ${mainPayment.patient_name}`, 20, y);
+      doc.text(`Status: PENDING`, 150, y);
+      y += 10;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Date", "Description", "Amount"]],
+        body: rows,
+        foot: [["", "TOTAL AMOUNT DUE", `KSH ${totalAmount.toLocaleString()}`]],
+        theme: "striped",
+        headStyles: { fillColor: [33, 33, 33], textColor: 255 },
+        footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' },
+        styles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          2: { cellWidth: 40, halign: 'right' }
+        }
+      });
+
+      y = doc.lastAutoTable.finalY + 15;
+
+      doc.setFontSize(10);
+      doc.setTextColor(33, 33, 33);
+      doc.setFont("helvetica", "normal");
+      const note = "This is a pro-forma invoice for services rendered. Please proceed to the cashier for payment.";
+      const lines = doc.splitTextToSize(note, 170);
+      doc.text(lines, 20, y);
+
+      y += 30;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, y, 80, y);
+      doc.setFontSize(8);
+      doc.text("Patient/Guardian Signature", 20, y + 5);
+
+      doc.line(130, y, 190, y);
+      doc.text("Clinic Authorized Signature", 130, y + 5);
+
+      addFooter(doc, branding);
+      doc.save(`Invoice_${mainPayment.patient_name.replace(/\s+/g, "_")}.pdf`);
+    }
   },
 
   async generateSickSheet(sheet: SickSheet) {

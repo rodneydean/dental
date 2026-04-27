@@ -22,6 +22,7 @@ const Settings = () => {
   const [receptionFee, setReceptionFee] = useState<string>("0");
   const [requirePaymentBeforeAdmit, setRequirePaymentBeforeAdmit] = useState<boolean>(true);
   const [autoUpdate, setAutoUpdate] = useState<boolean>(false);
+  const [thermalReceipts, setThermalReceipts] = useState<boolean>(false);
 
   // Branding settings
   const [clinicName, setClinicName] = useState("");
@@ -117,7 +118,8 @@ const Settings = () => {
         website,
         taxId,
         footer,
-        logoData
+        logoData,
+        thermalRec
       ] = await Promise.all([
         dataManager.getSetting("reception_fee"),
         dataManager.getSetting("require_payment_before_admit"),
@@ -128,11 +130,13 @@ const Settings = () => {
         dataManager.getSetting("clinic_website"),
         dataManager.getSetting("clinic_tax_id"),
         dataManager.getSetting("clinic_footer"),
-        dataManager.getLogo()
+        dataManager.getLogo(),
+        dataManager.getSetting("thermal_receipts")
       ]);
       setReceptionFee(fee || "0");
       setRequirePaymentBeforeAdmit(requirePay === "true");
       setAutoUpdate(autoUpd === "true");
+      setThermalReceipts(thermalRec === "true");
       setClinicName(name || "");
       setClinicAddress(address || "");
       setClinicPhone(phone || "");
@@ -228,6 +232,7 @@ const Settings = () => {
         promises.push(dataManager.setSetting("clinic_website", clinicWebsite));
         promises.push(dataManager.setSetting("clinic_tax_id", clinicTaxId));
         promises.push(dataManager.setSetting("clinic_footer", clinicFooter));
+        promises.push(dataManager.setSetting("thermal_receipts", thermalReceipts.toString()));
         if (logo && logo.startsWith('data:image')) {
           promises.push(dataManager.saveLogo(logo));
         }
@@ -439,6 +444,22 @@ const Settings = () => {
                     Upload Logo
                   </Label>
                   <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tight">Recommended: Square PNG with transparent background</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-100">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="thermalReceipts"
+                  checked={thermalReceipts}
+                  onChange={(e) => setThermalReceipts(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                />
+                <div className="grid gap-0.5">
+                  <Label htmlFor="thermalReceipts" className="text-sm font-medium">Use Thermal Printer Format (80mm)</Label>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-tight">Enables minified layout for receipts and pro-forma invoices</p>
                 </div>
               </div>
             </div>
