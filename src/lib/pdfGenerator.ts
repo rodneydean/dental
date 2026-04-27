@@ -639,7 +639,7 @@ export const pdfGenerator = {
         head: [["Description", "Amount"]],
         body: rows.map(r => [r[1], r[2]]),
         theme: "plain",
-        headStyles: { fontStyle: 'bold', borderBottomColor: [200, 200, 200], lineWidth: 0.1 },
+        headStyles: { fontStyle: 'bold', lineColor: [200, 200, 200], lineWidth: { bottom: 0.1 } },
         styles: { fontSize: 8, cellPadding: 1 },
         columnStyles: { 1: { halign: 'right' } },
         margin: { left: margin, right: margin }
@@ -808,7 +808,7 @@ export const pdfGenerator = {
         head: [["Description", "Amount"]],
         body: rows.map(r => [r[1], r[2]]),
         theme: "plain",
-        headStyles: { fontStyle: 'bold', borderBottomColor: [200, 200, 200], lineWidth: 0.1 },
+        headStyles: { fontStyle: 'bold', lineColor: [200, 200, 200], lineWidth: { bottom: 0.1 } },
         styles: { fontSize: 8, cellPadding: 1 },
         columnStyles: { 1: { halign: 'right' } },
         margin: { left: margin, right: margin }
