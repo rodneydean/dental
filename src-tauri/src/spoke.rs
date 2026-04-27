@@ -146,7 +146,6 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
             .unwrap_or_else(|_| Client::new());
 
         let mut force_sync = false;
-        let mut was_connected = false;
         loop {
             // Cleanup stale addresses
             if let Ok(mut addrs_lock) = hub_addrs_sync.lock() {
@@ -198,7 +197,6 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                                     *lock = Some(pair_res.token.clone());
                                     info!("Paired successfully with Hub at {}", addr);
                                     force_sync = true;
-                                    was_connected = true;
                                 }
                             }
                         },
@@ -239,7 +237,6 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                         }
                         Err(e) => {
                             error!("Sync failed with {}: {}", addr, e);
-                            was_connected = false;
                             update_status(&app_handle_sync, "Reconnecting...", false);
 
                             // If it's a 401, clear the token so we re-pair
@@ -264,7 +261,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
             let sleep_duration = if sync_success {
                 Duration::from_secs(30)
             } else {
-                Duration::from_secs(3) // More aggressive reconnection
+                Duration::from_secs(1) // More aggressive reconnection
             };
 
             tokio::select! {
@@ -276,36 +273,9 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
         }
     });
 
-    // Listen for local changes to trigger immediate sync push
-    let notifier_local = sync_notifier.clone();
-    let app_handle_local = app_handle.clone();
-    tauri::async_runtime::spawn(async move {
-        use tauri::Listener;
-        app_handle_local.listen("sync-event", move |event| {
-            // Avoid re-triggering sync if the event was just received from the Hub via WebSocket
-            // We can check if the payload contains "type" which we use for remote events
-            let should_trigger = if let Ok(payload) = serde_json::from_str::<serde_json::Value>(event.payload()) {
-                // If it has a type (like treatment_updated) and it's NOT from spoke, it must be local
-                // OR if it explicitly says source: local
-                let is_from_spoke = payload.get("source").and_then(|s| s.as_str()) == Some("spoke");
-                let is_explicit_local = payload.get("source").and_then(|s| s.as_str()) == Some("local");
-
-                !is_from_spoke || is_explicit_local
-            } else {
-                true
-            };
-
-            if should_trigger {
-                info!("Local sync-event detected, triggering immediate spoke sync push");
-                notifier_local.notify_one();
-            }
-        });
-    });
-
     // Heartbeat Task
     let hub_addrs_hb = hub_addresses.clone();
     let current_idx_hb = current_hub_index.clone();
-    let pairing_token_hb = pairing_token.clone();
     let app_handle_hb = app_handle.clone();
     let notifier_hb = sync_notifier.clone();
     tauri::async_runtime::spawn(async move {
@@ -343,14 +313,8 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
                         }
                     }
                 } else {
-                    // If we lost heartbeat, clear token so we re-pair on next sync attempt
-                    // This handles Hub restarts gracefully
-                    if let Ok(mut lock) = pairing_token_hb.lock() {
-                         if lock.is_some() {
-                             info!("Heartbeat lost with Hub at {}. Clearing pairing token.", addr);
-                             *lock = None;
-                         }
-                    }
+                    // Heartbeat lost. We don't clear the pairing token here to allow "instant" reconnection
+                    // when the hub comes back online. Re-pairing is handled by the sync loop if needed.
                     update_status(&app_handle_hb, "Reconnecting...", false);
                 }
 
@@ -369,7 +333,7 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
             } else {
                 update_status(&app_handle_hb, "Searching for Hub...", false);
             }
-            tokio::time::sleep(Duration::from_secs(5)).await;
+            tokio::time::sleep(Duration::from_secs(2)).await;
         }
     });
 
@@ -497,7 +461,7 @@ async fn push_doctor_statuses(client: &Client, hub_addr: &str, token: &str, app_
 async fn push_settings(client: &Client, hub_addr: &str, token: &str, app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let settings: Vec<crate::commands::settings::Setting> = {
         let conn = get_db_conn(app_handle)?;
-        let mut stmt = conn.prepare("SELECT key, value, updated_at FROM settings WHERE sync_status = 'pending'")?;
+        let mut stmt = conn.prepare("SELECT key, value, updated_at FROM settings WHERE sync_status = 'pending' AND key NOT IN ('network_mode', 'pairing_code', 'hub_address')")?;
         let rows = stmt.query_map([], |row| {
             Ok(crate::commands::settings::Setting {
                 key: row.get(0)?,
@@ -1169,6 +1133,9 @@ async fn pull_settings(client: &Client, hub_addr: &str, token: &str, app_handle:
     if res.status().is_success() {
         let sync_res: SyncResponse<crate::commands::settings::Setting> = res.json().await?;
         for s in sync_res.data {
+            if ["network_mode", "pairing_code", "hub_address"].contains(&s.key.as_str()) {
+                continue;
+            }
             let _ = conn.execute(
                 "INSERT INTO settings (key, value, updated_at, sync_status)
                  VALUES (?1, ?2, ?3, 'synced')

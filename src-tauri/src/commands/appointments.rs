@@ -157,22 +157,22 @@ pub fn update_appointment(
         ],
     ).map_err(|e| e.to_string())?;
 
-    let patient_name: String = conn.query_row(
-        "SELECT patient_name FROM appointments WHERE id = ?1",
-        [&id],
-        |row| row.get(0)
-    ).unwrap_or_else(|e| {
-        log::error!("Failed to fetch patient name for sync event: {}", e);
-        "Unknown".to_string()
-    });
+    if status == "admitted" {
+        let patient_name: String = conn.query_row(
+            "SELECT patient_name FROM appointments WHERE id = ?1",
+            [&id],
+            |row| row.get(0)
+        ).unwrap_or_else(|e| {
+            log::error!("Failed to fetch patient name for admission event: {}", e);
+            "Unknown".to_string()
+        });
 
-    let _ = app_handle.emit("sync-event", serde_json::json!({
-        "type": "appointment_updated",
-        "patient_name": patient_name,
-        "status": status,
-        "doctor_id": doctor_id,
-        "source": "local"
-    }));
+        let _ = app_handle.emit("sync-event", serde_json::json!({
+            "type": "patient_admitted",
+            "patient_name": patient_name,
+            "doctor_id": doctor_id
+        }));
+    }
 
     Ok(())
 }
