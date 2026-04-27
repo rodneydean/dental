@@ -276,6 +276,32 @@ pub async fn start_spoke_client(app_handle: AppHandle, pairing_code: String, man
         }
     });
 
+    // Listen for local changes to trigger immediate sync push
+    let notifier_local = sync_notifier.clone();
+    let app_handle_local = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        use tauri::Listener;
+        app_handle_local.listen("sync-event", move |event| {
+            // Avoid re-triggering sync if the event was just received from the Hub via WebSocket
+            // We can check if the payload contains "type" which we use for remote events
+            let should_trigger = if let Ok(payload) = serde_json::from_str::<serde_json::Value>(event.payload()) {
+                // If it has a type (like treatment_updated) and it's NOT from spoke, it must be local
+                // OR if it explicitly says source: local
+                let is_from_spoke = payload.get("source").and_then(|s| s.as_str()) == Some("spoke");
+                let is_explicit_local = payload.get("source").and_then(|s| s.as_str()) == Some("local");
+
+                !is_from_spoke || is_explicit_local
+            } else {
+                true
+            };
+
+            if should_trigger {
+                info!("Local sync-event detected, triggering immediate spoke sync push");
+                notifier_local.notify_one();
+            }
+        });
+    });
+
     // Heartbeat Task
     let hub_addrs_hb = hub_addresses.clone();
     let current_idx_hb = current_hub_index.clone();
