@@ -213,7 +213,7 @@ async fn start_udp_broadcast(port: u16) -> Result<(), Box<dyn std::error::Error 
 
     loop {
         let _ = socket.send_to(message.as_bytes(), broadcast_addr).await;
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     }
 }
 
@@ -673,10 +673,15 @@ async fn post_sick_sheets_handler(
 
 async fn get_settings_handler(State(state): State<HubState>) -> impl IntoResponse {
     match crate::commands::settings::list_settings(state.app_handle) {
-        Ok(settings) => Json(SyncResponse {
-            data: settings,
-            timestamp: chrono::Utc::now().to_rfc3339(),
-        }).into_response(),
+        Ok(settings) => {
+            let filtered_settings = settings.into_iter()
+                .filter(|s| !["network_mode", "pairing_code", "hub_address"].contains(&s.key.as_str()))
+                .collect();
+            Json(SyncResponse {
+                data: filtered_settings,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            }).into_response()
+        },
         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
     }
 }
@@ -691,6 +696,9 @@ async fn post_settings_handler(
     };
 
     for s in settings {
+        if ["network_mode", "pairing_code", "hub_address"].contains(&s.key.as_str()) {
+            continue;
+        }
         let _ = conn.execute(
             "INSERT INTO settings (key, value, updated_at, sync_status)
              VALUES (?1, ?2, ?3, 'synced')
