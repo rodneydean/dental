@@ -41,10 +41,11 @@ import AppointmentForm from "@/components/AppointmentForm";
 import { pdfGenerator } from "@/lib/pdfGenerator";
 import { listen } from "@tauri-apps/api/event";
 import { cn, getLocalDate } from "@/lib/utils";
-import { useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import InsuranceClaims from "@/components/InsuranceClaims";
+import InsuranceProviders from "@/components/InsuranceProviders";
 
 const Reception = () => {
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -341,15 +342,6 @@ const Reception = () => {
         </div>
 
         <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-white/10 h-8 px-2 rounded-sm border border-white/20 mr-2"
-            onClick={() => navigate("/insurance-claims")}
-          >
-            <CreditCard className="h-4 w-4 mr-2" />
-            <span className="text-xs font-semibold uppercase">Insurance Claims</span>
-          </Button>
           <div className="flex items-center space-x-3 pr-4 border-r border-white/20">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-semibold leading-none">{user?.full_name}</p>
@@ -374,26 +366,41 @@ const Reception = () => {
       </header>
 
       <main className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, i) => (
-            <Card key={i} className="border-none shadow-sm bg-white overflow-hidden">
-              <CardContent className="p-4 flex items-center space-x-4">
-                <div className={cn("p-2.5 rounded-sm", stat.bg)}>
-                  <stat.icon className={cn("h-5 w-5", stat.color)} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 leading-none mt-0.5">{stat.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Tabs defaultValue="command" className="w-full">
+          <div className="flex items-center justify-between mb-4 border-b border-gray-200">
+            <TabsList className="bg-transparent h-12 gap-6" variant="line">
+              <TabsTrigger value="command" className="text-[11px] font-black uppercase tracking-widest px-0">
+                Command Center
+              </TabsTrigger>
+              <TabsTrigger value="claims" className="text-[11px] font-black uppercase tracking-widest px-0">
+                Insurance Claims
+              </TabsTrigger>
+              <TabsTrigger value="providers" className="text-[11px] font-black uppercase tracking-widest px-0">
+                Insurance Providers
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Quick Admission & Today's Appointments */}
-          <div className="lg:col-span-8 space-y-6">
+          <TabsContent value="command" className="mt-0 space-y-6 outline-none">
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {stats.map((stat, i) => (
+                <Card key={i} className="border-none shadow-sm bg-white overflow-hidden">
+                  <CardContent className="p-4 flex items-center space-x-4">
+                    <div className={cn("p-2.5 rounded-sm", stat.bg)}>
+                      <stat.icon className={cn("h-5 w-5", stat.color)} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{stat.label}</p>
+                      <p className="text-2xl font-bold text-gray-900 leading-none mt-0.5">{stat.value}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 space-y-6">
             {/* Quick Admission Command Pane */}
             <Card className="border-none shadow-sm bg-white overflow-visible">
               <CardHeader className="pb-3 border-b border-gray-50">
@@ -564,11 +571,11 @@ const Reception = () => {
                   )}
                 </div>
               </CardContent>
-            </Card>
-          </div>
+                </Card>
+              </div>
 
-          {/* Right Column: Live Queue */}
-          <div className="lg:col-span-4 space-y-6">
+              {/* Right Column: Live Queue */}
+              <div className="lg:col-span-4 space-y-6">
             <Card className="border-none shadow-sm bg-white overflow-hidden h-full flex flex-col">
               <CardHeader className="pb-3 border-b border-gray-50">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-gray-500 flex items-center">
@@ -742,9 +749,19 @@ const Reception = () => {
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          </div>
-        </div>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="claims" className="mt-0 outline-none">
+            <InsuranceClaims embedded={true} />
+          </TabsContent>
+
+          <TabsContent value="providers" className="mt-0 outline-none">
+            <InsuranceProviders />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Forms & Dialogs */}
