@@ -60,6 +60,19 @@ fn empty_to_none(s: Option<String>) -> Option<String> {
     }
 }
 
+fn normalize_phone(phone: Option<String>) -> Option<String> {
+    phone.map(|p| {
+        let normalized: String = p.chars()
+            .filter(|c| c.is_ascii_digit() || *c == '+')
+            .collect();
+        if normalized.is_empty() {
+            "".to_string()
+        } else {
+            normalized
+        }
+    }).and_then(|s| if s.is_empty() { None } else { Some(s) })
+}
+
 #[command]
 pub fn create_patient(
     app_handle: AppHandle,
@@ -79,18 +92,18 @@ pub fn create_patient(
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
 
-    let phone = empty_to_none(phone);
+    let phone = normalize_phone(phone);
     let email = empty_to_none(email);
     let date_of_birth = empty_to_none(date_of_birth);
     let address = empty_to_none(address);
     let medical_history = empty_to_none(medical_history);
     let allergies = empty_to_none(allergies);
     let emergency_contact = empty_to_none(emergency_contact);
-    let emergency_phone = empty_to_none(emergency_phone);
+    let emergency_phone = normalize_phone(emergency_phone);
     let preferred_payment_method = empty_to_none(preferred_payment_method);
     let preferred_insurance_provider_id = empty_to_none(preferred_insurance_provider_id);
 
-    conn.execute(
+    let res = conn.execute(
         "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at, sync_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'pending')",
         [
             Some(id.clone()),
@@ -108,26 +121,33 @@ pub fn create_patient(
             Some(now.clone()),
             Some(now.clone()),
         ],
-    ).map_err(|e| e.to_string())?;
+    );
 
-    let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_registered", "name": name }));
-
-    Ok(Patient {
-        id,
-        name,
-        phone,
-        email,
-        date_of_birth,
-        address,
-        medical_history,
-        allergies,
-        emergency_contact,
-        emergency_phone,
-        preferred_payment_method,
-        preferred_insurance_provider_id,
-        created_at: now.clone(),
-        updated_at: now,
-    })
+    match res {
+        Ok(_) => {
+            let _ = app_handle.emit("sync-event", serde_json::json!({ "type": "patient_registered", "name": name }));
+            Ok(Patient {
+                id,
+                name,
+                phone,
+                email,
+                date_of_birth,
+                address,
+                medical_history,
+                allergies,
+                emergency_contact,
+                emergency_phone,
+                preferred_payment_method,
+                preferred_insurance_provider_id,
+                created_at: now.clone(),
+                updated_at: now,
+            })
+        },
+        Err(rusqlite::Error::SqliteFailure(e, _)) if e.code == rusqlite::ErrorCode::ConstraintViolation => {
+            Err("A patient with this name and phone number already exists".to_string())
+        },
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[command]
@@ -176,18 +196,18 @@ pub fn update_patient(
     let conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
     let now = Utc::now().to_rfc3339();
 
-    let phone = empty_to_none(phone);
+    let phone = normalize_phone(phone);
     let email = empty_to_none(email);
     let date_of_birth = empty_to_none(date_of_birth);
     let address = empty_to_none(address);
     let medical_history = empty_to_none(medical_history);
     let allergies = empty_to_none(allergies);
     let emergency_contact = empty_to_none(emergency_contact);
-    let emergency_phone = empty_to_none(emergency_phone);
+    let emergency_phone = normalize_phone(emergency_phone);
     let preferred_payment_method = empty_to_none(preferred_payment_method);
     let preferred_insurance_provider_id = empty_to_none(preferred_insurance_provider_id);
 
-    conn.execute(
+    let res = conn.execute(
         "UPDATE patients SET name = ?1, phone = ?2, email = ?3, date_of_birth = ?4, address = ?5, medical_history = ?6, allergies = ?7, emergency_contact = ?8, emergency_phone = ?9, preferred_payment_method = ?10, preferred_insurance_provider_id = ?11, updated_at = ?12, sync_status = 'pending' WHERE id = ?13",
         [
             Some(name),
@@ -204,9 +224,15 @@ pub fn update_patient(
             Some(now),
             Some(id),
         ],
-    ).map_err(|e| e.to_string())?;
+    );
 
-    Ok(())
+    match res {
+        Ok(_) => Ok(()),
+        Err(rusqlite::Error::SqliteFailure(e, _)) if e.code == rusqlite::ErrorCode::ConstraintViolation => {
+            Err("A patient with this name and phone number already exists".to_string())
+        },
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -308,14 +334,83 @@ pub fn delete_patient(app_handle: AppHandle, id: String) -> Result<(), String> {
     let mut conn = get_db_conn(&app_handle).map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    tx.execute("DELETE FROM patients WHERE id = ?1", [&id]).map_err(|e| e.to_string())?;
+    // 1. Get all associated record IDs for synchronization
+    let appointment_ids: Vec<String> = {
+        let mut stmt = tx.prepare("SELECT id FROM appointments WHERE patient_id = ?1").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([&id], |row| row.get(0)).map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    let treatment_ids: Vec<String> = {
+        let mut stmt = tx.prepare("SELECT id FROM treatments WHERE patient_id = ?1").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([&id], |row| row.get(0)).map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    let payment_ids: Vec<String> = {
+        let mut stmt = tx.prepare("SELECT id FROM payments WHERE patient_id = ?1").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([&id], |row| row.get(0)).map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    let note_ids: Vec<String> = {
+        let mut stmt = tx.prepare("SELECT id FROM patient_notes WHERE patient_id = ?1").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([&id], |row| row.get(0)).map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    let sheet_ids: Vec<String> = {
+        let mut stmt = tx.prepare("SELECT id FROM sick_sheets WHERE patient_id = ?1").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([&id], |row| row.get(0)).map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    let waiver_ids: Vec<String> = {
+        let mut stmt = tx.prepare("SELECT id FROM waiver_requests WHERE patient_id = ?1").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([&id], |row| row.get(0)).map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
 
     let now = Utc::now().to_rfc3339();
-    let deletion_id = Uuid::new_v4().to_string();
-    tx.execute(
-        "INSERT INTO deleted_records (id, table_name, record_id, deleted_at, sync_status) VALUES (?1, 'patients', ?2, ?3, 'pending')",
-        [deletion_id, id, now],
-    ).map_err(|e| e.to_string())?;
+
+    // 2. Record deletions in deleted_records
+    let tables_and_ids = vec![
+        ("patients", vec![id.clone()]),
+        ("appointments", appointment_ids.clone()),
+        ("treatments", treatment_ids.clone()),
+        ("payments", payment_ids),
+        ("patient_notes", note_ids),
+        ("sick_sheets", sheet_ids),
+        ("waiver_requests", waiver_ids),
+    ];
+
+    for (table, ids) in tables_and_ids {
+        for record_id in ids {
+            let deletion_id = Uuid::new_v4().to_string();
+            tx.execute(
+                "INSERT INTO deleted_records (id, table_name, record_id, deleted_at, sync_status) VALUES (?1, ?2, ?3, ?4, 'pending')",
+                [deletion_id, table.to_string(), record_id, now.clone()],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    // 3. Clear doctor_status references
+    for appt_id in &appointment_ids {
+        tx.execute(
+            "UPDATE doctor_status SET current_appointment_id = NULL WHERE current_appointment_id = ?1",
+            [appt_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // 4. Cascading delete from all tables
+    tx.execute("DELETE FROM medications WHERE treatment_id IN (SELECT id FROM treatments WHERE patient_id = ?1)", [&id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM treatments WHERE patient_id = ?1", [&id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM appointments WHERE patient_id = ?1", [&id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM payments WHERE patient_id = ?1", [&id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM patient_notes WHERE patient_id = ?1", [&id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM sick_sheets WHERE patient_id = ?1", [&id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM waiver_requests WHERE patient_id = ?1", [&id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM patients WHERE id = ?1", [&id]).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())

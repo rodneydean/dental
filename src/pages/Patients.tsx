@@ -74,9 +74,14 @@ const Patients = () => {
   useEffect(() => {
     const filtered = patients.filter(
       (patient) => {
+        const normalize = (s: string) => s.replace(/[^\d+]/g, "");
+        const normalizedSearch = normalize(searchTerm);
+        const normalizedPhone = patient.phone ? normalize(patient.phone) : "";
+
         const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (patient.email && patient.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (patient.phone && patient.phone.includes(searchTerm));
+          (patient.phone && patient.phone.includes(searchTerm)) ||
+          (normalizedSearch && normalizedPhone.includes(normalizedSearch));
 
         if (!showAllPatients && user?.role === "RECEPTION") {
           const today = new Date().toISOString().split("T")[0];
@@ -113,8 +118,8 @@ const Patients = () => {
       await loadData();
       setShowAddSheet(false);
       toast.success("Patient added successfully");
-    } catch {
-      toast.error("Failed to add patient");
+    } catch (error) {
+      toast.error(typeof error === 'string' ? error : (error instanceof Error ? error.message : "Failed to add patient"));
     }
   };
 
@@ -128,8 +133,8 @@ const Patients = () => {
       await loadData();
       setEditingPatient(null);
       toast.success("Patient updated successfully");
-    } catch {
-      toast.error("Failed to update patient");
+    } catch (error) {
+      toast.error(typeof error === 'string' ? error : (error instanceof Error ? error.message : "Failed to update patient"));
     }
   };
 

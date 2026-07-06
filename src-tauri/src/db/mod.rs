@@ -514,6 +514,12 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
         }
     }
 
+    // Unique index for patients name and phone to prevent duplicates
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_name_phone ON patients (name, phone)",
+        [],
+    )?;
+
     Ok(())
 }
 

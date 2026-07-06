@@ -850,7 +850,7 @@ async fn post_deletions_handler(
         );
 
         // Perform actual deletion on Hub if not already deleted
-        let allowed_tables = vec!["patients", "appointments", "treatments", "payments", "patient_notes", "sick_sheets", "services", "insurance_providers", "users"];
+        let allowed_tables = vec!["patients", "appointments", "treatments", "payments", "patient_notes", "sick_sheets", "services", "insurance_providers", "users", "waiver_requests"];
         if allowed_tables.contains(&d.table_name.as_str()) {
             let query = format!("DELETE FROM {} WHERE id = ?1", d.table_name);
             let _ = tx.execute(&query, [&d.record_id]);
