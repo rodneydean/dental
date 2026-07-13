@@ -143,10 +143,10 @@ const Appointments = () => {
     }
   };
 
-  const filteredAppointments = appointments.filter((apt) => {
-    const matchesSearch =
-      apt.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.appointment_type.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredAppointments = (appointments || []).filter((apt) => {
+    const nameMatch = apt.patient_name ? apt.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+    const typeMatch = apt.appointment_type ? apt.appointment_type.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+    const matchesSearch = nameMatch || typeMatch;
     const matchesStatus = filterStatus === "all" || apt.status === filterStatus;
     return matchesSearch && matchesStatus;
   });

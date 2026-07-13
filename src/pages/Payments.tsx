@@ -135,8 +135,8 @@ const Payments = () => {
     }));
   };
 
-  const filteredPayments = payments.filter((p) => {
-    const matchesSearch = p.patient_name.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredPayments = (payments || []).filter((p) => {
+    const matchesSearch = p.patient_name ? p.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
     const matchesMethod = filterMethod === "all" || p.method === filterMethod;
     return matchesSearch && matchesMethod;
   });
