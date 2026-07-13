@@ -196,10 +196,12 @@ const DoctorDashboard = () => {
 
   const filteredPatients = useMemo(() => {
     if (searchTerm.length < 2) return [];
-    return patients.filter(p =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.phone.includes(searchTerm)
-    ).slice(0, 5);
+    const pts = patients || [];
+    return pts.filter(p => {
+      const nameMatch = p.name ? p.name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+      const phoneMatch = p.phone ? p.phone.includes(searchTerm) : false;
+      return nameMatch || phoneMatch;
+    }).slice(0, 5);
   }, [searchTerm, patients]);
 
   const getInitials = (name: string) => {
@@ -509,7 +511,7 @@ const DoctorDashboard = () => {
                          >
                             <div>
                                <p className="text-sm font-bold text-gray-900">{p.name}</p>
-                               <p className="text-[10px] text-gray-500">{p.phone}</p>
+                               <p className="text-[10px] text-gray-500">{p.phone || 'No phone'}</p>
                             </div>
                             <ChevronRight className="h-4 w-4 text-[#0078d4] opacity-0 group-hover:opacity-100" />
                          </button>

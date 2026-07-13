@@ -114,10 +114,12 @@ const Reception = () => {
 
   useEffect(() => {
     if (searchTerm.length > 1) {
-      const filtered = patients.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.phone.includes(searchTerm)
-      ).slice(0, 5);
+      const pts = patients || [];
+      const filtered = pts.filter(p => {
+        const nameMatch = p.name ? p.name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+        const phoneMatch = p.phone ? p.phone.includes(searchTerm) : false;
+        return nameMatch || phoneMatch;
+      }).slice(0, 5);
       setSearchResults(filtered);
     } else {
       setSearchResults([]);
@@ -432,7 +434,7 @@ const Reception = () => {
                               onClick={() => handlePatientSelect(p)}
                             >
                               <p className="text-sm font-bold text-gray-900">{p.name}</p>
-                              <p className="text-[10px] text-gray-500">{p.phone} • {p.email || 'No email'}</p>
+                              <p className="text-[10px] text-gray-500">{p.phone || 'No phone'} • {p.email || 'No email'}</p>
                             </button>
                             <Button
                               size="sm"
@@ -467,7 +469,7 @@ const Reception = () => {
                       <div className="space-y-0.5">
                         <p className="text-base font-bold text-gray-900">{selectedPatient.name}</p>
                         <div className="flex items-center space-x-3 text-[10px] text-gray-500 font-bold uppercase tracking-tight">
-                          <span>{selectedPatient.phone}</span>
+                          <span>{selectedPatient.phone || "No phone"}</span>
                           <span>•</span>
                           <span>{selectedPatient.email || "No Email"}</span>
                         </div>

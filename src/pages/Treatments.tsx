@@ -110,10 +110,12 @@ const Treatments = () => {
     }
   };
 
-  const filteredTreatments = treatments.filter(
-    (t) =>
-      t.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTreatments = (treatments || []).filter(
+    (t) => {
+      const nameMatch = t.patient_name ? t.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+      const diagnosisMatch = t.diagnosis ? t.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+      return nameMatch || diagnosisMatch;
+    }
   );
 
   const formatCurrency = (amount: number) => {
