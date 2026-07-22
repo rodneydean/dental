@@ -514,11 +514,63 @@ pub fn init_schema(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
         }
     }
 
+    // Deduplicate patients before creating the unique index to prevent migration failures
+    if let Err(e) = deduplicate_patients_migration(conn) {
+        log::error!("Failed to deduplicate patients during migration: {}", e);
+    }
+
     // Unique index for patients name and phone to prevent duplicates
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_name_phone ON patients (name, phone)",
         [],
     )?;
+
+    Ok(())
+}
+
+pub fn deduplicate_patients_migration(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let mut stmt = conn.prepare(
+        "SELECT name, phone FROM patients \
+         WHERE phone IS NOT NULL AND phone != '' \
+         GROUP BY name, phone \
+         HAVING COUNT(*) > 1"
+    )?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+    })?;
+
+    let mut duplicate_groups = Vec::new();
+    for r in rows {
+        duplicate_groups.push(r?);
+    }
+    drop(stmt);
+
+    for (name, phone) in duplicate_groups {
+        log::info!("Deduplicating patients with name='{}', phone='{:?}'", name, phone);
+
+        let mut stmt = conn.prepare(
+            "SELECT id FROM patients WHERE name = ?1 AND phone = ?2 ORDER BY created_at ASC"
+        )?;
+        let patient_rows = stmt.query_map(rusqlite::params![name, phone], |row| {
+            Ok(row.get::<_, String>(0)?)
+        })?;
+
+        let mut patients_in_group = Vec::new();
+        for p in patient_rows {
+            patients_in_group.push(p?);
+        }
+        drop(stmt);
+
+        if patients_in_group.len() > 1 {
+            let keep_id = &patients_in_group[0];
+            for i in 1..patients_in_group.len() {
+                let delete_id = &patients_in_group[i];
+                log::info!("Merging duplicate patient ID '{}' into keeper ID '{}'", delete_id, keep_id);
+                crate::commands::patients::merge_patients_internal(conn, keep_id, delete_id)?;
+            }
+        }
+    }
 
     Ok(())
 }

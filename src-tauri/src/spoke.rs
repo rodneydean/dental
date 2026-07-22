@@ -895,6 +895,106 @@ async fn pull_patients(client: &Client, hub_addr: &str, token: &str, app_handle:
     if res.status().is_success() {
         let sync_res: SyncResponse<Patient> = res.json().await?;
         for p in sync_res.data {
+            // Check if another patient with a different ID has the same name and phone
+            let existing_id: Option<String> = if p.phone.is_some() {
+                let stmt = conn.prepare("SELECT id FROM patients WHERE name = ?1 AND phone = ?2 AND id != ?3").ok();
+                if let Some(mut s) = stmt {
+                    s.query_row(rusqlite::params![p.name, p.phone, p.id], |row| row.get(0)).ok()
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            if let Some(ref ext_id) = existing_id {
+                let keep_p = {
+                    let stmt = conn.prepare(
+                        "SELECT id, name, phone, email, date_of_birth, address, medical_history, allergies, \
+                         emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, \
+                         created_at, updated_at FROM patients WHERE id = ?1"
+                    ).ok();
+                    if let Some(mut s) = stmt {
+                        s.query_row([ext_id], |row| {
+                            Ok(Patient {
+                                id: row.get(0)?,
+                                name: row.get(1)?,
+                                phone: row.get(2)?,
+                                email: row.get(3)?,
+                                date_of_birth: row.get(4)?,
+                                address: row.get(5)?,
+                                medical_history: row.get(6)?,
+                                allergies: row.get(7)?,
+                                emergency_contact: row.get(8)?,
+                                emergency_phone: row.get(9)?,
+                                preferred_payment_method: row.get(10)?,
+                                preferred_insurance_provider_id: row.get(11)?,
+                                created_at: row.get(12)?,
+                                updated_at: row.get(13)?,
+                            })
+                        }).ok()
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(keep_p) = keep_p {
+                    let a_is_newer = keep_p.updated_at >= p.updated_at;
+                    let merged_name = if a_is_newer { keep_p.name.clone() } else { p.name.clone() };
+                    let merged_phone = crate::commands::patients::merge_field(keep_p.phone.clone(), p.phone.clone(), a_is_newer);
+                    let merged_email = crate::commands::patients::merge_field(keep_p.email.clone(), p.email.clone(), a_is_newer);
+                    let merged_dob = crate::commands::patients::merge_field(keep_p.date_of_birth.clone(), p.date_of_birth.clone(), a_is_newer);
+                    let merged_address = crate::commands::patients::merge_field(keep_p.address.clone(), p.address.clone(), a_is_newer);
+                    let merged_med_hist = crate::commands::patients::merge_field(keep_p.medical_history.clone(), p.medical_history.clone(), a_is_newer);
+                    let merged_allergies = crate::commands::patients::merge_field(keep_p.allergies.clone(), p.allergies.clone(), a_is_newer);
+                    let merged_em_contact = crate::commands::patients::merge_field(keep_p.emergency_contact.clone(), p.emergency_contact.clone(), a_is_newer);
+                    let merged_em_phone = crate::commands::patients::merge_field(keep_p.emergency_phone.clone(), p.emergency_phone.clone(), a_is_newer);
+                    let merged_pref_payment = crate::commands::patients::merge_field(keep_p.preferred_payment_method.clone(), p.preferred_payment_method.clone(), a_is_newer);
+                    let merged_pref_ins = crate::commands::patients::merge_field(keep_p.preferred_insurance_provider_id.clone(), p.preferred_insurance_provider_id.clone(), a_is_newer);
+                    let merged_updated_at = if a_is_newer { keep_p.updated_at.clone() } else { p.updated_at.clone() };
+
+                    // Update the keeper
+                    let _ = conn.execute(
+                        "UPDATE patients SET name = ?1, phone = ?2, email = ?3, date_of_birth = ?4, address = ?5, \
+                         medical_history = ?6, allergies = ?7, emergency_contact = ?8, emergency_phone = ?9, \
+                         preferred_payment_method = ?10, preferred_insurance_provider_id = ?11, updated_at = ?12, \
+                         sync_status = 'synced' WHERE id = ?13",
+                        rusqlite::params![
+                            merged_name,
+                            merged_phone,
+                            merged_email,
+                            merged_dob,
+                            merged_address,
+                            merged_med_hist,
+                            merged_allergies,
+                            merged_em_contact,
+                            merged_em_phone,
+                            merged_pref_payment,
+                            merged_pref_ins,
+                            merged_updated_at,
+                            ext_id,
+                        ],
+                    );
+
+                    // Reassign any potential child records of the incoming p.id to ext_id
+                    let now = chrono::Utc::now().to_rfc3339();
+                    let _ = conn.execute("UPDATE appointments SET patient_id = ?1, updated_at = ?2 WHERE patient_id = ?3", rusqlite::params![ext_id, &now, &p.id]);
+                    let _ = conn.execute("UPDATE treatments SET patient_id = ?1, updated_at = ?2 WHERE patient_id = ?3", rusqlite::params![ext_id, &now, &p.id]);
+                    let _ = conn.execute("UPDATE payments SET patient_id = ?1, updated_at = ?2 WHERE patient_id = ?3", rusqlite::params![ext_id, &now, &p.id]);
+                    let _ = conn.execute("UPDATE patient_notes SET patient_id = ?1, updated_at = ?2 WHERE patient_id = ?3", rusqlite::params![ext_id, &now, &p.id]);
+                    let _ = conn.execute("UPDATE sick_sheets SET patient_id = ?1, updated_at = ?2 WHERE patient_id = ?3", rusqlite::params![ext_id, &now, &p.id]);
+                    let _ = conn.execute("UPDATE waiver_requests SET patient_id = ?1, updated_at = ?2 WHERE patient_id = ?3", rusqlite::params![ext_id, &now, &p.id]);
+
+                    // Record the deletion of p.id in deleted_records to sync the deletion back
+                    let deletion_id = uuid::Uuid::new_v4().to_string();
+                    let _ = conn.execute(
+                        "INSERT INTO deleted_records (id, table_name, record_id, deleted_at, sync_status) VALUES (?1, 'patients', ?2, ?3, 'pending')",
+                        [deletion_id, p.id.clone(), now],
+                    );
+                    continue;
+                }
+            }
+
              let _ = conn.execute(
                 "INSERT INTO patients (id, name, phone, email, date_of_birth, address, medical_history, allergies, emergency_contact, emergency_phone, preferred_payment_method, preferred_insurance_provider_id, created_at, updated_at, sync_status)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'synced')
