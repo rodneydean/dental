@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Skryme Health",
-  "version": "0.1.64",
+  "version": "0.1.65",
   "identifier": "com.dentist-management.app",
   "build": {
     "frontendDist": "../dist",
